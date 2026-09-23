@@ -51,7 +51,8 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
 | ↩️ **Undo** | `/undo` puts files back the way they were |
 | 🕘 **Pick up later** | `/resume` reopens earlier conversations |
-| 💸 **Spend less** | Short, direct answers by default and less text sent per request |
+| 💸 **Spend less, when you want** | Off until you turn them on: `/concise` for short answers, `/lean` to send fewer tool definitions, and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
+| ✂️ **Trim the fat** | `/trim` reviews your uncommitted changes for code you don't need; `/trim all` checks the whole project |
 | 🎨 **Make it yours** | 6 themes (including high contrast), 3 guidance levels, reduce motion |
 
 ## Keys to know
@@ -79,6 +80,7 @@ Type `/` to see them all. The most useful:
 |---|---|
 | `/login` | Sign in to Claude Code, or connect another AI provider |
 | `/model` | Switch model (search by name, or type `free`) |
+| `/effort` | How hard the model thinks: a slider from auto and low up to max |
 | `/undo` | Undo the last change |
 | `/resume` | Reopen an earlier conversation |
 | `/diff` | See what changed |
@@ -155,6 +157,10 @@ docs/record.sh                      # re-record the demo GIF from a real session
 
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss) and [Glamour](https://github.com/charmbracelet/glamour).
 [CLAUDE.md](CLAUDE.md) explains how the code is organised.
+
+## Privacy and security
+
+teveus has no telemetry and no servers: what you send goes only to the AI provider you picked. [PRIVACY.md](PRIVACY.md) lists exactly what is sent where and what is stored on your computer; [SECURITY.md](SECURITY.md) explains the safeguards and how to report a vulnerability privately.
 
 ## Legal
 

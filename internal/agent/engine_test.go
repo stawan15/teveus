@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -43,8 +44,10 @@ func (s *script) handler(t *testing.T, models string) http.HandlerFunc {
 		reply := s.replies[0]
 		s.replies = s.replies[1:]
 		s.mu.Unlock()
-		if msg, ok := strings.CutPrefix(reply, "HTTP400 "); ok {
-			http.Error(w, `{"error":{"message":"`+msg+`"}}`, 400)
+		// "HTTP429 message" answers with that status instead of a stream.
+		if code, msg, ok := strings.Cut(strings.TrimPrefix(reply, "HTTP"), " "); ok && strings.HasPrefix(reply, "HTTP") {
+			status, _ := strconv.Atoi(code)
+			http.Error(w, `{"error":{"message":"`+msg+`"}}`, status)
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")

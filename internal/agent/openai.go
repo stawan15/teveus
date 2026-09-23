@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strconv"
@@ -21,31 +20,19 @@ type openaiClient struct {
 }
 
 func (c *openaiClient) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	var r io.Reader
+	var b []byte
 	if body != nil {
-		b, _ := json.Marshal(body)
-		r = bytes.NewReader(b)
+		b, _ = json.Marshal(body)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(c.base, "/")+path, r)
-	if err != nil {
-		return nil, err
-	}
-	if c.key != "" {
-		req.Header.Set("Authorization", "Bearer "+c.key)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if c.provider == "openrouter" {
-		req.Header.Set("X-Title", "teveus")
-	}
-	resp, err := httpDo(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 300 {
-		defer resp.Body.Close()
-		return nil, apiError(resp)
-	}
-	return resp, nil
+	return send(ctx, method, strings.TrimRight(c.base, "/")+path, b, func(h http.Header) {
+		if c.key != "" {
+			h.Set("Authorization", "Bearer "+c.key)
+		}
+		h.Set("Content-Type", "application/json")
+		if c.provider == "openrouter" {
+			h.Set("X-Title", "teveus")
+		}
+	})
 }
 
 func (c *openaiClient) Models(ctx context.Context) ([]Model, error) {
@@ -118,7 +105,20 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 		// to the model's maximum (often 64k) and fails on small balances.
 		body["max_tokens"] = 16000
 	}
+	if lvl := openaiEffort(req.Effort); lvl != "" {
+		if c.provider == "openrouter" {
+			body["reasoning"] = map[string]any{"effort": lvl}
+		} else {
+			body["reasoning_effort"] = lvl
+		}
+	}
 	resp, err := c.do(ctx, "POST", "/chat/completions", body)
+	if err != nil && req.Effort != "" && rejectsParam(err, "reasoning") {
+		// Not a reasoning model: run it without the setting.
+		delete(body, "reasoning")
+		delete(body, "reasoning_effort")
+		resp, err = c.do(ctx, "POST", "/chat/completions", body)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +290,33 @@ func mergeReasoning(list []map[string]any, frag map[string]any) []map[string]any
 	return append(list, cp)
 }
 
+// openaiEffort maps teveus's effort levels onto the low/medium/high that
+// OpenAI-style APIs take.
+func openaiEffort(e string) string {
+	switch e {
+	case "low", "medium", "high":
+		return e
+	case "xhigh", "max":
+		return "high"
+	}
+	return ""
+}
+
+// routerReasoning returns OpenRouter reasoning_details kept from an earlier
+// reply; other providers' reasoning (Anthropic thinking blocks) is dropped.
+func routerReasoning(raw json.RawMessage) json.RawMessage {
+	var list []map[string]any
+	if json.Unmarshal(raw, &list) != nil || len(list) == 0 {
+		return nil
+	}
+	for _, d := range list {
+		if t, _ := d["type"].(string); !strings.HasPrefix(t, "reasoning.") {
+			return nil
+		}
+	}
+	return raw
+}
+
 // explicitCache reports whether a model routed through OpenRouter caches
 // only with cache_control markers (Anthropic and Gemini). OpenAI, DeepSeek,
 // Grok and others cache long prompts on their own.
@@ -330,8 +357,8 @@ func openaiMessages(msgs []Message) []map[string]any {
 			out = append(out, map[string]any{"role": "user", "content": parts})
 		case "assistant":
 			msg := map[string]any{"role": "assistant", "content": m.Text}
-			if r := strings.TrimSpace(string(m.Reasoning)); r != "" && r != "null" {
-				msg["reasoning_details"] = m.Reasoning
+			if r := routerReasoning(m.Reasoning); r != nil {
+				msg["reasoning_details"] = r
 			}
 			if len(m.ToolCalls) > 0 {
 				var tcs []map[string]any

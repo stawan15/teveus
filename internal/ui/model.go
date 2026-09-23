@@ -108,6 +108,7 @@ type eventMsg struct {
 type tickMsg struct{}
 
 func New(cfg Config) *Model {
+	tightenConfig()
 	ta := textarea.New()
 	ta.Placeholder = "Message…"
 	ta.ShowLineNumbers = false
@@ -181,7 +182,7 @@ func styleInput(ta *textarea.Model) {
 
 func (m *Model) Init() tea.Cmd {
 	m.setKittyKeys(true)
-	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary))
+	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions())
 }
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -200,19 +201,27 @@ func listen(gen int, ch <-chan claude.Event) tea.Cmd {
 	}
 }
 
-func (m *Model) start(opts claude.Options) tea.Cmd {
+// startOptions is what a new backend starts with: the savers, mode, model
+// and effort the user picked.
+func (m *Model) startOptions(opts claude.Options) claude.Options {
 	opts = m.applySavers(opts)
 	opts.PermissionMode = m.mode
+	opts.Effort = m.settings.Effort
 	if m.model != "" {
 		opts.Model = m.model
 	}
+	return opts
+}
+
+func (m *Model) start(opts claude.Options) tea.Cmd {
+	opts = m.startOptions(opts)
 	var c claude.Backend
 	var err error
 	if m.engine == "api" {
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
-			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(),
+			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort,
 		})
 	} else {
 		c, err = claude.Start(opts)
@@ -547,6 +556,9 @@ func mentionQuery(v string) *string {
 
 func (m *Model) handlePopupKey(k tea.KeyMsg) (bool, tea.Cmd) {
 	p := &m.pop
+	if p.mode == popSlider {
+		return true, m.handleSliderKey(k)
+	}
 	if p.mode == popInput {
 		switch k.Type {
 		case tea.KeyEsc:
@@ -930,8 +942,11 @@ func (m *Model) handleEvent(ev claude.Event) {
 		if e.PermissionMode != "" {
 			m.mode = e.PermissionMode
 		}
-		if e.Status == "compacting" {
+		switch {
+		case e.Status == "compacting":
 			m.phase = "Compacting the conversation"
+		case strings.HasPrefix(e.Status, "retrying"):
+			m.phase = "Provider busy, r" + strings.TrimPrefix(e.Status, "r")
 		}
 
 	case claude.Compacted:

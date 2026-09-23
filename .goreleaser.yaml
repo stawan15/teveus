@@ -1,0 +1,56 @@
+version: 2
+
+project_name: teveus
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: teveus
+    main: .
+    binary: teveus
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: teveus
+    # No version in the name, so .../releases/latest/download/<name> is stable
+    # and install.sh never needs to know the latest tag.
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: stawan15
+    name: teveus
+  footer: |
+    **Install or update:**
+    ```sh
+    curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/main/install.sh | sh
+    ```

@@ -293,6 +293,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if k.Type == tea.KeyRunes {
+		k.Runes = []rune(termSafe(string(k.Runes)))
+	}
 	// A selection is dismissed by any key; ctrl+c copies it first, esc
 	// just clears it.
 	if m.sel.has {

@@ -19,27 +19,15 @@ type anthropicClient struct {
 var cacheMark = map[string]string{"type": "ephemeral"}
 
 func (c *anthropicClient) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
-	var r io.Reader
+	var b []byte
 	if body != nil {
-		b, _ := json.Marshal(body)
-		r = bytes.NewReader(b)
+		b, _ = json.Marshal(body)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(c.base, "/")+path, r)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("x-api-key", c.key)
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("content-type", "application/json")
-	resp, err := httpDo(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 300 {
-		defer resp.Body.Close()
-		return nil, apiError(resp)
-	}
-	return resp, nil
+	return send(ctx, method, strings.TrimRight(c.base, "/")+path, b, func(h http.Header) {
+		h.Set("x-api-key", c.key)
+		h.Set("anthropic-version", "2023-06-01")
+		h.Set("content-type", "application/json")
+	})
 }
 
 func (c *anthropicClient) Models(ctx context.Context) ([]Model, error) {
@@ -90,7 +78,15 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 	if len(tools) > 0 {
 		body["tools"] = tools
 	}
+	if req.Effort != "" {
+		body["output_config"] = map[string]any{"effort": req.Effort}
+	}
 	resp, err := c.do(ctx, "POST", "/messages", body)
+	if err != nil && req.Effort != "" && rejectsParam(err, "effort", "output_config") {
+		// Older models (Haiku 4.5, Sonnet 4.5) don't take effort: run at their default.
+		delete(body, "output_config")
+		resp, err = c.do(ctx, "POST", "/messages", body)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +94,14 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 
 	out := &Response{}
 	type block struct {
-		kind string
-		call *ToolCall
-		json strings.Builder
+		kind     string
+		call     *ToolCall
+		json     strings.Builder
+		thinking strings.Builder
+		sig      strings.Builder
+		data     string // redacted_thinking
 	}
+	var order []int
 	blocks := map[int]*block{}
 	var text strings.Builder
 
@@ -122,11 +122,14 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 				Type string `json:"type"`
 				ID   string `json:"id"`
 				Name string `json:"name"`
+				Data string `json:"data"`
 			} `json:"content_block"`
 			Delta struct {
 				Type        string `json:"type"`
 				Text        string `json:"text"`
 				PartialJSON string `json:"partial_json"`
+				Thinking    string `json:"thinking"`
+				Signature   string `json:"signature"`
 				StopReason  string `json:"stop_reason"`
 			} `json:"delta"`
 			Usage anthropicUsage `json:"usage"`
@@ -142,8 +145,9 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 			u := ev.Message.Usage
 			out.Usage.Input, out.Usage.CacheRead, out.Usage.CacheWrite = u.Input, u.CacheRead, u.CacheWrite
 		case "content_block_start":
-			b := &block{kind: ev.ContentBlock.Type}
+			b := &block{kind: ev.ContentBlock.Type, data: ev.ContentBlock.Data}
 			blocks[ev.Index] = b
+			order = append(order, ev.Index)
 			switch b.kind {
 			case "tool_use":
 				b.call = &ToolCall{ID: ev.ContentBlock.ID, Name: ev.ContentBlock.Name}
@@ -160,6 +164,14 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 			case "input_json_delta":
 				if b != nil {
 					b.json.WriteString(ev.Delta.PartialJSON)
+				}
+			case "thinking_delta":
+				if b != nil {
+					b.thinking.WriteString(ev.Delta.Thinking)
+				}
+			case "signature_delta":
+				if b != nil {
+					b.sig.WriteString(ev.Delta.Signature)
 				}
 			}
 		case "content_block_stop":
@@ -186,7 +198,57 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 		return nil, err
 	}
 	out.Text = text.String()
+	// Thinking blocks go back unchanged with the next request, as the API
+	// requires when a turn continues after tool use.
+	var thinking []map[string]any
+	for _, i := range order {
+		switch b := blocks[i]; b.kind {
+		case "thinking":
+			thinking = append(thinking, map[string]any{"type": "thinking", "thinking": b.thinking.String(), "signature": b.sig.String()})
+		case "redacted_thinking":
+			thinking = append(thinking, map[string]any{"type": "redacted_thinking", "data": b.data})
+		}
+	}
+	if len(thinking) > 0 {
+		out.Reasoning, _ = json.Marshal(thinking)
+	}
 	return out, nil
+}
+
+// rejectsParam reports whether an API error is about one of the named
+// request fields (a model that doesn't support it).
+func rejectsParam(err error, names ...string) bool {
+	s := strings.ToLower(err.Error())
+	if !strings.Contains(s, "400") && !strings.Contains(s, "invalid") && !strings.Contains(s, "unsupported") && !strings.Contains(s, "not support") {
+		return false
+	}
+	for _, n := range names {
+		if strings.Contains(s, n) {
+			return true
+		}
+	}
+	return false
+}
+
+// anthropicThinking returns the thinking blocks kept from an Anthropic
+// response; reasoning from other providers is left out.
+func anthropicThinking(raw json.RawMessage) []map[string]any {
+	var list []map[string]any
+	if json.Unmarshal(raw, &list) != nil {
+		return nil
+	}
+	var out []map[string]any
+	for _, b := range list {
+		switch b["type"] {
+		case "thinking":
+			if s, _ := b["signature"].(string); s != "" {
+				out = append(out, b)
+			}
+		case "redacted_thinking":
+			out = append(out, b)
+		}
+	}
+	return out
 }
 
 type anthropicUsage struct {
@@ -217,7 +279,7 @@ func anthropicMessages(msgs []Message) []map[string]any {
 			}
 			push("user", append(blocks, map[string]any{"type": "text", "text": m.Text})...)
 		case "assistant":
-			var blocks []map[string]any
+			blocks := anthropicThinking(m.Reasoning)
 			if strings.TrimSpace(m.Text) != "" {
 				blocks = append(blocks, map[string]any{"type": "text", "text": m.Text})
 			}

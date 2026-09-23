@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stawan15/teveus/internal/claude"
 )
@@ -22,6 +23,7 @@ func TestMain(m *testing.M) {
 		fakeMCP(os.Stdin, os.Stdout)
 		os.Exit(0)
 	}
+	retryDelays = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
 	os.Exit(m.Run())
 }
 

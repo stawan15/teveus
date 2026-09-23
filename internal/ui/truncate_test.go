@@ -19,3 +19,17 @@ func TestTruncateKeepsStyledTextIntact(t *testing.T) {
 		t.Fatalf("escape sequence cut: %q", got)
 	}
 }
+
+// Terminals draw Thai SARA AM in its own cell, but the width libraries fold it
+// into the previous character. The rendered text must measure what it shows.
+func TestThaiSaraAmMeasuresLikeTheTerminal(t *testing.T) {
+	b := &block{kind: kindUser, text: "ดูหน้าตาเว็บเขาทำง่ายๆเอง"}
+	out := ansi.Strip((&renderer{}).render(b, 80))
+	if strings.ContainsRune(out, 'ำ') || !strings.Contains(out, "ทํา") {
+		t.Fatalf("SARA AM not decomposed: %q", out)
+	}
+	// One cell per base character, and one for the SARA AA split out of SARA AM.
+	if w := ansi.StringWidth(termSafe("ดูหน้าตาเว็บเขาทำง่ายๆเอง")); w != 21 {
+		t.Fatalf("width %d, want 21", w)
+	}
+}

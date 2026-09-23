@@ -93,6 +93,7 @@ func (r *renderer) render(b *block, width int) string {
 	if !b.dirty && b.cacheW == width && b.cache != "" {
 		return b.cache
 	}
+	b.text, b.result = termSafe(b.text), termSafe(b.result)
 	var out string
 	switch b.kind {
 	case kindUser:
@@ -423,6 +424,7 @@ func firstLine(s string) string {
 // styled text (like sidebar rows) is cut between characters, never inside a
 // colour escape sequence.
 func truncate(s string, w int) string {
+	s = termSafe(s)
 	if w < 4 {
 		w = 4
 	}
@@ -430,4 +432,19 @@ func truncate(s string, w int) string {
 		return s
 	}
 	return ansi.Truncate(s, w, "…")
+}
+
+// amSplitter rewrites Thai and Lao SARA AM as its compatibility decomposition
+// (NIKHAHIT + SARA AA). The width libraries fold SARA AM into the previous
+// grapheme and count "ทำ" as one cell, but terminals draw it as two, so lines
+// holding it overflow, wrap, and push the whole screen out of place. The
+// decomposed form looks the same and every library measures it correctly.
+var amSplitter = strings.NewReplacer("\u0e33", "\u0e4d\u0e32", "\u0eb3", "\u0ecd\u0eb2")
+
+// termSafe makes s measure the same in lipgloss as on screen.
+func termSafe(s string) string {
+	if !strings.ContainsAny(s, "\u0e33\u0eb3") {
+		return s
+	}
+	return amSplitter.Replace(s)
 }

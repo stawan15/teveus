@@ -50,20 +50,22 @@ func checkClaudeAuth(bin string) tea.Cmd {
 	}
 }
 
-// useSubscription switches to the Claude Code engine, running the official
-// browser login first if needed. Third-party apps can't use a Claude
-// subscription directly; the claude CLI is the supported way.
+// useSubscription switches to the Claude Code engine, running Claude Code's
+// own sign-in first if needed. Anthropic doesn't let third-party apps offer
+// Claude.ai login or touch Claude.ai credentials, but a user may sign in to
+// the unmodified Claude Code with their own plan; that is all teveus does.
+// See "Anthropic's terms" in CLAUDE.md before changing anything here.
 func (m *Model) useSubscription() tea.Cmd {
 	if m.claudeAuth.loggedIn {
 		cmd := m.setEngine("claude")
-		m.note("using your Claude subscription ("+m.claudeAuth.email+") · /model to pick Opus", true)
+		m.note("using Claude Code, signed in as "+m.claudeAuth.email+" · /model to pick Opus", true)
 		return cmd
 	}
 	bin := m.cfg.Claude.Binary
 	if bin == "" {
 		bin = "claude"
 	}
-	m.note("opening Claude login in your browser…", true)
+	m.note("opening Anthropic's Claude Code sign-in…", true)
 	return tea.ExecProcess(exec.Command(bin, "auth", "login"), func(err error) tea.Msg {
 		if err != nil {
 			return loginResultMsg{err: fmt.Errorf("claude login: %w", err), claude: true}
@@ -111,9 +113,15 @@ func (m *Model) openLogin(arg string) tea.Cmd {
 	if p, ok := agent.ProviderByID(strings.ToLower(arg)); ok {
 		return m.loginProvider(p)
 	}
+	for _, p := range agent.SearchProviders {
+		if p.ID == strings.ToLower(arg) {
+			m.keyInput(p)
+			return nil
+		}
+	}
 	s := m.store()
-	sub := "browser login · Opus, Sonnet, Haiku with your Pro/Max plan"
-	subLabel := "Claude subscription"
+	sub := "runs your installed Claude Code · you sign in through Anthropic"
+	subLabel := "Claude Code (your Claude account)"
 	if m.claudeAuth.loggedIn {
 		sub = "✓ logged in as " + m.claudeAuth.email + " · uses the Claude Code engine"
 		subLabel = "● " + subLabel
@@ -129,6 +137,16 @@ func (m *Model) openLogin(arg string) tea.Cmd {
 		}
 		cs = append(cs, choice{label: label, value: p.ID, desc: status,
 			run: func(m *Model) tea.Cmd { return m.loginProvider(p) }})
+	}
+	for _, p := range agent.SearchProviders {
+		p := p
+		status, ok := providerStatus(s, p)
+		label := p.Name
+		if ok {
+			label = "● " + label
+		}
+		cs = append(cs, choice{label: label, value: p.ID, desc: status + " · web search for the Direct API engine", group: "Web search",
+			run: func(m *Model) tea.Cmd { m.keyInput(p); return nil }})
 	}
 	m.openPicker("Connect a provider", cs, 0)
 	return nil
@@ -224,6 +242,13 @@ func (m *Model) handleLogin(r loginResultMsg) tea.Cmd {
 			m.refresh()
 			return nil
 		}
+	}
+	if r.p.IsSearch() {
+		m.note("✓ "+r.p.Name+" connected · the Direct API engine can search the web", true)
+		if eng, ok := m.client.(*agent.Engine); ok {
+			eng.Reload()
+		}
+		return nil
 	}
 	m.note(fmt.Sprintf("✓ %s connected · %d models", r.p.Name, r.n), true)
 	return m.providersChanged()

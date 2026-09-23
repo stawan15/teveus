@@ -28,7 +28,7 @@ func (m *Model) layout() {
 	}
 	m.chatW = m.w - m.sideW
 	m.input.SetWidth(m.w - 4)
-	vpH := m.h - 1 - 1 - lipgloss.Height(m.bottomView())
+	vpH := m.h - 1 - 1 - lipgloss.Height(m.bottomFitted())
 	m.vp.Width, m.vp.Height = m.chatW, max(vpH, 1)
 }
 
@@ -55,9 +55,13 @@ func (m *Model) refresh() {
 			// Proximity: consecutive tool calls sit together, turns breathe.
 			prev := m.blocks[i-1]
 			// Pro is compact: blank lines only between turns.
-			if (prev.kind == kindTool && b.kind == kindTool) || (m.level() == "pro" && b.kind != kindUser) {
+			switch {
+			case b.kind == kindUser:
+				// A faint rule opens each turn, so replies don't run together.
+				write("\n\n" + sFaint.Render(strings.Repeat("─", width)) + "\n\n")
+			case (prev.kind == kindTool && b.kind == kindTool) || m.level() == "pro":
 				write("\n")
-			} else {
+			default:
 				write("\n\n")
 			}
 		}
@@ -65,9 +69,13 @@ func (m *Model) refresh() {
 		write(m.r.render(b, width))
 	}
 	write("\n")
-	content := lipgloss.NewStyle().PaddingLeft(1).Render(sb.String())
-	m.lines = strings.Split(content, "\n")
-	m.vp.SetContent(content)
+	// A one-cell margin, added by hand: lipgloss would measure and pad every
+	// line of the whole transcript on each streamed chunk.
+	m.lines = strings.Split(sb.String(), "\n")
+	for i, l := range m.lines {
+		m.lines[i] = " " + strings.ReplaceAll(l, "\t", "    ") // terminals' tab stops would skew widths
+	}
+	m.vp.SetLines(m.lines)
 	if follow {
 		m.vp.GotoBottom()
 	}
@@ -82,7 +90,19 @@ func (m *Model) View() string {
 		main = lipgloss.JoinHorizontal(lipgloss.Top,
 			lipgloss.NewStyle().Width(m.chatW).Render(main), m.sidebar(m.vp.Height))
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, m.header(), main, m.bottomView(), m.statusBar())
+	return lipgloss.JoinVertical(lipgloss.Left, m.header(), main, m.bottomFitted(), m.statusBar())
+}
+
+// bottomFitted is the bottom area cut to leave room for the header, the
+// status bar and a line of transcript. A frame taller than the window makes
+// the terminal scroll, and every later frame lands in the wrong place.
+func (m *Model) bottomFitted() string {
+	b := m.bottomView()
+	room := max(m.h-3, 1)
+	if lines := strings.Split(b, "\n"); len(lines) > room {
+		b = strings.Join(lines[len(lines)-room:], "\n") // keep the end: the keys to answer
+	}
+	return b
 }
 
 func (m *Model) header() string {
@@ -364,27 +384,34 @@ func (m *Model) permView() string {
 	if p.Description != "" {
 		title += "  " + sDim.Render(truncate(p.Description, inner-20))
 	}
+	// Leave the prompt's frame, title and keys (6 lines), the header and
+	// status bar, and a few transcript lines on screen.
+	budget := max(m.h-14, 2)
 	var body []string
 	switch p.ToolName {
 	case "Bash":
 		cmd, _ := in["command"].(string)
-		body = clip(wrapLines("$ "+cmd, inner, sText), 8)
+		body = clip(wrapLines("$ "+cmd, inner, sText), min(8, budget))
 	case "Edit", "MultiEdit":
 		if d, ok := in["diff"].(string); ok {
-			body = clip(unifiedDiff(d, inner), 12)
+			body = clip(unifiedDiff(d, inner), min(12, budget))
 		} else {
-			body = clip(m.r.editDiff(in, inner), 12)
+			body = clip(m.r.editDiff(in, inner), min(12, budget))
 		}
 	case "Write":
 		content, _ := in["content"].(string)
-		body = clip(diffLines("", content, inner), 10)
+		body = clip(diffLines("", content, inner), min(10, budget))
 	default:
 		b, _ := json.MarshalIndent(in, "", "  ")
-		body = clip(wrapLines(string(b), inner, sDim), 8)
+		body = clip(wrapLines(string(b), inner, sDim), min(8, budget))
 	}
 	opts := []string{pill(" y ", cGreen) + sText.Render(" allow once")}
 	if hasSuggestions(p) {
-		opts = append(opts, pill(" a ", cAccent2)+sText.Render(" always allow"))
+		always := "always allow"
+		if p.AlwaysLabel != "" {
+			always = p.AlwaysLabel
+		}
+		opts = append(opts, pill(" a ", cAccent2)+sText.Render(" "+termSafe(always)))
 	}
 	opts = append(opts, pill(" n ", cRed)+sText.Render(" deny"))
 	keys := strings.Join(opts, "    ")
@@ -424,7 +451,7 @@ func (m *Model) statusBar() string {
 		right = hints("esc esc", "interrupt", "ctrl+o", "details")
 	default:
 		left = sGreen.Render(" ●") + sDim.Render(" ready")
-		right = hints("enter", "send", "ctrl+j", "newline", "ctrl+k", "palette")
+		right = hints("enter", "send", "shift+enter", "newline", "ctrl+k", "palette")
 	}
 	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
 		st := sYellow

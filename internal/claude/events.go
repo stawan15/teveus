@@ -125,11 +125,18 @@ type PermissionRequest struct {
 	Description string
 	Input       json.RawMessage
 	Suggestions json.RawMessage
+	AlwaysLabel string // what "always allow" does, when the engine says
 }
 
 type Window struct {
 	Utilization float64 `json:"utilization"`
 	ResetsAt    int64   `json:"resetsAt"`
+}
+
+// Compacted says the conversation was replaced by a summary to free context.
+type Compacted struct {
+	Auto      bool // the engine did it because the context was nearly full
+	PreTokens int  // context size before
 }
 
 type RateLimit struct {
@@ -175,6 +182,7 @@ func (AssistantMessage) isEvent()   {}
 func (ToolResults) isEvent()        {}
 func (*PermissionRequest) isEvent() {}
 func (RateLimit) isEvent()          {}
+func (Compacted) isEvent()          {}
 func (Result) isEvent()             {}
 func (ControlResult) isEvent()      {}
 func (Exited) isEvent()             {}
@@ -191,6 +199,10 @@ type envelope struct {
 	Request         json.RawMessage `json:"request"`
 	Response        json.RawMessage `json:"response"`
 	RateLimitInfo   json.RawMessage `json:"rate_limit_info"`
+	CompactMeta     struct {
+		Trigger   string `json:"trigger"`
+		PreTokens int    `json:"pre_tokens"`
+	} `json:"compact_metadata"`
 
 	Model          string   `json:"model"`
 	Cwd            string   `json:"cwd"`
@@ -223,6 +235,8 @@ func (c *Client) decode(line []byte) []Event {
 			return []Event{Init{SessionID: e.SessionID, Model: e.Model, Cwd: e.Cwd, PermissionMode: e.PermissionMode, Tools: e.Tools}}
 		case "status":
 			return []Event{Status{Status: e.Status, PermissionMode: e.PermissionMode}}
+		case "compact_boundary":
+			return []Event{Compacted{Auto: e.CompactMeta.Trigger == "auto", PreTokens: e.CompactMeta.PreTokens}}
 		}
 		return nil
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -93,6 +94,10 @@ func (c *openaiClient) Models(ctx context.Context) ([]Model, error) {
 func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)) (*Response, error) {
 	msgs := []map[string]any{{"role": "system", "content": req.System}}
 	msgs = append(msgs, openaiMessages(req.Messages)...)
+	if c.provider == "openrouter" && explicitCache(req.Model) {
+		markCache(msgs[0])
+		markCache(msgs[len(msgs)-1])
+	}
 	body := map[string]any{
 		"model":          req.Model,
 		"messages":       msgs,
@@ -156,8 +161,10 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 				Completion int     `json:"completion_tokens"`
 				Cost       float64 `json:"cost"`
 				Details    struct {
-					Cached int `json:"cached_tokens"`
+					Cached     int `json:"cached_tokens"`
+					CacheWrite int `json:"cache_write_tokens"`
 				} `json:"prompt_tokens_details"`
+				CacheHit int `json:"prompt_cache_hit_tokens"` // DeepSeek
 			} `json:"usage"`
 			Error *struct {
 				Message string `json:"message"`
@@ -170,8 +177,10 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 			return nil, fmt.Errorf("%s: %s", c.provider, ev.Error.Message)
 		}
 		if ev.Usage != nil {
-			out.Usage.Input = ev.Usage.Prompt - ev.Usage.Details.Cached
-			out.Usage.CacheRead = ev.Usage.Details.Cached
+			cached := max(ev.Usage.Details.Cached, ev.Usage.CacheHit)
+			out.Usage.Input = ev.Usage.Prompt - cached - ev.Usage.Details.CacheWrite
+			out.Usage.CacheRead = cached
+			out.Usage.CacheWrite = ev.Usage.Details.CacheWrite
 			out.Usage.Output = ev.Usage.Completion
 			out.Usage.Cost = ev.Usage.Cost
 		}
@@ -281,12 +290,44 @@ func mergeReasoning(list []map[string]any, frag map[string]any) []map[string]any
 	return append(list, cp)
 }
 
+// explicitCache reports whether a model routed through OpenRouter caches
+// only with cache_control markers (Anthropic and Gemini). OpenAI, DeepSeek,
+// Grok and others cache long prompts on their own.
+func explicitCache(model string) bool {
+	return strings.HasPrefix(model, "anthropic/") || strings.HasPrefix(model, "google/gemini")
+}
+
+// markCache puts a cache breakpoint at the end of a message. Marking the
+// system prompt and the newest message caches everything before them, so each
+// step of a turn re-reads the conversation from cache.
+func markCache(msg map[string]any) {
+	switch c := msg["content"].(type) {
+	case string:
+		if c != "" {
+			msg["content"] = []map[string]any{{"type": "text", "text": c, "cache_control": cacheMark}}
+		}
+	case []map[string]any:
+		if len(c) > 0 {
+			c[len(c)-1]["cache_control"] = cacheMark
+		}
+	}
+}
+
 func openaiMessages(msgs []Message) []map[string]any {
 	var out []map[string]any
 	for _, m := range msgs {
 		switch m.Role {
 		case "user":
-			out = append(out, map[string]any{"role": "user", "content": m.Text})
+			if len(m.Images) == 0 {
+				out = append(out, map[string]any{"role": "user", "content": m.Text})
+				break
+			}
+			parts := []map[string]any{{"type": "text", "text": m.Text}}
+			for _, img := range m.Images {
+				url := "data:" + img.MediaType + ";base64," + base64.StdEncoding.EncodeToString(img.Data)
+				parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": url}})
+			}
+			out = append(out, map[string]any{"role": "user", "content": parts})
 		case "assistant":
 			msg := map[string]any{"role": "assistant", "content": m.Text}
 			if r := strings.TrimSpace(string(m.Reasoning)); r != "" && r != "null" {

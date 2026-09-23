@@ -49,12 +49,12 @@ func (m *Model) onboardTheme() {
 }
 
 func (m *Model) onboardConnect() {
-	sub := "log in with your browser · Opus, Sonnet, Haiku on your Pro/Max plan"
+	sub := "runs your installed Claude Code · you sign in through Anthropic"
 	if m.claudeAuth.loggedIn {
 		sub = "✓ logged in as " + m.claudeAuth.email
 	}
 	cs := []choice{
-		{label: "Claude subscription", desc: sub, run: func(m *Model) tea.Cmd {
+		{label: "Claude Code (your Claude account)", desc: sub, run: func(m *Model) tea.Cmd {
 			m.finishOnboarding()
 			if m.engine == "claude" && m.claudeAuth.loggedIn {
 				return nil
@@ -90,7 +90,8 @@ func (m *Model) openHelp() {
 	type row struct{ group, key, what string }
 	rows := []row{
 		{"Basics", "enter", "send your message"},
-		{"Basics", "ctrl+j", "new line in the message"},
+		{"Basics", "shift+enter", "new line in the message (or ctrl+j)"},
+		{"Basics", "ctrl+v", "paste an image (or drop an image file)"},
 		{"Basics", "↑ ↓", "previous messages"},
 		{"Basics", "esc esc", "stop the current task"},
 		{"Basics", "ctrl+c ctrl+c", "quit"},

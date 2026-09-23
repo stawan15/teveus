@@ -33,6 +33,7 @@ type choice struct {
 	aliases []string // short names that match exactly, e.g. "q" for /exit
 	group   string
 	value   string
+	color   lipgloss.Color // label colour, for pickers whose choices differ in kind
 	run     func(m *Model) tea.Cmd
 }
 
@@ -47,6 +48,8 @@ type popup struct {
 	ends    [2]string                // popSlider: what the low and high ends mean
 	colors  []lipgloss.Color         // popSlider: one per level (default: the theme's spectrum)
 	body    []string                 // popPicker: styled lines shown under the title
+	accent  lipgloss.Color           // popPicker: frame and title colour, for boxes that need attention
+	tag     string                   // popPicker: styled text beside the title (e.g. versions)
 	hold    string                   // popPicker: value of a choice that can't be picked yet…
 	holdEnd time.Time                // …until this time, so the body gets read
 	preview func(m *Model, c choice) // called as the selection moves
@@ -238,6 +241,12 @@ func (m *Model) popupView() string {
 			title = "Command palette"
 		}
 		head := sAccent.Bold(true).Render(title)
+		if p.accent != "" {
+			head = gradient(title, p.accent, cAccent2, true)
+		}
+		if p.tag != "" {
+			head += "   " + p.tag
+		}
 		if len(p.all) > 12 {
 			unique := map[string]bool{}
 			for _, c := range p.all {
@@ -330,6 +339,12 @@ func (m *Model) popupView() string {
 		if sel {
 			marker, lab, dsc = st(sAccent).Render("› "), st(sAccent).Bold(true), st(sText)
 		}
+		if c.color != "" {
+			lab = st(lipgloss.NewStyle().Foreground(c.color))
+			if sel {
+				marker, lab = st(lipgloss.NewStyle().Foreground(c.color)).Render("› "), lab.Bold(true)
+			}
+		}
 		if held {
 			lab, dsc = st(sFaint), st(sFaint)
 		}
@@ -364,9 +379,13 @@ func (m *Model) popupView() string {
 		lines = append(lines, "", sFaint.Render(fmt.Sprintf("  %d/%d", p.sel+1, len(p.list)))+
 			sFaint.Render("   ↑↓ scroll · type to filter"))
 	}
+	frame := cFaint
+	if p.accent != "" {
+		frame = p.accent
+	}
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(cFaint).
+		BorderForeground(frame).
 		Padding(0, 1).
 		Width(width).
 		Render(strings.Join(lines, "\n"))

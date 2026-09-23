@@ -105,7 +105,7 @@ esac
 say ""
 say "${GREEN}Done.${RESET} Run ${BOLD}teveus${RESET} inside any project folder."
 if command -v claude >/dev/null 2>&1; then
-  say "${DIM}Claude Code found: your Claude subscription works out of the box.${RESET}"
+  say "${DIM}Claude Code found: connect it inside teveus with /login.${RESET}"
 else
   say "${DIM}For your Claude subscription, install Claude Code (https://claude.com/claude-code);"
   say "or use /login inside teveus for OpenAI, Gemini, OpenRouter and other API keys.${RESET}"

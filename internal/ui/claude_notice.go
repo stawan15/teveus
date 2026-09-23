@@ -4,6 +4,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/stawan15/teveus/internal/claude"
 )
@@ -23,15 +24,26 @@ const claudeNoticeRead = 4 * time.Second
 
 // claudeNoticeBody is the notice as four short points, key words in bold.
 func claudeNoticeBody() []string {
-	b := func(s string) string { return sText.Bold(true).Render(s) }
-	d := sDim.Render
-	dot := sAccent.Render("  • ")
+	d := sText.Render
+	point := func(c lipgloss.Color, parts ...string) string {
+		// Odd parts are the key words, in the point's colour.
+		kw := lipgloss.NewStyle().Foreground(c).Bold(true)
+		s := lipgloss.NewStyle().Foreground(c).Render("  ◆ ")
+		for i, p := range parts {
+			if i%2 == 1 {
+				s += kw.Render(p)
+			} else {
+				s += d(p)
+			}
+		}
+		return s
+	}
 	return []string{
 		"",
-		dot + d("teveus runs ") + b("your own Claude Code") + d(", installed by you from Anthropic"),
-		dot + d("You sign in with ") + b("Anthropic") + d(": teveus ") + b("never sees your login"),
-		dot + d("Your use is covered by ") + b("Anthropic's terms") + d(" · anthropic.com/legal"),
-		dot + d("teveus is ") + b("independent") + d(": not made or endorsed by Anthropic"),
+		point(cBlue, "teveus runs ", "your own Claude Code", ", installed by you from Anthropic"),
+		point(cGreen, "You sign in with Anthropic: teveus ", "never sees your login"),
+		point(cYellow, "Your use is covered by ", "Anthropic's terms", " · anthropic.com/legal"),
+		point(cAccent2, "teveus is ", "independent", ": not made or endorsed by Anthropic"),
 	}
 }
 
@@ -40,21 +52,22 @@ func (m *Model) claudeConfirmed() bool { return m.settings.ClaudeNotice || m.cfg
 // askClaudeNotice asks once; then runs after the user agrees.
 func (m *Model) askClaudeNotice(then func(m *Model) tea.Cmd) {
 	m.openPicker("Use Claude Code?", []choice{
-		{label: "Continue with Claude Code", value: "accept", desc: "I've read this · don't ask again", run: func(m *Model) tea.Cmd {
+		{label: "Continue with Claude Code", value: "accept", color: cGreen, desc: "I've read this · don't ask again", run: func(m *Model) tea.Cmd {
 			m.settings.ClaudeNotice = true
 			saveSettings(m.settings)
 			return then(m)
 		}},
-		{label: "Use my own API keys instead", desc: "OpenRouter, OpenAI, Gemini, Anthropic API or a local model", run: func(m *Model) tea.Cmd {
+		{label: "Use my own API keys instead", color: cBlue, desc: "OpenRouter, OpenAI, Gemini, Anthropic API or a local model", run: func(m *Model) tea.Cmd {
 			cmd := m.setEngine("api")
 			return tea.Batch(cmd, m.openLogin(""))
 		}},
-		{label: "Not now", desc: "Claude Code stays off · /engine to choose later", run: func(m *Model) tea.Cmd {
+		{label: "Not now", color: cDim, desc: "Claude Code stays off · /engine to choose later", run: func(m *Model) tea.Cmd {
 			m.note("Claude Code not started · /engine to choose", false)
 			return nil
 		}},
 	}, 2) // start on "Not now": agreeing takes a deliberate move
 	m.pop.body = claudeNoticeBody()
+	m.pop.accent = cYellow // a notice to read, not an error
 	m.pop.hold, m.pop.holdEnd = "accept", time.Now().Add(claudeNoticeRead)
 	m.pop.flat = true
 	m.pop.cancel = func(m *Model) { m.note("Claude Code not started · /engine to choose", false) }

@@ -88,6 +88,7 @@ Type `/` to see them all. The most useful:
 | `/settings` | All preferences in one place |
 | `/mcp` | See MCP servers, and approve a project's `.mcp.json` |
 | `/permissions` | Saved allow/deny rules for tools |
+| `/update` | Check for a new version and install it |
 | `!command` | Run a shell command, e.g. `!npm test` |
 
 ## Connect other AI providers

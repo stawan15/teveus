@@ -24,7 +24,7 @@ func main() {
 	flag.StringVar(&opts.Resume, "resume", "", "resume a session by ID")
 	flag.BoolVar(&opts.Continue, "c", false, "continue the most recent session in this directory")
 	flag.StringVar(&opts.Binary, "claude", "claude", "path to the claude CLI")
-	engine := flag.String("engine", "", "agent engine: claude (Claude Code, default) or api (your own keys: OpenAI, Anthropic, Gemini, OpenRouter, local…)")
+	engine := flag.String("engine", "", "agent engine: claude (your installed Claude Code) or api (your own keys: OpenAI, Anthropic, Gemini, OpenRouter, local…); nothing is connected until you choose")
 	full := flag.Bool("full", false, "turn off the usage savers (concise answers, lean tools) for this run")
 	themeName := flag.String("theme", "", "colour theme: claude, tokyo-night, catppuccin, gruvbox, high-contrast, light")
 	showVersion := flag.Bool("version", false, "print the version and exit")

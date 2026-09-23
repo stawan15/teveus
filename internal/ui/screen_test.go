@@ -69,6 +69,15 @@ func TestScreenNeverOverflows(t *testing.T) {
 		check("palette")
 		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
+		m.settings.Onboarded = true
+		m.askClaudeNotice(func(*Model) tea.Cmd { return nil })
+		check("Claude Code notice")
+		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		m.openEffortSlider()
+		check("effort slider")
+		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
 		m.vp.GotoTop()
 		m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{3, 10}
 		check("selection")

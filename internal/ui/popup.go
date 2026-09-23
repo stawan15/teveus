@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,6 +46,9 @@ type popup struct {
 	flat    bool                     // don't group rows under headers
 	ends    [2]string                // popSlider: what the low and high ends mean
 	colors  []lipgloss.Color         // popSlider: one per level (default: the theme's spectrum)
+	body    []string                 // popPicker: styled lines shown under the title
+	hold    string                   // popPicker: value of a choice that can't be picked yet…
+	holdEnd time.Time                // …until this time, so the body gets read
 	preview func(m *Model, c choice) // called as the selection moves
 	cancel  func(m *Model)           // called on esc
 
@@ -55,6 +59,11 @@ type popup struct {
 }
 
 func (p *popup) open() bool { return p.mode != popNone }
+
+// held reports whether c can't be picked yet (see popup.hold).
+func (p *popup) held(c choice) bool {
+	return p.hold != "" && c.value == p.hold && time.Now().Before(p.holdEnd)
+}
 
 func (p *popup) close() { *p = popup{} }
 
@@ -256,7 +265,14 @@ func (m *Model) popupView() string {
 			}
 			head += "   " + sAccent.Render("⌕ ") + q + sAccent.Render("▏")
 		}
-		lines = append(lines, head, "")
+		lines = append(lines, head)
+		if p.hint != "" && p.mode == popPicker {
+			lines = append(lines, sDim.Width(inner).Render(p.hint))
+		}
+		for _, b := range p.body {
+			lines = append(lines, lipgloss.NewStyle().Width(inner).Render(b))
+		}
+		lines = append(lines, "")
 	}
 
 	if len(p.list) == 0 {
@@ -287,6 +303,10 @@ func (m *Model) popupView() string {
 	}
 	for i := start; i < end; i++ {
 		c := p.list[i]
+		held := p.held(c)
+		if held {
+			c.desc = fmt.Sprintf("take a moment to read the above · %ds", int(time.Until(p.holdEnd).Seconds())+1)
+		}
 		if grouped && c.group != lastGroup {
 			if i > start {
 				lines = append(lines, "")
@@ -309,6 +329,9 @@ func (m *Model) popupView() string {
 		marker, lab, dsc := st(sText).Render("  "), st(sText), st(sDim)
 		if sel {
 			marker, lab, dsc = st(sAccent).Render("› "), st(sAccent).Bold(true), st(sText)
+		}
+		if held {
+			lab, dsc = st(sFaint), st(sFaint)
 		}
 		label := truncate(c.label, labelW)
 		label += strings.Repeat(" ", labelW-lipgloss.Width(label))

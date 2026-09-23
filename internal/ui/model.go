@@ -29,6 +29,7 @@ type Config struct {
 	Onboard  bool   // show first-run setup (set by main when it hasn't run yet)
 	Version  string
 	KeyOut   io.Writer // the terminal, for key-protocol escapes; nil in tests
+	Headless bool      // teveus -p: no UI to ask in
 }
 
 var modes = []string{"default", "acceptEdits", "plan", "auto"}
@@ -142,13 +143,18 @@ func New(cfg Config) *Model {
 	if cfg.Engine != "" {
 		engine = cfg.Engine
 	}
-	if engine != "api" {
-		engine = "claude"
-	}
-	// A saved API engine with nothing connected would only show errors; fall
-	// back to the Claude subscription unless the API engine was asked for.
-	if engine == "api" && cfg.Engine == "" && !hasAPICredentials() {
-		engine = "claude"
+	// Nothing is connected until the user picks an engine ("" = none).
+	// Claude Code only runs after its notice was accepted; a saved API engine
+	// with no key left starts disconnected rather than showing errors. An
+	// explicit -engine flag is always honoured (Claude Code still asks first).
+	switch {
+	case engine != "api" && engine != "claude":
+		engine = ""
+	case cfg.Engine != "":
+	case engine == "claude" && !settings.ClaudeNotice:
+		engine = ""
+	case engine == "api" && !hasAPICredentials():
+		engine = ""
 	}
 	model := cfg.Claude.Model
 	if engine == "api" && model == "" {
@@ -214,6 +220,12 @@ func (m *Model) startOptions(opts claude.Options) claude.Options {
 }
 
 func (m *Model) start(opts claude.Options) tea.Cmd {
+	if m.engine == "" {
+		return nil // not connected yet: /login
+	}
+	if m.gateClaude(opts) {
+		return nil
+	}
 	opts = m.startOptions(opts)
 	var c claude.Backend
 	var err error
@@ -624,6 +636,10 @@ func (m *Model) handlePopupKey(k tea.KeyMsg) (bool, tea.Cmd) {
 		if !ok {
 			return true, nil
 		}
+		if p.held(c) {
+			m.note("please read the notice first", false)
+			return true, nil
+		}
 		if p.mode == popMention {
 			m.insertMention(c.value)
 			return true, nil
@@ -741,9 +757,19 @@ func (m *Model) submit(text string) tea.Cmd {
 func (m *Model) send(text string) tea.Cmd {
 	var cmd tea.Cmd
 	if m.client == nil {
-		// The process died; resume the same session transparently.
+		// The process died (or never started); resume the same session.
 		opts := m.cfg.Claude
 		opts.Resume, opts.Continue = m.sessionID, false
+		if m.engine == "" {
+			m.input.SetValue(text) // keep the message for after connecting
+			m.note("connect an AI first", false)
+			return m.openLogin("")
+		}
+		if m.engine == "claude" && !m.claudeConfirmed() {
+			m.input.SetValue(text) // keep the message for after the question
+			m.gateClaude(opts)
+			return nil
+		}
 		cmd = m.start(opts)
 		if m.client == nil {
 			return cmd

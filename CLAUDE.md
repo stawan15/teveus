@@ -17,6 +17,8 @@ docs/record.sh                                  # re-record docs/demo.gif from a
 python3 docs/bench/bench.py                     # benchmark against Claude Code and OpenCode (costs real tokens)
 ```
 
+**Changelog.** Every user-visible change adds a line under `## [Unreleased]` in CHANGELOG.md, written for users (what they can now do, not how). To release: rename that heading to `## [x.y.z] - date`, add an empty `## [Unreleased]` and the compare links at the bottom, run `python3 docs/changelog.py` (the website reads `docs/changelog.json`; a test fails if they drift), then tag `vx.y.z`. The release workflow publishes that section as the GitHub release notes and fails if it's missing. Use absolute URLs in the changelog: it is shown on other sites.
+
 Releases are built by GoReleaser (`.goreleaser.yaml`, `release.yml`), which injects `main.version` via ldflags; `go install` builds fall back to the module version from build info.
 
 ## Architecture
@@ -27,7 +29,7 @@ Releases are built by GoReleaser (`.goreleaser.yaml`, `release.yml`), which inje
 
 When adding engine behaviour, keep both backends producing equivalent events. Engine-only features (e.g. `Undo`, `AddContext`, `Reload`) are reached by type-asserting the backend to `*agent.Engine`.
 
-**UI (`internal/ui`).** A single Bubble Tea `Model` (`model.go`). `start()` picks the backend by `m.engine`. `listen()` reads one event per `tea.Cmd` and tags it with a generation counter `m.gen`, so events from a replaced backend (engine switch, `/clear`, resume) are dropped. `handleEvent` turns events into transcript `block`s, and `render.go` renders them with per-block caching (`invalidate()`).
+**UI (`internal/ui`).** A single Bubble Tea `Model` (`model.go`). `start()` picks the backend by `m.engine` (`""` means nothing connected yet: the first run starts that way, and Claude Code is only connected after its notice is accepted). `listen()` reads one event per `tea.Cmd` and tags it with a generation counter `m.gen`, so events from a replaced backend (engine switch, `/clear`, resume) are dropped. `handleEvent` turns events into transcript `block`s, and `render.go` renders them with per-block caching (`invalidate()`).
 - `commands.go`: `localCmds` are slash commands handled by the app. Anything not listed there goes to the CLI as-is. Pickers, the palette, and the `@` file popup share `popup.go`.
 - `keys.go`: kitty keyboard protocol (shift+enter) decoding and long-paste folding. `images.go`: dropped/pasted image paths and ctrl+v clipboard images, scaled down before sending. `headless.go`: `teveus -p`. `scroller.go`: the transcript viewport (bubbles' viewport measured every line on each streamed chunk). `screen_test.go` checks no frame is taller or wider than the window.
 - `saver.go`: the token savers. The concise-answer prompt and the minimal-code prompt (`minimal.go`, levels off/lite/full/strict, plus `/trim`) are appended as a system prompt, and `leanDisallowed` tools are passed to the CLI (Claude engine only). All are off until the user turns them on (`Concise`, `LeanTools`, `MinimalCode` in settings); `-full` forces them off. `slider.go` is the ← → level picker used for minimal code, guidance, `/effort` (`effort.go`: `--effort` for Claude Code; `output_config.effort` on Anthropic and `reasoning_effort` on OpenAI-style APIs, dropped and retried when a model rejects it) and CLI commands whose options form a scale. Anthropic thinking blocks are kept in `Message.Reasoning` and sent back unchanged.
@@ -37,7 +39,8 @@ When adding engine behaviour, keep both backends producing equivalent events. En
 **Anthropic's terms (keep teveus within them).** teveus is not affiliated with Anthropic, and its public release depends on these staying true (source: https://code.claude.com/docs/en/legal-and-compliance):
 - Never read, store, forward or reuse Claude.ai credentials or OAuth tokens (e.g. `~/.claude/.credentials.json`, the macOS keychain entry), and never call Anthropic endpoints with them. Subscription use goes only through the unmodified `claude` binary, which signs in through Anthropic's own flow (`claude auth login`). Status comes from `claude auth status` and the CLI's own events.
 - The Direct API engine uses API keys only (`x-api-key`). Don't add a "log in with Claude" flow to it, and don't send Claude Code's client identity headers.
-- Pass the CLI only its documented flags; never patch the binary or disable any of its sign-in methods.
+- Pass the CLI only its documented flags; never patch the binary or disable any of its sign-in methods. Never install or bundle Claude Code; the user installs it.
+- Claude Code starts only after the user has confirmed, once, that teveus runs their own Claude Code under Anthropic's terms (`gateClaude` in `claude_notice.go`, saved as `claudeCodeConfirmed`). Every path that starts the CLI goes through `start()`; keep it that way.
 - Don't use Claude, Claude Code or Anthropic names or logos in teveus's own name, logo or feature names, or anywhere that suggests Anthropic built or endorses it. Plain descriptions like "runs Claude Code" are fine.
 - Don't copy Claude Code's prompts, text or artwork.
 

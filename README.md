@@ -24,7 +24,7 @@ Works on macOS and Linux. Run the same line again to update.
 ## Get started
 
 1. Open a terminal in your project folder.
-2. Run `teveus`.
+2. Run `teveus`, then connect an AI with `/login`: your installed Claude Code, or any provider with your own key. Nothing is connected until you choose.
 3. Type what you want in plain words, like *"find the bug in the login page and fix it"*, and press **enter**.
 
 teveus shows you every change **before** it happens. Press **y** to allow it or **n** to say no.
@@ -108,8 +108,8 @@ Tools that need approval are refused unless you pass `-mode acceptEdits` or `-mo
 <details>
 <summary><b>Do I use my Claude plan, or pay per token?</b></summary>
 
-With the **Claude Code** engine (the default), teveus runs your installed Claude Code, and Claude Code uses whatever you signed in to it with: your Claude plan or an API key.
-teveus only starts the `claude` program and shows what it does. It never reads, stores or sends your Claude login.
+With the **Claude Code** engine, teveus runs your installed Claude Code, and Claude Code uses whatever you signed in to it with: your Claude plan or an API key.
+teveus only starts the `claude` program and shows what it does. It never reads, stores or sends your Claude login, and the first time it asks you to confirm that you want it to run your Claude Code.
 With **Direct API** (`/engine`), you pay the provider per token with your own key.
 </details>
 
@@ -161,6 +161,10 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss]
 ## Privacy and security
 
 teveus has no telemetry and no servers: what you send goes only to the AI provider you picked. [PRIVACY.md](PRIVACY.md) lists exactly what is sent where and what is stored on your computer; [SECURITY.md](SECURITY.md) explains the safeguards and how to report a vulnerability privately.
+
+## What's new
+
+See [CHANGELOG.md](CHANGELOG.md) for every version's changes.
 
 ## Legal
 

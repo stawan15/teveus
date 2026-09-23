@@ -85,6 +85,9 @@ func (m *Model) View() string {
 	if m.w == 0 {
 		return ""
 	}
+	// Size the transcript to what the bottom area needs right now, so a
+	// popup opened from anywhere can never push the frame past the window.
+	m.layout()
 	main := m.chatView()
 	if m.sideW > 0 {
 		main = lipgloss.JoinHorizontal(lipgloss.Top,
@@ -161,6 +164,10 @@ func (m *Model) welcome(width int) string {
 		greeting += sFaint.Render("  ·  " + shortModel(m.model))
 	}
 	lines = append(lines, sDim.Render(greeting), "")
+	if m.engine == "" {
+		// Nothing runs until the user chooses where the AI comes from.
+		lines = append(lines, sText.Render("Connect an AI to start:  ")+keycap("/login"), "")
+	}
 
 	if m.level() == "pro" {
 		lines = append(lines, sFaint.Render("? help  ·  ctrl+k palette  ·  /settings"))
@@ -455,6 +462,9 @@ func (m *Model) statusBar() string {
 		left = " " + sAccent.Render(m.r.spin) + " " + phase +
 			sDim.Render("  "+fmtDur(time.Since(m.turnStart)))
 		right = hints("esc esc", "interrupt", "ctrl+o", "details")
+	case m.engine == "":
+		left = sFaint.Render(" ○") + sDim.Render(" not connected")
+		right = hints("/login", "connect", "ctrl+k", "palette")
 	default:
 		left = sGreen.Render(" ●") + sDim.Render(" ready")
 		right = hints("enter", "send", "shift+enter", "newline", "ctrl+k", "palette")

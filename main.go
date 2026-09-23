@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,6 +29,12 @@ func main() {
 	themeName := flag.String("theme", "", "colour theme: claude, tokyo-night, catppuccin, gruvbox, high-contrast, light")
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+	if version == "dev" {
+		// go install …@v0.1.0 records the module version in the binary.
+		if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+			version = strings.TrimPrefix(bi.Main.Version, "v")
+		}
+	}
 	if *showVersion {
 		fmt.Println("teveus", version)
 		return

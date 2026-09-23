@@ -8,6 +8,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/stawan15/teveus/internal/claude"
 )
 
 // Protocol is the wire format a provider speaks.
@@ -65,6 +67,7 @@ func ProviderByID(id string) (Provider, bool) {
 type Message struct {
 	Role       string          // "user", "assistant" or "tool"
 	Text       string          // user/assistant text
+	Images     []claude.Image  `json:",omitempty"` // user: pictures sent with the text
 	ToolCalls  []ToolCall      // assistant
 	Reasoning  json.RawMessage `json:",omitempty"` // assistant: opaque reasoning state to send back (OpenRouter reasoning_details)
 	ToolCallID string          // tool

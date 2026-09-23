@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -209,7 +210,12 @@ func anthropicMessages(msgs []Message) []map[string]any {
 	for _, m := range msgs {
 		switch m.Role {
 		case "user":
-			push("user", map[string]any{"type": "text", "text": m.Text})
+			var blocks []map[string]any
+			for _, img := range m.Images {
+				blocks = append(blocks, map[string]any{"type": "image", "source": map[string]any{
+					"type": "base64", "media_type": img.MediaType, "data": base64.StdEncoding.EncodeToString(img.Data)}})
+			}
+			push("user", append(blocks, map[string]any{"type": "text", "text": m.Text})...)
 		case "assistant":
 			var blocks []map[string]any
 			if strings.TrimSpace(m.Text) != "" {

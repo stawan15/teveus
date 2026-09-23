@@ -43,6 +43,10 @@ func (s *script) handler(t *testing.T, models string) http.HandlerFunc {
 		reply := s.replies[0]
 		s.replies = s.replies[1:]
 		s.mu.Unlock()
+		if msg, ok := strings.CutPrefix(reply, "HTTP400 "); ok {
+			http.Error(w, `{"error":{"message":"`+msg+`"}}`, 400)
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		for _, line := range strings.Split(reply, "\n") {
 			fmt.Fprintf(w, "%s\n\n", line)

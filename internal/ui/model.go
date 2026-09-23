@@ -4,6 +4,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -28,20 +28,28 @@ type Config struct {
 	Engine   string // overrides the saved engine when set
 	Onboard  bool   // show first-run setup (set by main when it hasn't run yet)
 	Version  string
+	KeyOut   io.Writer // the terminal, for key-protocol escapes; nil in tests
 }
 
 var modes = []string{"default", "acceptEdits", "plan", "auto"}
 
 type Model struct {
-	cfg      Config
-	settings Settings
-	client   claude.Backend
-	engine   string
-	gen      int // bumps on every (re)start so stale events are ignored
+	cfg        Config
+	pastes     map[int]string // collapsed pastes by number
+	pasteN     int
+	pasteShown string               // what the next sent user turn shows, when pastes were collapsed
+	images     map[int]claude.Image // attached pictures by number
+	imageN     int
+	outImages  []claude.Image // pictures going with the next sent user turn
+	mcpNoted   bool
+	settings   Settings
+	client     claude.Backend
+	engine     string
+	gen        int // bumps on every (re)start so stale events are ignored
 
 	w, h         int
 	chatW, sideW int
-	vp           viewport.Model
+	vp           scroller
 	input        textarea.Model
 	r            *renderer
 	frame        int
@@ -145,9 +153,7 @@ func New(cfg Config) *Model {
 	if engine == "api" && model == "" {
 		model = settings.APIModel
 	}
-	vp := viewport.New(0, 0)
-	vp.KeyMap = viewport.KeyMap{} // scrolling is bound explicitly so typing never scrolls
-	vp.MouseWheelDelta = 3
+	vp := scroller{MouseWheelDelta: 3}
 	return &Model{
 		cfg:      cfg,
 		settings: settings,
@@ -174,6 +180,7 @@ func styleInput(ta *textarea.Model) {
 }
 
 func (m *Model) Init() tea.Cmd {
+	m.setKittyKeys(true)
 	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary))
 }
 
@@ -205,7 +212,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
-			SessionDir: sessionDir(), Resume: opts.Resume,
+			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(),
 		})
 	} else {
 		c, err = claude.Start(opts)
@@ -216,6 +223,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	}
 	m.client = c
 	m.gen++
+	m.noteProjectMCP()
 	return listen(m.gen, c.Events())
 }
 
@@ -266,7 +274,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refresh()
 		return m, nil
 
+	case mcpApprovedMsg:
+		return m, m.handleMCPApproved(msg)
+
+	case clipImageMsg:
+		if msg.err != nil {
+			m.note(msg.err.Error(), false)
+		} else {
+			m.input.InsertString(m.attachImage(msg.img))
+			m.afterInput()
+		}
+		return m, nil
+
 	case loginResultMsg:
+		if msg.claude {
+			m.setKittyKeys(true) // the login process had the terminal
+		}
 		cmd := m.handleLogin(msg)
 		m.layout()
 		return m, cmd
@@ -287,14 +310,43 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
+	if seq, ok := csiBytes(msg); ok {
+		if k, ok := csiKey(seq); ok {
+			return m.handleKey(k)
+		}
+		return m, nil
+	}
 	var cmd tea.Cmd
 	m.input, cmd = m.input.Update(msg)
 	return m, cmd
 }
 
 func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
+	typing := !m.pop.open() && len(m.perms) == 0
+	if k.Type == tea.KeyRunes && k.Paste && typing {
+		// Before termSafe: the path must match the file name exactly.
+		if refs, ok, err := m.pastedImages(string(k.Runes)); ok {
+			if err != nil {
+				m.note(err.Error(), false)
+			} else {
+				m.input.InsertString(refs)
+				m.afterInput()
+			}
+			return m, nil
+		}
+	}
+	if k.String() == "ctrl+v" && typing {
+		return m, clipboardImage
+	}
 	if k.Type == tea.KeyRunes {
 		k.Runes = []rune(termSafe(string(k.Runes)))
+		if k.Paste && typing {
+			if ref, ok := m.collapsePaste(string(k.Runes)); ok {
+				m.input.InsertString(ref)
+				m.afterInput()
+				return m, nil
+			}
+		}
 	}
 	// A selection is dismissed by any key; ctrl+c copies it first, esc
 	// just clears it.
@@ -391,12 +443,25 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
-		text := strings.TrimSpace(m.input.Value())
-		if text == "" {
+		// A trailing backslash continues the line, for terminals that
+		// can't send shift+enter.
+		if v := m.input.Value(); strings.HasSuffix(v, "\\") && m.input.Line() == m.input.LineCount()-1 {
+			m.input.SetValue(strings.TrimSuffix(v, "\\") + "\n")
+			m.afterInput()
 			return m, nil
 		}
+		raw := strings.TrimSpace(m.input.Value())
+		if raw == "" {
+			return m, nil
+		}
+		text := strings.TrimSpace(m.expandPastes(raw))
+		if text != raw {
+			m.pasteShown = raw
+		}
+		m.outImages = m.imagesIn(raw)
 		m.input.Reset()
 		cmd := m.submit(text)
+		m.pasteShown, m.outImages = "", nil
 		m.afterInput()
 		return m, cmd
 	case "up":
@@ -672,14 +737,25 @@ func (m *Model) send(text string) tea.Cmd {
 			return cmd
 		}
 	}
-	if err := m.client.Send(text); err != nil {
+	var err error
+	if imgs := m.outImages; len(imgs) > 0 {
+		m.outImages = nil
+		err = m.client.SendImages(text, imgs)
+	} else {
+		err = m.client.Send(text)
+	}
+	if err != nil {
 		m.add(&block{kind: kindError, text: err.Error()})
 		return cmd
 	}
 	if !m.busy {
 		m.busy, m.turnStart, m.phase, m.turnFrom = true, time.Now(), "Thinking", len(m.blocks)
 	}
-	m.add(&block{kind: kindUser, text: text})
+	shown := text
+	if m.pasteShown != "" {
+		shown, m.pasteShown = m.pasteShown, ""
+	}
+	m.add(&block{kind: kindUser, text: shown})
 	m.vp.GotoBottom()
 	return cmd
 }
@@ -697,6 +773,7 @@ func (m *Model) quit() tea.Cmd {
 	if m.client != nil {
 		m.client.Close()
 	}
+	m.setKittyKeys(false)
 	return tea.Quit
 }
 
@@ -853,6 +930,20 @@ func (m *Model) handleEvent(ev claude.Event) {
 		if e.PermissionMode != "" {
 			m.mode = e.PermissionMode
 		}
+		if e.Status == "compacting" {
+			m.phase = "Compacting the conversation"
+		}
+
+	case claude.Compacted:
+		text := "Conversation compacted into a summary to free context."
+		if e.Auto {
+			text = "The conversation was nearly too long for the model, so it was compacted into a summary."
+		}
+		if e.PreTokens > 0 {
+			text += fmt.Sprintf(" (was %dk tokens)", e.PreTokens/1000)
+		}
+		m.add(&block{kind: kindInfo, text: text})
+		m.context, m.warnedCtx = 0, false
 
 	case claude.BlockStart:
 		switch e.Kind {

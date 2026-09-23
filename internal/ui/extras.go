@@ -23,12 +23,13 @@ type Settings struct {
 	ToolDetail bool   `json:"toolDetail"`
 
 	// Usage savers are off until the user turns them on.
-	Concise          bool   `json:"concise,omitempty"`          // short, direct answers
-	LeanTools        bool   `json:"leanTools,omitempty"`        // leave rarely used Claude Code tools out
-	StylePrompt      string `json:"stylePrompt,omitempty"`      // replaces the built-in concise prompt
-	KeepSessionsDays int    `json:"keepSessionsDays,omitempty"` // saved conversations: 0 = 30 days, -1 = forever
-	Effort           string `json:"effort,omitempty"`           // reasoning effort; "" = the model's default
-	MinimalCode      string `json:"minimalCode,omitempty"`      // "off", "lite", "full" (default) or "strict"
+	Concise          bool   `json:"concise,omitempty"`             // short, direct answers
+	LeanTools        bool   `json:"leanTools,omitempty"`           // leave rarely used Claude Code tools out
+	StylePrompt      string `json:"stylePrompt,omitempty"`         // replaces the built-in concise prompt
+	ClaudeNotice     bool   `json:"claudeCodeConfirmed,omitempty"` // agreed to run their own Claude Code (claude_notice.go)
+	KeepSessionsDays int    `json:"keepSessionsDays,omitempty"`    // saved conversations: 0 = 30 days, -1 = forever
+	Effort           string `json:"effort,omitempty"`              // reasoning effort; "" = the model's default
+	MinimalCode      string `json:"minimalCode,omitempty"`         // "off", "lite", "full" (default) or "strict"
 
 	Engine       string   `json:"engine,omitempty"`       // "claude" (default) or "api"
 	Onboarded    bool     `json:"onboarded,omitempty"`    // first-run setup done

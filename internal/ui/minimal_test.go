@@ -19,6 +19,7 @@ func TestSaversAreOffUntilTurnedOn(t *testing.T) {
 	if got := m.saverLabel(); got != "off" {
 		t.Fatalf("label %q", got)
 	}
+	m.engine = "claude" // lean tools apply to Claude Code only
 	m.settings.Concise, m.settings.LeanTools, m.settings.MinimalCode = true, true, "full"
 	o := m.applySavers(claude.Options{})
 	if !strings.Contains(o.AppendPrompt, concisePrompt) || !strings.Contains(o.AppendPrompt, minimalFull) || len(o.DisallowTools) == 0 {
@@ -42,6 +43,7 @@ func TestSaversAreOffUntilTurnedOn(t *testing.T) {
 func TestMinimalSlider(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})
+	m.settings.ClaudeNotice = true // changing the level restarts Claude Code
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	m.submit("/minimal")
 	if m.pop.mode != popSlider || m.pop.sel != 0 {

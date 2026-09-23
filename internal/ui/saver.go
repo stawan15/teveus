@@ -105,6 +105,11 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == m.engine {
 		return nil
 	}
+	if engine == "claude" && !m.claudeConfirmed() {
+		// Connecting Claude Code is when its notice is shown.
+		m.askClaudeNotice(func(m *Model) tea.Cmd { return m.setEngine("claude") })
+		return nil
+	}
 	if m.busy {
 		m.note("finish or interrupt the current turn first", false)
 		return nil
@@ -131,10 +136,13 @@ func (m *Model) agentName() string {
 }
 
 func engineLabel(e string) string {
-	if e == "api" {
+	switch e {
+	case "api":
 		return "Direct API"
+	case "claude":
+		return "Claude Code"
 	}
-	return "Claude Code"
+	return "not connected"
 }
 
 func (m *Model) openEnginePicker() {

@@ -1,0 +1,279 @@
+{
+  "latest": "0.3.1",
+  "versions": [
+    {
+      "version": "Unreleased",
+      "date": null,
+      "url": "https://github.com/stawan15/teveus/compare/v0.3.1...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.3.1",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/compare/v0.3.0...v0.3.1",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "teveus now starts with nothing connected. Choose where the AI comes from with `/login`: your installed Claude Code, or any provider with your own key.",
+              "items": []
+            },
+            {
+              "text": "Before Claude Code is connected for the first time, teveus explains that it runs your own Claude Code under Anthropic's terms and asks you to confirm. The notice appears only when you choose Claude Code, and only once.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Popups opened in the background (like the Claude Code notice) no longer push the bottom of the screen out of view.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/compare/v0.2.0...v0.3.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`/effort` sets how hard the model thinks, from `low` to `max`, on both engines. Models that don't support it simply run at their default.",
+              "items": []
+            },
+            {
+              "text": "Settings with levels (effort, minimal code, guidance) use a coloured slider: move with ← →, and the whole box takes the colour of the level you pick.",
+              "items": []
+            },
+            {
+              "text": "`/minimal` asks the model to write only the code the task needs (off, lite, full or strict), and `/trim` reviews your changes for code you don't need.",
+              "items": []
+            },
+            {
+              "text": "`/purge` deletes saved conversations and prompt history in one step.",
+              "items": []
+            },
+            {
+              "text": "A privacy page ([PRIVACY.md](https://github.com/stawan15/teveus/blob/main/PRIVACY.md)) listing exactly what is sent where and what is stored, and a security page ([SECURITY.md](https://github.com/stawan15/teveus/blob/main/SECURITY.md)) with a private way to report problems.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The usage savers (short answers, lean tools, minimal code) are now off until you turn them on.",
+              "items": []
+            },
+            {
+              "text": "Saved conversations are deleted after 30 days. Change this with `keepSessionsDays` in settings, or set it to `-1` to keep them.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "When a provider is busy or rate-limited, teveus waits and tries again (up to three times) instead of stopping.",
+              "items": []
+            },
+            {
+              "text": "A reply cut off by the model's output limit no longer runs a half-written tool call.",
+              "items": []
+            },
+            {
+              "text": "Claude models used through the Direct API now keep their reasoning between tool calls, as the API requires.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Security",
+          "items": [
+            {
+              "text": "teveus's file tools can no longer read or change credential files (API keys, SSH keys, cloud logins, Claude Code's login) in any mode.",
+              "items": []
+            },
+            {
+              "text": "Reading or searching outside your project asks first, and auto-edit mode only edits files inside the project.",
+              "items": []
+            },
+            {
+              "text": "Plan mode asks before using the web.",
+              "items": []
+            },
+            {
+              "text": "Prompt history and settings are saved readable only by you.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/compare/v0.1.2...v0.2.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Paste or drop images: drop a screenshot on the terminal or press `ctrl+v`, and it's attached as `[Image #1]`. Large images are scaled down automatically.",
+              "items": []
+            },
+            {
+              "text": "`shift+enter` starts a new line (or `\\` then `enter` in terminals that can't tell the keys apart).",
+              "items": []
+            },
+            {
+              "text": "Long pastes fold into `[Pasted text #1 +40 lines]` so the input stays tidy.",
+              "items": []
+            },
+            {
+              "text": "For the Direct API engine:",
+              "items": [
+                {
+                  "text": "reading web pages, and web search with a Brave or Tavily key",
+                  "items": []
+                },
+                {
+                  "text": "sub-agents that research in parallel",
+                  "items": []
+                },
+                {
+                  "text": "MCP servers from `.mcp.json`, started only after you approve them with `/mcp`",
+                  "items": []
+                },
+                {
+                  "text": "\"always allow\" rules saved per project, managed with `/permissions`",
+                  "items": []
+                },
+                {
+                  "text": "long conversations compacted automatically before they outgrow the model",
+                  "items": []
+                }
+              ]
+            },
+            {
+              "text": "`teveus -p \"…\"` runs one prompt without the interface, for scripts (`-json` adds cost and token counts).",
+              "items": []
+            },
+            {
+              "text": "Faint lines between turns make long conversations easier to follow.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The README explains that teveus is independent of Anthropic and runs your own Claude Code.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Long conversations scroll and stream much faster.",
+              "items": []
+            },
+            {
+              "text": "Wide approval prompts no longer overflow small windows.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.1.2",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/compare/v0.1.1...v0.1.2",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Thai text containing \"ำ\" no longer breaks the layout (lines shifted, the header disappeared, parts of the screen were drawn twice).",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.1.1",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/compare/v0.1.0...v0.1.1",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "`teveus -version` shows the right version when installed with `go install`.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-09-23",
+      "url": "https://github.com/stawan15/teveus/releases/tag/v0.1.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "First release: a friendly terminal for AI coding with two engines behind one interface.",
+              "items": [
+                {
+                  "text": "Claude Code: runs your installed Claude Code.",
+                  "items": []
+                },
+                {
+                  "text": "Direct API: your own keys for OpenAI, Anthropic, Google Gemini, OpenRouter (with browser login), Groq, DeepSeek, xAI, Mistral, any OpenAI-compatible service, or local models with Ollama and LM Studio.",
+                  "items": []
+                }
+              ]
+            },
+            {
+              "text": "Every change is shown as a coloured diff and waits for your approval. Four plain-language modes: ask first, auto-edit, plan only, autopilot.",
+              "items": []
+            },
+            {
+              "text": "Command palette (`ctrl+k`), `@` to mention files, prompt history, `/undo`, `/resume`, `/diff` and `/export`.",
+              "items": []
+            },
+            {
+              "text": "Sidebar with cost, context size, plan progress and usage limits.",
+              "items": []
+            },
+            {
+              "text": "Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.",
+              "items": []
+            },
+            {
+              "text": "A three-step first-run setup.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

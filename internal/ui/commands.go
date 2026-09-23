@@ -202,13 +202,17 @@ func (m *Model) openPicker(title string, cs []choice, sel int) {
 
 func (m *Model) openModelPicker() {
 	if len(m.models) == 0 {
-		if m.engine == "api" {
+		if m.engine != "claude" {
 			// Nothing connected: offer the two ways forward instead of a dead end.
 			sub := "runs your installed Claude Code · you sign in through Anthropic"
 			if m.claudeAuth.loggedIn {
 				sub = "✓ " + m.claudeAuth.email + " · Opus, Sonnet, Haiku"
 			}
-			m.openPicker("Model · no API provider connected", []choice{
+			title := "Model · no API provider connected"
+			if m.engine == "" {
+				title = "Model · connect an AI first"
+			}
+			m.openPicker(title, []choice{
 				{label: "Use Claude Code", desc: sub, run: func(m *Model) tea.Cmd { return m.useSubscription() }},
 				{label: "Connect a provider…", desc: "OpenRouter browser login, or an OpenAI / Gemini / Anthropic key", run: func(m *Model) tea.Cmd { return m.openLogin("") }},
 			}, 0)

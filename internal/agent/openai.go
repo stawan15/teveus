@@ -36,7 +36,7 @@ func (c *openaiClient) do(ctx context.Context, method, path string, body any) (*
 	if c.provider == "openrouter" {
 		req.Header.Set("X-Title", "teveus")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpDo(req)
 	if err != nil {
 		return nil, err
 	}

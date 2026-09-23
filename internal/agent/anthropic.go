@@ -30,7 +30,7 @@ func (c *anthropicClient) do(ctx context.Context, method, path string, body any)
 	req.Header.Set("x-api-key", c.key)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("content-type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpDo(req)
 	if err != nil {
 		return nil, err
 	}

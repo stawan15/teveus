@@ -148,7 +148,7 @@ func OpenRouterLogin(ctx context.Context, open func(string)) (string, error) {
 	body, _ := json.Marshal(map[string]string{"code": code, "code_verifier": v, "code_challenge_method": "S256"})
 	req, _ := http.NewRequestWithContext(ctx, "POST", "https://openrouter.ai/api/v1/auth/keys", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpDo(req)
 	if err != nil {
 		return "", err
 	}

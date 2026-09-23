@@ -242,6 +242,9 @@ func (m *Model) sidebar(height int) string {
 		}
 		s = append(s, kv("context", ctx.Render(fmt.Sprintf("%.1fk tokens", float64(m.context)/1000))))
 	}
+	if m.settings.Effort != "" {
+		s = append(s, kv("effort", sAccent2.Render(m.settings.Effort)))
+	}
 	s = append(s, kv("saver", sGreen.Render(m.saverLabel())))
 	if m.sessionID != "" {
 		id := strings.TrimPrefix(m.sessionID, "ses_")
@@ -438,6 +441,9 @@ func (m *Model) statusBar() string {
 	case m.pop.mode == popMention:
 		left = sDim.Render(" @ files")
 		right = hints("↑↓", "select", "tab", "insert", "esc", "close")
+	case m.pop.mode == popSlider:
+		left = sAccent.Render(" ›") + sDim.Render(" adjust")
+		right = hints("← →", "adjust", "enter", "save", "esc", "cancel")
 	case m.pop.open():
 		left = sAccent.Render(" ›") + sDim.Render(" choose")
 		right = hints("↑↓", "select", "enter", "run", "esc", "close")

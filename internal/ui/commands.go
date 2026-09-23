@@ -53,6 +53,7 @@ func init() {
 		{"undo", "Undo the last turn's file edits (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.undo() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
 		{"diff", "Show what changed in the working tree (git)", "", func(m *Model, _ string) tea.Cmd { return m.gitDiff() }},
+		{"purge", "Delete teveus's saved conversations and prompt history", "", func(m *Model, _ string) tea.Cmd { m.openPurge(); return nil }},
 		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},
 		{"mcp", "MCP servers: list them, approve a project's", "", func(m *Model, _ string) tea.Cmd { return m.showMCP() }},
 		{"export", "Save this conversation as Markdown", "", func(m *Model, _ string) tea.Cmd { return m.exportTranscript() }},
@@ -61,6 +62,9 @@ func init() {
 		{"details", "Expand or collapse tool output", "ctrl+o", func(m *Model, _ string) tea.Cmd { return m.toggleDetails() }},
 		{"concise", "Concise answers on/off (saves output tokens)", "", func(m *Model, _ string) tea.Cmd { return m.toggleConcise() }},
 		{"lean", "Lean tools on/off (saves ~2.2k tokens per request)", "", func(m *Model, _ string) tea.Cmd { return m.toggleLean() }},
+		{"effort", "Reasoning effort: how hard the model thinks (auto, low … max)", "", func(m *Model, arg string) tea.Cmd { return m.setEffort(arg) }},
+		{"minimal", "Minimal code: how much code the model may write (off, lite, full, strict)", "", func(m *Model, arg string) tea.Cmd { return m.setMinimal(arg) }},
+		{"trim", "Review uncommitted changes for unneeded code (/trim all: whole project)", "", func(m *Model, arg string) tea.Cmd { return m.trim(arg) }},
 		{"mouse", "Mouse capture on/off (off = select text)", "", func(m *Model, _ string) tea.Cmd { return m.toggleMouse() }},
 		{"help", "Keyboard shortcuts and commands (or press ?)", "?", func(m *Model, _ string) tea.Cmd { m.openHelp(); return nil }},
 		{"settings", "All preferences in one place", "", func(m *Model, _ string) tea.Cmd { m.openSettings(); return nil }},
@@ -157,8 +161,10 @@ func (m *Model) openPalette() {
 		{group: "model", label: "Switch model…", desc: shortModel(m.model), key: "/model", run: run(func(m *Model) tea.Cmd { m.openModelPicker(); return nil })},
 		{group: "model", label: "Reasoning effort…", desc: "how hard Claude thinks", key: "/effort", run: run(func(m *Model) tea.Cmd { return m.submit("/effort") })},
 		{group: "model", label: "Permission mode…", desc: modeLabel(m.mode), key: "shift+tab", run: run(func(m *Model) tea.Cmd { m.openModePicker(); return nil })},
-		{group: "usage", label: "Concise answers", desc: onOff(!m.settings.LongAnswers) + " · short, direct replies", key: "/concise", run: run(func(m *Model) tea.Cmd { return m.toggleConcise() })},
-		{group: "usage", label: "Lean tools", desc: onOff(!m.settings.AllTools) + " · ~2.2k fewer tokens per request", key: "/lean", run: run(func(m *Model) tea.Cmd { return m.toggleLean() })},
+		{group: "usage", label: "Concise answers", desc: onOff(m.settings.Concise) + " · short, direct replies", key: "/concise", run: run(func(m *Model) tea.Cmd { return m.toggleConcise() })},
+		{group: "usage", label: "Lean tools", desc: onOff(m.settings.LeanTools) + " · ~2.2k fewer tokens per request", key: "/lean", run: run(func(m *Model) tea.Cmd { return m.toggleLean() })},
+		{group: "model", label: "Reasoning effort", desc: m.effort() + " · how hard the model thinks", key: "/effort", run: run(func(m *Model) tea.Cmd { m.openEffortSlider(); return nil })},
+		{group: "usage", label: "Minimal code", desc: m.minimalLevel() + " · write only what the task needs", key: "/minimal", run: run(func(m *Model) tea.Cmd { return m.setMinimal("") })},
 		{group: "view", label: "Theme…", desc: theme.Name, key: "/theme", run: run(func(m *Model) tea.Cmd { m.openThemePicker(); return nil })},
 		{group: "view", label: "Toggle sidebar", desc: onOff(!m.settings.HideSide), key: "ctrl+b", run: run(func(m *Model) tea.Cmd { return m.toggleSidebar() })},
 		{group: "view", label: "Toggle tool details", desc: onOff(m.r.expand), key: "ctrl+o", run: run(func(m *Model) tea.Cmd { return m.toggleDetails() })},
@@ -343,6 +349,11 @@ func (m *Model) openArgPicker(c claude.Command, opts []string) {
 	for _, o := range opts {
 		o := o
 		cs = append(cs, choice{label: o, run: func(m *Model) tea.Cmd { return m.send(fmt.Sprintf("/%s %s", c.Name, o)) }})
+	}
+	if isScale(opts) {
+		// Ordered levels (/effort low|medium|high…) read better on a slider.
+		m.openSlider("/"+c.Name, c.Description, cs, len(cs)/2)
+		return
 	}
 	m.openPicker("/"+c.Name+"  "+c.Description, cs, 0)
 }

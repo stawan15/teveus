@@ -142,7 +142,7 @@ func (m *Model) openSettingsAt(sel int) {
 		group, label, value string
 		run                 func(m *Model) tea.Cmd
 	}{
-		{"Experience", "Guidance level", levelNames[m.level()], func(m *Model) tea.Cmd { m.openLevelPicker(); return nil }},
+		{"Experience", "Guidance level", levelNames[m.level()], func(m *Model) tea.Cmd { m.openLevelSlider(); return nil }},
 		{"Experience", "Theme", theme.Name, func(m *Model) tea.Cmd { m.openThemePicker(); return nil }},
 		{"Experience", "Reduce motion", onOff(m.settings.ReduceMotion), func(m *Model) tea.Cmd {
 			m.settings.ReduceMotion = !m.settings.ReduceMotion
@@ -154,8 +154,10 @@ func (m *Model) openSettingsAt(sel int) {
 		{"Layout", "Mouse (scroll, select, click)", onOff(!m.settings.NoMouse), func(m *Model) tea.Cmd { return m.toggleMouse() }},
 		{"AI", "Engine", engineLabel(m.engine), func(m *Model) tea.Cmd { m.openEnginePicker(); return nil }},
 		{"AI", "Model", orDefault(shortModel(m.model)), func(m *Model) tea.Cmd { m.openModelPicker(); return nil }},
-		{"AI", "Concise answers", onOff(!m.settings.LongAnswers), func(m *Model) tea.Cmd { return m.toggleConcise() }},
-		{"AI", "Lean tools (Claude Code)", onOff(!m.settings.AllTools), func(m *Model) tea.Cmd { return m.toggleLean() }},
+		{"AI", "Reasoning effort", m.effort(), func(m *Model) tea.Cmd { m.openEffortSlider(); return nil }},
+		{"AI", "Concise answers", onOff(m.settings.Concise), func(m *Model) tea.Cmd { return m.toggleConcise() }},
+		{"AI", "Lean tools (Claude Code)", onOff(m.settings.LeanTools), func(m *Model) tea.Cmd { return m.toggleLean() }},
+		{"AI", "Minimal code", m.minimalLevel(), func(m *Model) tea.Cmd { return m.setMinimal("") }},
 		{"Setup", "Connect providers…", "", func(m *Model) tea.Cmd { return m.openLogin("") }},
 		{"Setup", "Run first-time setup again", "", func(m *Model) tea.Cmd {
 			m.settings.Onboarded = false
@@ -187,7 +189,7 @@ func orDefault(s string) string {
 	return s
 }
 
-func (m *Model) openLevelPicker() {
+func (m *Model) openLevelSlider() {
 	cs := []choice{
 		{label: "Guided", value: "guided", desc: "starter prompts, extra tips"},
 		{label: "Standard", value: "standard", desc: "starter prompts and shortcut tips"},
@@ -210,5 +212,5 @@ func (m *Model) openLevelPicker() {
 			return nil
 		}
 	}
-	m.openPicker("Guidance level", cs, sel)
+	m.openSlider("Guidance level", "How much help teveus shows", cs, sel)
 }

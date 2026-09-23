@@ -21,6 +21,7 @@ const (
 	popPalette           // ctrl+k: has its own search field
 	popPicker            // a titled choice list (model, effort, theme…)
 	popInput             // a one-line text field (API keys, URLs)
+	popSlider            // ordered levels on a track (slider.go)
 )
 
 type choice struct {
@@ -42,6 +43,8 @@ type popup struct {
 	list    []choice
 	sel     int
 	flat    bool                     // don't group rows under headers
+	ends    [2]string                // popSlider: what the low and high ends mean
+	colors  []lipgloss.Color         // popSlider: one per level (default: the theme's spectrum)
 	preview func(m *Model, c choice) // called as the selection moves
 	cancel  func(m *Model)           // called on esc
 
@@ -196,6 +199,9 @@ func (m *Model) popupView() string {
 	p := &m.pop
 	width := m.w - 2
 	inner := width - 4
+	if p.mode == popSlider {
+		return m.sliderView()
+	}
 	if p.mode == popInput {
 		v := p.query
 		if p.masked && v != "" {

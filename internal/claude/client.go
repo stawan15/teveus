@@ -8,6 +8,7 @@ package claude
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,6 +111,21 @@ func (c *Client) Send(text string) error {
 	return c.write(map[string]any{
 		"type":    "user",
 		"message": map[string]any{"role": "user", "content": text},
+	})
+}
+
+// SendImages sends a user turn with pictures before the text, the order the
+// API recommends.
+func (c *Client) SendImages(text string, images []Image) error {
+	var content []map[string]any
+	for _, img := range images {
+		content = append(content, map[string]any{"type": "image", "source": map[string]any{
+			"type": "base64", "media_type": img.MediaType, "data": base64.StdEncoding.EncodeToString(img.Data)}})
+	}
+	content = append(content, map[string]any{"type": "text", "text": text})
+	return c.write(map[string]any{
+		"type":    "user",
+		"message": map[string]any{"role": "user", "content": content},
 	})
 }
 

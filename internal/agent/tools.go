@@ -26,6 +26,7 @@ const (
 	readOnly access = iota
 	editsFiles
 	runsCommands
+	network // reads the web: allowed in plan mode, asked for otherwise
 )
 
 type tool struct {
@@ -140,8 +141,15 @@ var tools = []tool{
 	}},
 }
 
-func toolByName(name string) (tool, bool) {
-	for _, t := range tools {
+var webFetchTool = tool{access: network, def: ToolDef{Name: "WebFetch",
+	Description: "Fetch a web page (http/https) and return its text. Use for documentation, issues or any URL the user gives.",
+	Schema: obj(map[string]any{
+		"url":    prop("string", "The URL to fetch"),
+		"prompt": prop("string", "What you are looking for on the page"),
+	}, "url")}, run: runWebFetch}
+
+func findTool(list []tool, name string) (tool, bool) {
+	for _, t := range list {
 		if strings.EqualFold(t.def.Name, name) {
 			return t, true
 		}
@@ -149,9 +157,9 @@ func toolByName(name string) (tool, bool) {
 	return tool{}, false
 }
 
-func toolDefs() []ToolDef {
+func defsOf(list []tool) []ToolDef {
 	var out []ToolDef
-	for _, t := range tools {
+	for _, t := range list {
 		out = append(out, t.def)
 	}
 	return out

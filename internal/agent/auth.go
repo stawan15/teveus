@@ -88,9 +88,13 @@ func (s *Store) Lookup(p Provider) (Credential, Source, string) {
 }
 
 // Verify checks a credential by listing models.
+// Search providers are checked with a one-result query and report 0.
 func Verify(ctx context.Context, p Provider, c Credential) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	if p.IsSearch() {
+		return 0, VerifySearch(ctx, p, c)
+	}
 	models, err := NewClient(p, c).Models(ctx)
 	if err != nil {
 		return 0, err

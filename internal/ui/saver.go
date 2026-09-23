@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/stawan15/teveus/internal/agent"
@@ -34,13 +36,19 @@ func (m *Model) applySavers(opts claude.Options) claude.Options {
 	if m.cfg.Full {
 		return opts
 	}
-	if !m.settings.LongAnswers {
-		opts.AppendPrompt = concisePrompt
+	var prompts []string
+	if m.settings.Concise {
+		p := concisePrompt
 		if m.settings.StylePrompt != "" {
-			opts.AppendPrompt = m.settings.StylePrompt
+			p = m.settings.StylePrompt
 		}
+		prompts = append(prompts, p)
 	}
-	if !m.settings.AllTools && m.engine == "claude" {
+	if p := minimalPrompt(m.minimalLevel()); p != "" {
+		prompts = append(prompts, p)
+	}
+	opts.AppendPrompt = strings.Join(prompts, "\n\n")
+	if m.settings.LeanTools && m.engine == "claude" {
 		opts.DisallowTools = leanDisallowed
 	}
 	return opts
@@ -51,11 +59,18 @@ func (m *Model) saverLabel() string {
 		return "off (-full)"
 	}
 	var on []string
-	if !m.settings.LongAnswers {
+	if m.settings.Concise {
 		on = append(on, "concise")
 	}
-	if !m.settings.AllTools && m.engine == "claude" {
+	if m.settings.LeanTools && m.engine == "claude" {
 		on = append(on, "lean")
+	}
+	switch lvl := m.minimalLevel(); lvl {
+	case "off":
+	case "full":
+		on = append(on, "minimal")
+	default:
+		on = append(on, "minimal "+lvl)
 	}
 	if len(on) == 0 {
 		return "off"
@@ -137,24 +152,24 @@ func (m *Model) openEnginePicker() {
 }
 
 func (m *Model) toggleConcise() tea.Cmd {
-	m.settings.LongAnswers = !m.settings.LongAnswers
+	m.settings.Concise = !m.settings.Concise
 	saveSettings(m.settings)
 	if eng, ok := m.client.(*agent.Engine); ok {
 		// The API engine applies it from the next request; no restart needed.
 		eng.SetStyle(m.applySavers(claude.Options{}).AppendPrompt)
-		m.note("concise answers "+onOff(!m.settings.LongAnswers), true)
+		m.note("concise answers "+onOff(m.settings.Concise), true)
 		return nil
 	}
-	if m.settings.LongAnswers {
+	if !m.settings.Concise {
 		return m.restart("concise answers off")
 	}
 	return m.restart("concise answers on")
 }
 
 func (m *Model) toggleLean() tea.Cmd {
-	m.settings.AllTools = !m.settings.AllTools
+	m.settings.LeanTools = !m.settings.LeanTools
 	saveSettings(m.settings)
-	if m.settings.AllTools {
+	if !m.settings.LeanTools {
 		return m.restart("all tools loaded")
 	}
 	return m.restart("lean tools on (~2.2k fewer tokens per request)")

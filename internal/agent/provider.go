@@ -95,6 +95,7 @@ type Request struct {
 	System   string
 	Messages []Message
 	Tools    []ToolDef
+	Effort   string // low, medium, high, xhigh, max; "" leaves the model's default
 }
 
 // Chunk is one streamed piece of a model response.

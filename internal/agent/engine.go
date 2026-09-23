@@ -25,6 +25,7 @@ type Options struct {
 	SessionDir string // where conversations are saved; empty disables
 	Resume     string // session ID to continue
 	ConfigDir  string // teveus's settings: MCP servers, permission rules
+	Effort     string // reasoning effort ("" = the model's default)
 }
 
 const (
@@ -168,6 +169,13 @@ func (e *Engine) init() {
 // Reload re-reads credentials and model lists (after /login) while keeping
 // the conversation.
 func (e *Engine) Reload() { go e.loadProviders() }
+
+// SetEffort changes the reasoning effort from the next request on.
+func (e *Engine) SetEffort(effort string) {
+	e.mu.Lock()
+	e.opts.Effort = effort
+	e.mu.Unlock()
+}
 
 // SetStyle changes the answer-style instructions from the next request on.
 func (e *Engine) SetStyle(style string) {
@@ -369,6 +377,9 @@ func (e *Engine) client() (Client, string, error) {
 
 func (e *Engine) turn(text string, images []claude.Image) {
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx = withRetryNotice(ctx, func(wait time.Duration, why string) {
+		e.emit(claude.Status{Status: fmt.Sprintf("retrying in %ds (%s)", int(wait.Round(time.Second).Seconds()), why)})
+	})
 	e.mu.Lock()
 	e.cancel, e.stopTurn = cancel, false
 	e.mu.Unlock()
@@ -471,7 +482,13 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 			}
 			compacted = true
 		}
-		req := Request{Model: modelID, System: conv.system(), Messages: conv.messages(), Tools: defsOf(toolset)}
+		e.mu.Lock()
+		effort := e.opts.Effort
+		e.mu.Unlock()
+		if parent != "" && effort != "" {
+			effort = "low" // research subagents do simple, many-step work
+		}
+		req := Request{Model: modelID, System: conv.system(), Messages: conv.messages(), Tools: defsOf(toolset), Effort: effort}
 
 		streaming := false
 		stream := func(c Chunk) {
@@ -526,7 +543,16 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		if len(resp.ToolCalls) == 0 {
 			break
 		}
-		results := e.runTools(ctx, resp.ToolCalls, toolset)
+		var results []toolResult
+		if resp.Stop == "max_tokens" || resp.Stop == "length" {
+			// The reply hit the output limit, so the last call's input may be
+			// cut short: run nothing and ask for it again, smaller.
+			for range resp.ToolCalls {
+				results = append(results, toolResult{"Not run: your reply reached the output limit, so this call may be incomplete. Send it again, splitting large content (like a big file) into several smaller Write/Edit calls.", true})
+			}
+		} else {
+			results = e.runTools(ctx, resp.ToolCalls, toolset)
+		}
 		for i, tc := range resp.ToolCalls {
 			r := results[i]
 			content, _ := json.Marshal(r.out)
@@ -604,16 +630,24 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool) (stri
 	if rule == "deny" {
 		return "Blocked by the user's permission rules. Don't retry it or work around it; tell the user what you needed.", true
 	}
+	outside := false
+	for _, p := range e.toolPaths(t.def.Name, in) {
+		if e.sensitive(p) {
+			return p + " holds credentials, so teveus's file tools can't touch it in any mode. Don't try another way; tell the user what you needed.", true
+		}
+		outside = outside || !e.inProject(p)
+	}
 	e.mu.Lock()
 	mode, always := e.mode, e.always[t.def.Name]
 	e.mu.Unlock()
-	if t.access != readOnly {
+	// Reads inside the project run freely; everything else is checked.
+	if t.access != readOnly || outside {
 		switch {
-		case mode == "plan" && t.access == network:
-		case mode == "plan":
+		case mode == "plan" && t.access != readOnly && t.access != network:
 			return "Plan mode is read-only. Describe the change in your plan instead of making it.", true
-		case mode == "auto" || mode == "bypassPermissions" || always || rule == "allow":
-		case mode == "acceptEdits" && t.access == editsFiles:
+		case mode == "auto" || mode == "bypassPermissions" || rule == "allow":
+		case always && !outside:
+		case mode == "acceptEdits" && t.access == editsFiles && !outside:
 		default:
 			if r := e.ask(ctx, t, tc); !r.allow {
 				e.mu.Lock()

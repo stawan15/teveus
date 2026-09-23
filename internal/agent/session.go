@@ -123,3 +123,24 @@ func (c *checkpoint) restore() ([]string, error) {
 	}
 	return restored, nil
 }
+
+// PruneSessions deletes saved conversations last used more than maxAge ago
+// and returns how many it removed.
+func PruneSessions(dir string, maxAge time.Duration) int {
+	entries, _ := os.ReadDir(dir)
+	cutoff := time.Now().Add(-maxAge)
+	n := 0
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || info.ModTime().After(cutoff) {
+			continue
+		}
+		if os.Remove(filepath.Join(dir, e.Name())) == nil {
+			n++
+		}
+	}
+	return n
+}

@@ -22,10 +22,13 @@ type Settings struct {
 	NoMouse    bool   `json:"noMouse"`
 	ToolDetail bool   `json:"toolDetail"`
 
-	// Usage savers are on by default; these switch them off.
-	LongAnswers bool   `json:"longAnswers"`
-	AllTools    bool   `json:"allTools"`
-	StylePrompt string `json:"stylePrompt,omitempty"` // replaces the built-in concise prompt
+	// Usage savers are off until the user turns them on.
+	Concise          bool   `json:"concise,omitempty"`          // short, direct answers
+	LeanTools        bool   `json:"leanTools,omitempty"`        // leave rarely used Claude Code tools out
+	StylePrompt      string `json:"stylePrompt,omitempty"`      // replaces the built-in concise prompt
+	KeepSessionsDays int    `json:"keepSessionsDays,omitempty"` // saved conversations: 0 = 30 days, -1 = forever
+	Effort           string `json:"effort,omitempty"`           // reasoning effort; "" = the model's default
+	MinimalCode      string `json:"minimalCode,omitempty"`      // "off", "lite", "full" (default) or "strict"
 
 	Engine       string   `json:"engine,omitempty"`       // "claude" (default) or "api"
 	Onboarded    bool     `json:"onboarded,omitempty"`    // first-run setup done
@@ -73,9 +76,33 @@ func LoadSettings() Settings {
 }
 
 func saveSettings(s Settings) {
-	os.MkdirAll(configDir(), 0o755)
 	b, _ := json.MarshalIndent(s, "", "  ")
-	os.WriteFile(filepath.Join(configDir(), "settings.json"), b, 0o644)
+	writePrivate("settings.json", b)
+}
+
+// tightenConfig makes files that older versions wrote readable only by
+// the user.
+func tightenConfig() {
+	dir := configDir()
+	if _, err := os.Stat(dir); err != nil {
+		return
+	}
+	os.Chmod(dir, 0o700)
+	for _, name := range []string{"settings.json", "history.json"} {
+		os.Chmod(filepath.Join(dir, name), 0o600)
+	}
+}
+
+// writePrivate saves a file in the config directory readable only by the
+// user: prompt history can hold anything that was pasted. Files and a
+// directory made by older versions are tightened too.
+func writePrivate(name string, b []byte) {
+	dir := configDir()
+	os.MkdirAll(dir, 0o700)
+	os.Chmod(dir, 0o700)
+	p := filepath.Join(dir, name)
+	os.WriteFile(p, b, 0o600)
+	os.Chmod(p, 0o600)
 }
 
 const historyMax = 500
@@ -92,9 +119,8 @@ func saveHistory(h []string) {
 	if len(h) > historyMax {
 		h = h[len(h)-historyMax:]
 	}
-	os.MkdirAll(configDir(), 0o755)
 	b, _ := json.Marshal(h)
-	os.WriteFile(filepath.Join(configDir(), "history.json"), b, 0o644)
+	writePrivate("history.json", b)
 }
 
 // copyToClipboard tries the platform tool first and falls back to OSC 52,

@@ -27,6 +27,7 @@ type Options struct {
 	Continue       bool     // continue the most recent session in Cwd
 	AppendPrompt   string   // appended to Claude Code's system prompt
 	DisallowTools  []string // built-in tools to leave out of the context
+	Effort         string   // reasoning effort: low, medium, high, xhigh, max ("" = the CLI's own setting)
 	ExtraArgs      []string
 }
 
@@ -71,6 +72,9 @@ func Start(opts Options) (*Client, error) {
 	}
 	if len(opts.DisallowTools) > 0 {
 		args = append(args, "--disallowedTools", strings.Join(opts.DisallowTools, ","))
+	}
+	if opts.Effort != "" {
+		args = append(args, "--effort", opts.Effort)
 	}
 	args = append(args, opts.ExtraArgs...)
 

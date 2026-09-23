@@ -8,11 +8,15 @@ teveus is a Go terminal UI (Bubble Tea, Lip Gloss, Glamour) for Claude Code. It 
 
 ```sh
 go build -o teveus . && ./teveus        # run in any project dir; flags: -model -mode -c -resume -theme -engine api -full
-go test ./...                                   # live/smoke tests skip unless env vars are set
+go vet ./... && go test ./...                   # what CI runs (ubuntu + macos); live/smoke tests skip unless env vars are set
 go test ./internal/agent -run TestPlanModeRefusesEdits -v   # single test
 TEVEUS_SMOKE=1 TEVEUS_DIR=$(mktemp -d) go test ./internal/ui -run Smoke -v   # real Claude Code session (haiku)
 LIVE_MODEL=google/gemini-3.5-flash go test ./internal/agent -run Live -v            # real provider, uses keys saved by /login
+SNAP=1 go test ./internal/ui -run TestOnboardingFlow -v   # log rendered screens from UI tests
+docs/record.sh                                  # re-record docs/demo.gif from a real session
 ```
+
+Releases are built by GoReleaser (`.goreleaser.yaml`, `release.yml`), which injects `main.version` via ldflags; `go install` builds fall back to the module version from build info.
 
 ## Architecture
 
@@ -26,6 +30,6 @@ When adding engine behaviour, keep both backends producing equivalent events. En
 - `commands.go`: `localCmds` are slash commands handled by the app. Anything not listed there goes to the CLI as-is. Pickers, the palette, and the `@` file popup share `popup.go`.
 - `saver.go`: the token savers. The concise-answer prompt is appended as a system prompt, and `leanDisallowed` tools are passed to the CLI (Claude engine only). `-full` or settings turn them off.
 - `styles.go`: themes. `view.go`: layout, sidebar, status bar. `selection.go`: mouse drag-select/copy. `login.go`: `/login` flows including OpenRouter OAuth.
-- Settings persist in `~/.config/teveus/` (`configDir()` in `extras.go`).
+- Settings persist in `~/.config/teveus/` (`configDir()` in `extras.go`); `TEVEUS_CONFIG` overrides it, and UI tests set it to `t.TempDir()` so they don't touch real settings.
 
 **Testing patterns.** Agent tests use an `httptest` server that returns scripted SSE replies (`script` in `internal/agent/engine_test.go`). UI tests build a `Model` directly and feed it `tea.Msg`s (see `api_test.go`, `selection_test.go`).

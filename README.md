@@ -1,6 +1,6 @@
 <div align="center">
 
-# ✦ teveus
+# teveus
 
 **A friendly terminal for AI coding.**
 Use your Claude subscription, or any AI provider with your own key, in one fast, good-looking app.

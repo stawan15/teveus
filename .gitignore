@@ -1,3 +1,4 @@
 /teveus
 /dist/
 /docs/bench/results*.jsonl
+__pycache__/

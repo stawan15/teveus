@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-23
+
+### Added
+- teveus tells you when a new version is out and asks before updating, showing what's new. It checks GitHub at most once a day; choose "Later", skip that version, or turn checks off in `/settings`. `/update` checks right away.
+- Updating from inside teveus uses the way you installed it (the installer, with its checksum check, or `go install`).
+
+### Changed
+- The Claude Code notice and the update prompt are easier to scan, with a colour for each point and each choice.
+- The installer's closing message now says to connect Claude Code with `/login`.
+
 ## [0.3.1] - 2026-09-23
 
 ### Changed
@@ -82,7 +92,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/stawan15/teveus/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/stawan15/teveus/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/stawan15/teveus/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/stawan15/teveus/compare/v0.1.2...v0.2.0

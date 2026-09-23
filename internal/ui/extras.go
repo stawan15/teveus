@@ -27,6 +27,9 @@ type Settings struct {
 	LeanTools        bool   `json:"leanTools,omitempty"`           // leave rarely used Claude Code tools out
 	StylePrompt      string `json:"stylePrompt,omitempty"`         // replaces the built-in concise prompt
 	ClaudeNotice     bool   `json:"claudeCodeConfirmed,omitempty"` // agreed to run their own Claude Code (claude_notice.go)
+	NoUpdateCheck    bool   `json:"noUpdateCheck,omitempty"`       // don't look for new versions (update.go)
+	UpdateCheckedAt  int64  `json:"updateCheckedAt,omitempty"`     // unix time of the last daily check
+	SkipVersion      string `json:"skipVersion,omitempty"`         // a release the user chose to skip
 	KeepSessionsDays int    `json:"keepSessionsDays,omitempty"`    // saved conversations: 0 = 30 days, -1 = forever
 	Effort           string `json:"effort,omitempty"`              // reasoning effort; "" = the model's default
 	MinimalCode      string `json:"minimalCode,omitempty"`         // "off", "lite", "full" (default) or "strict"

@@ -18,7 +18,7 @@ An AI agent reads untrusted text (web pages, files, command output) and can act 
 - **Your rules win.** Deny rules (`/permissions deny …`) apply even in autopilot. "Always allow" for a command is saved as a narrow prefix and never covers a command chained with `&&`, `;`, `|`, `$( )` or redirections.
 - **Project MCP servers need approval.** A repository's `.mcp.json` can start programs, so its servers stay off until you approve that exact file with `/mcp`; editing the file withdraws the approval.
 - **Private files.** Keys, prompt history, conversations and rules are stored readable only by your user account.
-- **Verified installs.** `install.sh` checks the download against the release's SHA-256 checksums.
+- **Verified installs and updates.** `install.sh` checks the download against the release's SHA-256 checksums, and an update from inside teveus runs that same installer, pinned to the exact version it offered. teveus never updates without asking.
 
 ## Limits
 

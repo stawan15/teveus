@@ -188,7 +188,7 @@ func styleInput(ta *textarea.Model) {
 
 func (m *Model) Init() tea.Cmd {
 	m.setKittyKeys(true)
-	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions())
+	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions(), m.startupUpdateCheck())
 }
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -293,6 +293,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case diffMsg:
 		m.add(&block{kind: kindCmdOut, text: string(msg)})
 		m.refresh()
+		return m, nil
+
+	case updateMsg:
+		return m, m.handleUpdate(msg)
+
+	case updateDoneMsg:
+		m.handleUpdateDone(msg)
 		return m, nil
 
 	case mcpApprovedMsg:

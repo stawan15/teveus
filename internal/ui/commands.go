@@ -53,6 +53,8 @@ func init() {
 		{"undo", "Undo the last turn's file edits (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.undo() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
 		{"diff", "Show what changed in the working tree (git)", "", func(m *Model, _ string) tea.Cmd { return m.gitDiff() }},
+		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},
+		{"mcp", "MCP servers: list them, approve a project's", "", func(m *Model, _ string) tea.Cmd { return m.showMCP() }},
 		{"export", "Save this conversation as Markdown", "", func(m *Model, _ string) tea.Cmd { return m.exportTranscript() }},
 		{"copy", "Copy the last response", "ctrl+y", func(m *Model, _ string) tea.Cmd { return m.copyLast() }},
 		{"sidebar", "Show or hide the sidebar", "ctrl+b", func(m *Model, _ string) tea.Cmd { return m.toggleSidebar() }},
@@ -67,7 +69,7 @@ func init() {
 	}
 }
 
-const helpText = `enter send · ctrl+j newline · ↑↓ prompt history · esc interrupt · !cmd runs a shell command
+const helpText = `enter send · shift+enter newline (or ctrl+j, or \ then enter) · ctrl+v pastes an image · ↑↓ prompt history · esc interrupt · !cmd runs a shell command
 esc twice stops Claude mid-task
 /resume earlier chats · /undo last turn · /diff changes · /export · /init · /q quit
 ctrl+k command palette · / slash commands · @ mention a file
@@ -196,12 +198,12 @@ func (m *Model) openModelPicker() {
 	if len(m.models) == 0 {
 		if m.engine == "api" {
 			// Nothing connected: offer the two ways forward instead of a dead end.
-			sub := "switch to the Claude Code engine (browser login)"
+			sub := "runs your installed Claude Code · you sign in through Anthropic"
 			if m.claudeAuth.loggedIn {
 				sub = "✓ " + m.claudeAuth.email + " · Opus, Sonnet, Haiku"
 			}
 			m.openPicker("Model · no API provider connected", []choice{
-				{label: "Use my Claude subscription", desc: sub, run: func(m *Model) tea.Cmd { return m.useSubscription() }},
+				{label: "Use Claude Code", desc: sub, run: func(m *Model) tea.Cmd { return m.useSubscription() }},
 				{label: "Connect a provider…", desc: "OpenRouter browser login, or an OpenAI / Gemini / Anthropic key", run: func(m *Model) tea.Cmd { return m.openLogin("") }},
 			}, 0)
 		} else {
@@ -252,12 +254,12 @@ func (m *Model) openModelPicker() {
 	var cs []choice
 	if m.engine == "api" {
 		// Opus and friends on a Pro/Max plan run through the Claude Code engine.
-		desc := "switch to the Claude Code engine (browser login)"
+		desc := "runs your installed Claude Code · you sign in through Anthropic"
 		if m.claudeAuth.loggedIn {
 			desc = "✓ " + m.claudeAuth.email + " · switch to the Claude Code engine"
 		}
-		cs = append(cs, choice{label: "Use my Claude subscription", value: "engine:claude", desc: desc,
-			group: "Claude Pro / Max", run: func(m *Model) tea.Cmd { return m.useSubscription() }})
+		cs = append(cs, choice{label: "Use Claude Code", value: "engine:claude", desc: desc,
+			group: "Claude Code", run: func(m *Model) tea.Cmd { return m.useSubscription() }})
 	}
 	// Recently used models first: most people switch between a handful.
 	for _, v := range m.settings.RecentModels {

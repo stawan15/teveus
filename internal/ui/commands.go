@@ -53,6 +53,7 @@ func init() {
 		{"undo", "Undo the last turn's file edits (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.undo() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
 		{"diff", "Show what changed in the working tree (git)", "", func(m *Model, _ string) tea.Cmd { return m.gitDiff() }},
+		{"update", "Check for a new version of teveus and install it", "", func(m *Model, _ string) tea.Cmd { return m.updateNow() }},
 		{"purge", "Delete teveus's saved conversations and prompt history", "", func(m *Model, _ string) tea.Cmd { m.openPurge(); return nil }},
 		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},
 		{"mcp", "MCP servers: list them, approve a project's", "", func(m *Model, _ string) tea.Cmd { return m.showMCP() }},

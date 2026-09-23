@@ -1,6 +1,6 @@
 # Privacy
 
-teveus is a program that runs on your computer. It has no servers, no accounts, and no telemetry: it doesn't collect analytics, crash reports or usage data, and it doesn't check for updates in the background. The author receives nothing from your use of it.
+teveus is a program that runs on your computer. It has no servers, no accounts, and no telemetry: it doesn't collect analytics, crash reports or usage data. The author receives nothing from your use of it. The one thing it does on its own is ask GitHub, at most once a day, whether a newer version exists (see below; you can turn it off).
 
 What does leave your computer goes to services **you** choose, under **their** terms.
 
@@ -15,7 +15,8 @@ What does leave your computer goes to services **you** choose, under **their** t
 | The model uses **WebSearch** (you approve it) | The search words | Brave Search or Tavily, whichever key you connected |
 | The model uses an **MCP** tool | Whatever that tool is given | The MCP server you configured (a program on your computer, or the address you set) |
 | You log in to **OpenRouter** in the browser | A one-time login exchange | openrouter.ai |
-| You install or update with `install.sh` | A download request | GitHub |
+| teveus starts (at most once a day) | A request for the latest version number, with the app name and version as the user agent | GitHub (api.github.com). Turn it off in `/settings` → Check for updates, or with `"noUpdateCheck": true`. Builds from source never check. |
+| You choose **Update now**, or install with `install.sh` | A download request | GitHub |
 
 Nothing else is sent. Your clipboard is only read when you press `ctrl+v`, and only written when you copy.
 
@@ -26,7 +27,7 @@ Everything lives in `~/.config/teveus/` (on Windows, `%AppData%\teveus\`; `TEVEU
 | File | Contents | Kept |
 |---|---|---|
 | `auth.json` | API keys you saved with `/login` | Until you `/logout` |
-| `settings.json` | Your preferences | Always |
+| `settings.json` | Your preferences, and when the last update check ran | Always |
 | `history.json` | Your last 500 prompts, for the ↑ key | Until `/purge` |
 | `sessions/` | Direct API conversations (text and images), for `/resume` | 30 days, then deleted (`"keepSessionsDays"` in settings; `-1` keeps them) |
 | `permissions.json` | Allow/deny rules you saved | Until you remove them (`/permissions`) |

@@ -1,6 +1,13 @@
-# teveus
+<div align="center">
 
-A friendly, fast terminal for AI coding: your Claude subscription through Claude Code, or any provider with your own keys.
+# ✦ teveus
+
+**A friendly terminal for AI coding.**
+Use your Claude subscription, or any AI provider with your own key, in one fast, good-looking app.
+
+![teveus fixing a bug: Claude reads the code, proposes a change, you approve it](docs/demo.gif)
+
+</div>
 
 ## Install
 
@@ -8,111 +15,128 @@ A friendly, fast terminal for AI coding: your Claude subscription through Claude
 curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/main/install.sh | sh
 ```
 
-macOS and Linux (Intel and Apple Silicon / ARM). It downloads the latest release, verifies its checksum and puts
-`teveus` in `~/.local/bin`; no sudo needed. Run the same line again to update.
-Options: `TEVEUS_INSTALL_DIR=/usr/local/bin`, `TEVEUS_VERSION=v0.1.0`.
+Works on macOS and Linux. Run the same line again to update.
 
-Other ways: `go install github.com/stawan15/teveus@latest`, or download an archive (including Windows) from
-[Releases](https://github.com/stawan15/teveus/releases).
+> **Using a Claude Pro/Max subscription?** Also install [Claude Code](https://claude.com/claude-code) and log in once.
+> teveus uses it behind the scenes.
+> For OpenAI, Gemini, OpenRouter and others you don't need anything else.
 
-For your Claude Pro/Max subscription, also install [Claude Code](https://claude.com/claude-code).
-Other providers (OpenAI, Gemini, OpenRouter, Anthropic API, local models) need nothing else: use `/login`.
+## Get started
 
-Uninstall: `rm ~/.local/bin/teveus` (and `rm -rf ~/.config/teveus` to remove settings and saved keys).
+1. Open a terminal in your project folder.
+2. Run `teveus`.
+3. Type what you want in plain words, like *"find the bug in the login page and fix it"*, and press **enter**.
 
-## Getting started
+teveus shows you every change **before** it happens. Press **y** to allow it or **n** to say no.
 
-```sh
-teveus          # in any project folder
-```
+The first time, a short setup (3 questions) helps you pick how much guidance you want, a colour theme, and how to connect.
 
-The first run walks you through three choices (guidance level, look, how to connect), each skippable with esc.
-Press `?` any time for every shortcut, `ctrl+k` for every action, `/settings` for every preference.
+## What it looks like
 
-Made for a range of users:
+| Approve changes before they happen | Every action one search away |
+|:---:|:---:|
+| ![Approval prompt showing the exact diff](docs/approval.png) | ![Command palette](docs/palette.png) |
+| **Welcome screen with starter ideas** | **Themes preview live** |
+| ![Welcome screen](docs/welcome.png) | ![Theme picker](docs/theme.png) |
 
-- **Guided / Standard / Pro** guidance levels: starter prompts (press 1-4) and tips for newcomers, a compact view for experts.
-- Plain-language permission modes: *ask first*, *auto-edit*, *plan only*, *autopilot*.
-- Accessibility: a high-contrast theme, **reduce motion**, full keyboard use, and mouse support that can be turned off.
-- Layout adapts from wide monitors down to narrow split panes.
+## What you can do
 
-A terminal UI for [Claude Code](https://claude.com/claude-code), built with Bubble Tea, Lip Gloss and Glamour.
-
-It runs your installed `claude` CLI in stream-json mode, so you keep Claude Code's agent loop, tools,
-`CLAUDE.md`, MCP servers, skills, hooks and login. This app only replaces the interface.
-
-## Features
-
-- **Command palette** (`ctrl+k`): every action and Claude command in one fuzzy-searchable list, grouped, with its shortcut shown
-- **Pick, don't type**: `/effort`, `/model`, `/mode` and `/theme` open pickers instead of printing usage text
-- **`@` file mentions** with fuzzy search over your project (git-aware)
-- **Prompt history** with `↑`/`↓`, saved between sessions
-- **5 themes** (claude, tokyo-night, catppuccin, gruvbox, light) that preview live as you move through the picker
-- Streaming Markdown replies; slash-command output is set apart with a gutter and shows no cost line
-- Tool cards with coloured diffs; **click a card** to expand it, or `ctrl+o` for all
-- Permission prompt showing the real diff or command, with `y`/`a`/`n` buttons
-- Permission mode shown on the input border; `shift+tab` cycles it
-- Sidebar (`ctrl+b`) with cost, context, a plan progress bar, usage limits and recent activity
-- Status bar hints change with what you're doing
-- `ctrl+y` copies the last reply; desktop notification when a long task finishes or needs approval
-- `/mouse` turns mouse capture off so you can select text; settings persist in `~/.config/teveus/`
-
-## Two engines
-
-- **Claude Code** (default): drives your installed `claude` CLI with your Claude login.
-- **Direct API** (`-engine api`, or `/engine`): teveus's own agent calls providers directly with your keys.
-  Nothing else to install.
-
-Connect providers with `/login`:
-
-| Provider | How |
+| | |
 |---|---|
-| OpenRouter | **browser login** (OAuth, no copy-paste) or API key: hundreds of models |
-| OpenAI, Anthropic, Google Gemini, Groq, DeepSeek, xAI, Mistral | API key (or the usual env var, e.g. `OPENAI_API_KEY`) |
-| Ollama, LM Studio | local, no key |
-| Custom | any OpenAI-compatible base URL + optional key |
+| 💬 **Ask in plain words** | Explain code, fix bugs, write tests, review changes |
+| ✅ **Stay in control** | See each change as a coloured diff and approve it first |
+| 🔌 **Use any AI** | Claude subscription, OpenAI, Anthropic, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, or local models (Ollama, LM Studio) |
+| ↩️ **Undo** | `/undo` puts files back the way they were |
+| 🕘 **Pick up later** | `/resume` reopens earlier conversations |
+| 💸 **Spend less** | Short, direct answers by default and less text sent per request |
+| 🎨 **Make it yours** | 6 themes (including high contrast), 3 guidance levels, reduce motion |
 
-Keys are checked against the provider before saving and stored in `~/.config/teveus/auth.json` (mode 600).
-`/logout` removes them. `/model` then lists every model from every connected provider.
+## Keys to know
 
-The API engine has its own tools (Read, Write, Edit, Bash, Grep, Glob, TodoWrite), the same approval prompts and
-permission modes, plan mode, interrupt (kills the running command), `/compact`, prompt caching on Anthropic,
-cost from OpenRouter (token counts elsewhere), and it follows your repo's `AGENTS.md` / `CLAUDE.md`.
+You only need the first three. Press **`?`** inside teveus to see the rest.
 
-## Uses fewer tokens than the normal CLI
+| Key | Does |
+|---|---|
+| `enter` | Send your message |
+| `ctrl+k` | Find any action (command palette) |
+| `?` | Show all shortcuts |
+| `shift+tab` | Switch mode: **ask first** → **auto-edit** → **plan only** → **autopilot** |
+| `@` | Attach a file by name |
+| `esc` `esc` | Stop the current task |
+| drag with the mouse | Select text (it's copied when you let go) |
+| `ctrl+c` `ctrl+c` | Quit |
 
-Two savers are on by default (toggle with `/concise` and `/lean`, or run with `-full` to turn both off):
+## Commands
 
-- **Concise answers**: an appended instruction for short, direct replies. On Opus this cut one typical
-  question from 1,904 to 788 output tokens. Put your own wording in `stylePrompt` in `~/.config/teveus/settings.json`.
-- **Lean tools**: 17 rarely used built-in tools are left out, so every request carries ~15% less input
-  (measured: 40.9k → 34.7k tokens for a two-step task).
+Type `/` to see them all. The most useful:
 
-The sidebar turns the context size yellow past 100k tokens, and a one-time note suggests `/compact`,
-because long conversations are what use up your limits fastest.
+| Command | Does |
+|---|---|
+| `/login` | Connect your Claude subscription or another AI provider |
+| `/model` | Switch model (search by name, or type `free`) |
+| `/undo` | Undo the last change |
+| `/resume` | Reopen an earlier conversation |
+| `/diff` | See what changed |
+| `/init` | Let the AI write notes about your project so it works better |
+| `/settings` | All preferences in one place |
+| `!command` | Run a shell command, e.g. `!npm test` |
 
-## Run
+## Connect other AI providers
+
+Run `/login` inside teveus and pick one:
+
+- **OpenRouter**: log in with your browser, no key to copy. Hundreds of models; type `free` in `/model` to find free ones.
+- **OpenAI, Anthropic, Gemini, Groq, DeepSeek, xAI, Mistral**: paste an API key. It's checked before saving and stored only on your computer.
+- **Ollama or LM Studio**: runs on your own machine; nothing to set up if it's running.
+
+## Questions
+
+<details>
+<summary><b>Is my Claude subscription used, or do I pay per token?</b></summary>
+
+With the **Claude Code** engine (the default), teveus uses your Pro/Max subscription through the official `claude` CLI.
+With **Direct API** (`/engine`), you pay the provider per token with your own key.
+</details>
+
+<details>
+<summary><b>How do I select and copy text?</b></summary>
+
+Drag with the mouse; the text is copied when you let go. Double-click selects a word and triple-click a line.
+`ctrl+y` copies the whole last reply. Prefer your terminal's own selection? Run `/mouse`.
+</details>
+
+<details>
+<summary><b>Where are my settings and keys?</b></summary>
+
+In `~/.config/teveus/`. Keys are in `auth.json`, readable only by you.
+</details>
+
+<details>
+<summary><b>How do I uninstall?</b></summary>
 
 ```sh
-go build -o teveus . && ./teveus            # in any project directory
-./teveus -model sonnet -mode acceptEdits
-./teveus -c                                      # continue the last session here
-./teveus -resume <session-id>
-./teveus -theme tokyo-night
-./teveus -engine api -model openai/gpt-5.4-mini
+rm ~/.local/bin/teveus
+rm -rf ~/.config/teveus   # also removes settings and saved keys
 ```
+</details>
 
-Mouse-wheel scrolling is on, so hold `option` (macOS) or `shift` to select text, or run `/mouse` to turn capture off.
+## More ways to install
 
-## Layout
+- **Go:** `go install github.com/stawan15/teveus@latest`
+- **Windows or manual download:** grab an archive from [Releases](https://github.com/stawan15/teveus/releases)
+- **Installer options:** `TEVEUS_INSTALL_DIR=/usr/local/bin` or `TEVEUS_VERSION=v0.1.1` before `sh`
 
-- `internal/claude`: starts the CLI process and speaks the stream-json protocol (user turns, `can_use_tool`
-  permission requests, interrupt, `set_permission_mode`, `set_model`)
-- `internal/ui`: the Bubble Tea model (`model.go`), layout and chrome (`view.go`), transcript rendering (`render.go`), theme (`styles.go`)
-
-## Test
+## Development
 
 ```sh
-go test ./...                                                          # smoke test is skipped by default
-TEVEUS_SMOKE=1 TEVEUS_DIR=$(mktemp -d) go test ./internal/ui -run Smoke -v   # drives a real session with haiku
+go build -o teveus . && ./teveus   # run from source
+go test ./...                       # tests
+docs/record.sh                      # re-record the demo GIF from a real session
 ```
+
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss) and [Glamour](https://github.com/charmbracelet/glamour).
+[CLAUDE.md](CLAUDE.md) explains how the code is organised.
+
+## License
+
+[MIT](LICENSE)

@@ -4,8 +4,10 @@
 Each run gets a fresh copy of docs/demo-app, runs one tool non-interactively
 with every tool call allowed, then checks the result with `go test`.
 
-    python3 docs/bench/bench.py            # 3 repetitions
-    REPS=1 python3 docs/bench/bench.py     # quicker
+    python3 docs/bench/bench.py                        # Claude Code vs teveus, and OpenCode vs teveus on Gemini
+    REPS=1 python3 docs/bench/bench.py                 # quicker
+    PAIR=openrouter MODEL=anthropic/claude-haiku-4.5 OPENROUTER_API_KEY=… python3 docs/bench/bench.py
+                                                       # OpenCode vs teveus through OpenRouter
 
 Writes docs/bench/results.jsonl (one line per run) and prints a summary.
 Needs: claude (logged in), opencode (with a Google key), teveus built at
@@ -16,20 +18,29 @@ import json, os, shutil, subprocess, sys, tempfile, time
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 APP = os.path.join(ROOT, "docs", "demo-app")
 TEVEUS = os.path.join(ROOT, "teveus")
-OUT = os.path.join(ROOT, "docs", "bench", "results.jsonl")
+OUT = os.path.join(ROOT, "docs", "bench", "results%s.jsonl" % ("-" + os.environ["PAIR"] if os.environ.get("PAIR") else ""))
 REPS = int(os.environ.get("REPS", "3"))
 GEMINI = "google/gemini-3.5-flash"
 # Gemini 3.5 Flash, USD per million tokens: the rates OpenCode's own cost
 # figures work out to, applied to both tools so they're priced alike.
 PRICE = {"in": 0.50, "out": 3.00, "cache_read": 0.05}
 
+PAIR = os.environ.get("PAIR", "")
+MODEL = os.environ.get("MODEL", "anthropic/claude-haiku-4.5")
+
 TASKS = {
     "explain": "What does this project do, and is anything wrong with it? Answer briefly.",
     "fix": "The tests fail. Find the bug, fix it, and run the tests to confirm.",
     "feature": "Add a function Count(prices []float64) int that returns how many prices there are, with a test for it. Run the tests.",
+    "coupon": "Add coupons: in a new file coupon.go, a type Coupon struct { Percent float64; Fixed float64 } with a method (c Coupon) Apply(total float64) float64 that takes Percent off first (0.1 = 10%), then subtracts Fixed, and never returns less than 0. Write table-driven tests in coupon_test.go and run them.",
 }
 
 def tools(task):
+    if PAIR == "openrouter":
+        return {
+            f"opencode ({MODEL})": ["opencode", "run", "--format", "json", "-m", "openrouter/" + MODEL, "--auto", task],
+            f"teveus ({MODEL})": [TEVEUS, "-p", task, "-engine", "api", "-model", "openrouter/" + MODEL, "-json", "-mode", "auto"],
+        }
     return {
         "claude-code (haiku)": ["claude", "-p", task, "--model", "haiku", "--output-format", "json", "--permission-mode", "bypassPermissions"],
         "teveus (haiku)": [TEVEUS, "-p", task, "-engine", "claude", "-model", "haiku", "-json", "-mode", "bypassPermissions"],
@@ -67,7 +78,7 @@ def parse(tool, out):
     j = json.loads(out)
     r = dict(input=j["input_tokens"], output=j["output_tokens"], cache_read=j["cache_read_tokens"],
              cache_write=j["cache_write_tokens"], cost=j["cost_usd"], turns=j["num_turns"], answer=j["result"])
-    if "gemini" in tool and not r["cost"]:
+    if "gemini" in tool and "/" not in tool and not r["cost"]:
         r["cost"] = (r["input"] * PRICE["in"] + r["output"] * PRICE["out"] + r["cache_read"] * PRICE["cache_read"]) / 1e6
     return r
 
@@ -85,6 +96,29 @@ func TestBenchHiddenCount(t *testing.T) {
 }
 """
 
+HIDDEN_COUPON_TEST = """package demo
+
+import "testing"
+
+func TestBenchHiddenCoupon(t *testing.T) {
+	for _, c := range []struct {
+		c    Coupon
+		in   float64
+		want float64
+	}{
+		{Coupon{}, 50, 50},
+		{Coupon{Percent: 0.1}, 50, 45},
+		{Coupon{Fixed: 5}, 50, 45},
+		{Coupon{Percent: 0.5, Fixed: 10}, 50, 15},
+		{Coupon{Fixed: 80}, 50, 0},
+	} {
+		if got := c.c.Apply(c.in); got < c.want-1e-9 || got > c.want+1e-9 {
+			t.Fatalf("%+v.Apply(%v) = %v, want %v", c.c, c.in, got, c.want)
+		}
+	}
+}
+"""
+
 def check(task, d, answer):
     a = answer.lower()
     if task == "explain":
@@ -92,11 +126,12 @@ def check(task, d, answer):
         return "discount" in a and any(w in a for w in ("bug", "wrong", "incorrect", "instead", "should", "1 -", "1-", "(1 -", "subtract"))
     if task == "fix":
         return subprocess.run(["go", "test", "./..."], cwd=d, capture_output=True).returncode == 0
-    # feature: the original bug isn't part of the task, so run only a hidden
-    # test of the new function (written after the tool has finished).
+    # feature and coupon: the original bug isn't part of the task, so run
+    # only a hidden test of the new code (written after the tool finished).
+    test, name = (HIDDEN_COUPON_TEST, "TestBenchHiddenCoupon") if task == "coupon" else (HIDDEN_COUNT_TEST, "TestBenchHiddenCount")
     with open(os.path.join(d, "bench_hidden_test.go"), "w") as f:
-        f.write(HIDDEN_COUNT_TEST)
-    return subprocess.run(["go", "test", "-run", "TestBenchHiddenCount", "./..."], cwd=d, capture_output=True).returncode == 0
+        f.write(test)
+    return subprocess.run(["go", "test", "-run", name, "./..."], cwd=d, capture_output=True).returncode == 0
 
 def main():
     results = []
@@ -108,7 +143,10 @@ def main():
                     shutil.copytree(APP, d, dirs_exist_ok=True)
                     start = time.time()
                     try:
-                        p = subprocess.run(cmd, cwd=d, capture_output=True, text=True, timeout=600)
+                        env = dict(os.environ)
+                        if tool.startswith("teveus"):
+                            env["TEVEUS_CONFIG"] = tempfile.mkdtemp(prefix="teveus-bench-cfg-")  # clean settings, no saved sessions
+                        p = subprocess.run(cmd, cwd=d, capture_output=True, text=True, timeout=600, env=env, stdin=subprocess.DEVNULL)
                         r = parse(tool, p.stdout)
                         r["ok"] = check(task, d, r["answer"])
                     except Exception as e:  # a crash or timeout counts as a failed run

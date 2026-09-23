@@ -56,6 +56,10 @@ func checkClaudeAuth(bin string) tea.Cmd {
 // the unmodified Claude Code with their own plan; that is all teveus does.
 // See "Anthropic's terms" in CLAUDE.md before changing anything here.
 func (m *Model) useSubscription() tea.Cmd {
+	if !m.claudeConfirmed() {
+		m.askClaudeNotice(func(m *Model) tea.Cmd { return m.useSubscription() })
+		return nil
+	}
 	if m.claudeAuth.loggedIn {
 		cmd := m.setEngine("claude")
 		m.note("using Claude Code, signed in as "+m.claudeAuth.email+" · /model to pick Opus", true)

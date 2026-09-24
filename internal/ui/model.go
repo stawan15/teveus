@@ -30,6 +30,7 @@ type Config struct {
 	Version  string
 	KeyOut   io.Writer // the terminal, for key-protocol escapes; nil in tests
 	Headless bool      // teveus -p: no UI to ask in
+	AskTrust bool      // this folder hasn't been trusted yet (set by main; trust.go)
 }
 
 var modes = []string{"default", "acceptEdits", "plan", "auto"}
@@ -94,6 +95,7 @@ type Model struct {
 	warnedCtx     bool
 	promptedModel bool
 	claudeAuth    claudeAuthMsg
+	authChecked   bool // the Claude Code login check has answered
 	noProvider    *block
 	tokIn, tokOut int
 	history       []string
@@ -197,7 +199,13 @@ func styleInput(ta *textarea.Model) {
 
 func (m *Model) Init() tea.Cmd {
 	m.setKittyKeys(true)
-	return tea.Batch(textarea.Blink, tick(), m.start(m.cfg.Claude), indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions(), m.startupUpdateCheck())
+	var start tea.Cmd
+	if m.cfg.AskTrust && !m.cfg.Headless {
+		m.askTrust()
+	} else {
+		start = m.start(m.cfg.Claude)
+	}
+	return tea.Batch(textarea.Blink, tick(), start, indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions(), m.startupUpdateCheck())
 }
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -290,12 +298,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case claudeAuthMsg:
-		m.claudeAuth = msg
+		m.claudeAuth, m.authChecked = msg, true
 		// Setup waits for the login check so it can say whether Claude is connected.
-		if m.cfg.Onboard && !m.settings.Onboarded && !m.pop.open() && len(m.perms) == 0 {
-			m.cfg.Onboard = false
-			m.startOnboarding()
-		}
+		m.startSetup()
 		return m, nil
 
 	case shellResultMsg:

@@ -45,7 +45,7 @@ func main() {
 	opts.Cwd, _ = os.Getwd()
 	settings := ui.LoadSettings()
 	cfg := ui.Config{Claude: opts, Dark: lipgloss.HasDarkBackground(), Theme: *themeName, Settings: settings, Full: *full, Engine: *engine,
-		Onboard: !settings.Onboarded, Version: version, KeyOut: os.Stdout}
+		Onboard: !settings.Onboarded, AskTrust: !ui.FolderTrusted(opts.Cwd), Version: version, KeyOut: os.Stdout}
 
 	if *prompt != "" {
 		cfg.KeyOut = nil

@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+- teveus asks "Do you trust this folder?" the first time you open it in a folder, before anything is read or started. Answer yes once and it doesn't ask again there or in the folders inside it; answer no and it exits.
+- Links in the conversation are clickable: cmd+click (ctrl+click on Windows and Linux) opens them in terminals that support links, including ones too long to fit on one line.
+
+### Fixed
+- Scrolling down could suddenly scroll the conversation up instead, after a mouse release the terminal never reported (for example when you cmd+clicked a link). A drag that lost its release now ends.
+
 ## [0.5.0] - 2026-09-24
 
 ### Added

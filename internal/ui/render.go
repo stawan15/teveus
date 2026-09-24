@@ -123,6 +123,9 @@ func (r *renderer) render(b *block, width int) string {
 		}
 		out = strings.Join(lines, "\n")
 	}
+	if !b.streaming {
+		out = linkify(out, b.text+"\n"+b.result)
+	}
 	b.cache, b.cacheW, b.dirty = out, width, false
 	return out
 }

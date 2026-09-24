@@ -159,6 +159,7 @@ func (m *Model) openSettingsAt(sel int) {
 		{"AI", "Lean tools (Claude Code)", onOff(m.settings.LeanTools), func(m *Model) tea.Cmd { return m.toggleLean() }},
 		{"AI", "Minimal code", m.minimalLevel(), func(m *Model) tea.Cmd { return m.setMinimal("") }},
 		{"Setup", "Connect providers…", "", func(m *Model) tea.Cmd { return m.openLogin("") }},
+		{"AI", "Credit AI in commits (Co-Authored-By)", onOff(m.settings.Attribution), func(m *Model) tea.Cmd { return m.toggleAttribution() }},
 		{"Setup", "Check for updates", onOff(!m.settings.NoUpdateCheck), func(m *Model) tea.Cmd { return m.toggleUpdateCheck() }},
 		{"Setup", "Run first-time setup again", "", func(m *Model) tea.Cmd {
 			m.settings.Onboarded = false
@@ -170,7 +171,7 @@ func (m *Model) openSettingsAt(sel int) {
 	for i, it := range items {
 		run := it.run
 		switch it.label {
-		case "Reduce motion", "Sidebar", "Tool output expanded", "Mouse (scroll, select, click)", "Concise answers", "Lean tools (Claude Code)", "Check for updates":
+		case "Reduce motion", "Sidebar", "Tool output expanded", "Mouse (scroll, select, click)", "Concise answers", "Lean tools (Claude Code)", "Check for updates", "Credit AI in commits (Co-Authored-By)":
 			run = toggle(i, run) // on/off rows stay in the list so you can see the change
 		}
 		c := choice{group: it.group, label: it.label, key: it.value, run: run}

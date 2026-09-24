@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-24
+
 ### Added
 - teveus asks "Do you trust this folder?" the first time you open it in a folder, before anything is read or started. Answer yes once and it doesn't ask again there or in the folders inside it; answer no and it exits.
 - Links in the conversation are clickable: cmd+click (ctrl+click on Windows and Linux) opens them in terminals that support links, including ones too long to fit on one line.
@@ -129,7 +131,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/stawan15/teveus/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/stawan15/teveus/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/stawan15/teveus/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/stawan15/teveus/compare/v0.3.1...v0.3.2

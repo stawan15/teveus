@@ -108,3 +108,22 @@ func TestTurnsAreSeparatedByARule(t *testing.T) {
 		t.Fatalf("%d rules between two turns", rules)
 	}
 }
+
+func TestShiftArrowsScrollAndPlainArrowsBrowseHistory(t *testing.T) {
+	m, _ := newSelModel(t)
+	m.history = []string{"earlier prompt"}
+	m.vp.GotoBottom()
+	at := m.vp.YOffset
+	m.Update(tea.KeyMsg{Type: tea.KeyShiftUp})
+	if m.vp.YOffset >= at || m.input.Value() != "" {
+		t.Fatalf("shift+up: offset %d -> %d, input %q", at, m.vp.YOffset, m.input.Value())
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyShiftDown})
+	if m.vp.YOffset != at {
+		t.Fatalf("shift+down didn't scroll back: %d", m.vp.YOffset)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if m.input.Value() != "earlier prompt" || m.vp.YOffset != at {
+		t.Fatalf("↑ should recall history only: input %q, offset %d", m.input.Value(), m.vp.YOffset)
+	}
+}

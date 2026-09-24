@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+- Scrolling with the mouse wheel could fill the message box with your earlier prompts instead of scrolling the conversation, in terminals that turn the wheel into arrow keys. The wheel no longer sends arrow keys while teveus is open, so ↑ and ↓ only browse your earlier prompts.
+
+### Added
+- `shift+↑` and `shift+↓` scroll the conversation, next to the mouse wheel and `pgup`/`pgdn`.
+
 ## [0.6.0] - 2026-09-24
 
 ### Added

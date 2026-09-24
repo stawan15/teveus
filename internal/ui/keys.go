@@ -20,6 +20,11 @@ import (
 const (
 	kittyKeysOn  = "\x1b[=1;1u" // set flags to "disambiguate" (no push, so no stack to unwind)
 	kittyKeysOff = "\x1b[=0;1u"
+	// Many terminals turn the wheel into ↑ and ↓ on the alternate screen when
+	// they aren't sending mouse events, which would recall earlier prompts
+	// into the input instead of scrolling. Off while teveus runs.
+	wheelKeysOff = "\x1b[?1007l"
+	wheelKeysOn  = "\x1b[?1007h"
 )
 
 // setKittyKeys turns the protocol on or off, when the app owns a terminal.
@@ -28,9 +33,9 @@ func (m *Model) setKittyKeys(on bool) {
 		return
 	}
 	if on {
-		fmt.Fprint(m.cfg.KeyOut, kittyKeysOn)
+		fmt.Fprint(m.cfg.KeyOut, kittyKeysOn+wheelKeysOff)
 	} else {
-		fmt.Fprint(m.cfg.KeyOut, kittyKeysOff)
+		fmt.Fprint(m.cfg.KeyOut, kittyKeysOff+wheelKeysOn)
 	}
 }
 

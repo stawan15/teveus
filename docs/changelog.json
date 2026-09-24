@@ -5,7 +5,26 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.6.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Scrolling with the mouse wheel could fill the message box with your earlier prompts instead of scrolling the conversation, in terminals that turn the wheel into arrow keys. The wheel no longer sends arrow keys while teveus is open, so ↑ and ↓ only browse your earlier prompts.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`shift+↑` and `shift+↓` scroll the conversation, next to the mouse wheel and `pgup`/`pgdn`.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.0",

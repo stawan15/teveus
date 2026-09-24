@@ -450,6 +450,12 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "pgdown":
 		m.vp.HalfViewDown()
 		return m, nil
+	case "shift+up":
+		m.vp.ScrollUp(m.vp.MouseWheelDelta)
+		return m, nil
+	case "shift+down":
+		m.vp.ScrollDown(m.vp.MouseWheelDelta)
+		return m, nil
 	case "ctrl+o":
 		return m, m.toggleDetails()
 	case "ctrl+b":

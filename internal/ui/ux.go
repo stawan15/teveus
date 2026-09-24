@@ -113,7 +113,7 @@ func (m *Model) openHelp() {
 		{"Read & copy", "ctrl+y", "copy the last reply"},
 		{"Read & copy", "click a tool", "open or close its output"},
 		{"Read & copy", "ctrl+o", "open or close all tool output"},
-		{"Read & copy", "pgup / pgdn / wheel", "scroll"},
+		{"Read & copy", "wheel / shift+↑ ↓ / pgup pgdn", "scroll the conversation"},
 		{"Look & feel", "/settings", "all preferences"},
 		{"Look & feel", "/theme", "colours (incl. high contrast)"},
 		{"Look & feel", "ctrl+b", "show or hide the sidebar"},

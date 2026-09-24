@@ -25,7 +25,7 @@ func mockProvider(t *testing.T) *httptest.Server {
 	calls := 0
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer sk-test" {
-			http.Error(w, `{"error":{"message":"bad key"}}`, 401)
+			http.Error(w, `{"error":{"message":"bad key"}}`, http.StatusUnauthorized)
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/models") {

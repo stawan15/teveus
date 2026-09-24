@@ -8,7 +8,7 @@ teveus is a Go terminal UI (Bubble Tea, Lip Gloss, Glamour) for Claude Code. It 
 
 ```sh
 go build -o teveus . && ./teveus        # run in any project dir; flags: -model -mode -c -resume -theme -engine api -full
-go vet ./... && go test ./...                   # what CI runs (ubuntu + macos); live/smoke tests skip unless env vars are set
+go vet ./... && go test ./...                   # what CI runs (ubuntu + macos, plus staticcheck and govulncheck on ubuntu); live/smoke tests skip unless env vars are set
 go test ./internal/agent -run TestPlanModeRefusesEdits -v   # single test
 TEVEUS_SMOKE=1 TEVEUS_DIR=$(mktemp -d) go test ./internal/ui -run Smoke -v   # real Claude Code session (haiku)
 LIVE_MODEL=google/gemini-3.5-flash go test ./internal/agent -run Live -v            # real provider, uses keys saved by /login

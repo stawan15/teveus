@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Security
+- Built with Go 1.26.8, which fixes six vulnerabilities in Go's standard library (net/http, crypto/tls, net/url, encoding/xml and encoding/asn1). CI now checks for known vulnerabilities on every push.
+
 ### Changed
 - Commits and pull requests made through teveus no longer carry a "Co-Authored-By" or "Generated with" line: not from Claude Code, and not from the Direct API engine. To bring them back, turn on "Credit AI in commits" in `/settings`.
 

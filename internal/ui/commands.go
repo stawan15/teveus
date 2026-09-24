@@ -74,15 +74,6 @@ func init() {
 	}
 }
 
-const helpText = `enter send · shift+enter newline (or ctrl+j, or \ then enter) · ctrl+v pastes an image · ↑↓ prompt history · esc interrupt · !cmd runs a shell command
-esc twice stops Claude mid-task
-/resume earlier chats · /undo last turn · /diff changes · /export · /init · /q quit
-ctrl+k command palette · / slash commands · @ mention a file
-shift+tab permission mode · ctrl+o tool details · click a tool to open it
-drag to select & copy (double-click word, triple-click line) · ctrl+y copy last reply
-ctrl+b sidebar · pgup/pgdn or wheel scroll · /mouse hands the mouse back to the terminal
-approvals: y allow · a always allow · n deny`
-
 func (m *Model) localCommand(name, arg string) (tea.Cmd, bool) {
 	if full, ok := aliases[name]; ok {
 		name = full

@@ -61,7 +61,7 @@ var (
 
 	sText, sDim, sFaint, sAccent, sAccent2, sBold lipgloss.Style
 	sGreen, sRed, sYellow, sTool                  lipgloss.Style
-	sUser, sDiffAdd, sDiffDel, sKey, sSelected    lipgloss.Style
+	sUser, sDiffAdd, sDiffDel, sKey               lipgloss.Style
 )
 
 func applyTheme(t Theme) {
@@ -84,7 +84,6 @@ func applyTheme(t Theme) {
 	sDiffAdd = lipgloss.NewStyle().Background(c(t.DiffAdd)).Foreground(cGreen)
 	sDiffDel = lipgloss.NewStyle().Background(c(t.DiffDel)).Foreground(cRed)
 	sKey = lipgloss.NewStyle().Background(cSurface).Foreground(cText).Padding(0, 1)
-	sSelected = lipgloss.NewStyle().Background(cSurface)
 }
 
 func init() { applyTheme(themes[0]) }

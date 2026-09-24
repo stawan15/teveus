@@ -28,7 +28,7 @@ func (m *Model) layout() {
 	}
 	m.chatW = m.w - m.sideW
 	m.input.SetWidth(m.w - 4)
-	vpH := m.h - 1 - 1 - lipgloss.Height(m.bottomFitted())
+	vpH := m.h - 1 - 1 - m.tabsHeight() - lipgloss.Height(m.bottomFitted())
 	m.vp.Width, m.vp.Height = m.chatW, max(vpH, 1)
 }
 
@@ -93,7 +93,11 @@ func (m *Model) View() string {
 		main = lipgloss.JoinHorizontal(lipgloss.Top,
 			lipgloss.NewStyle().Width(m.chatW).Render(main), m.sidebar(m.vp.Height))
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, m.header(), main, m.bottomFitted(), m.statusBar())
+	rows := []string{m.header()}
+	if t := m.tabStrip(); t != "" {
+		rows = append(rows, t)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, append(rows, main, m.bottomFitted(), m.statusBar())...)
 }
 
 // bottomFitted is the bottom area cut to leave room for the header, the
@@ -101,7 +105,7 @@ func (m *Model) View() string {
 // the terminal scroll, and every later frame lands in the wrong place.
 func (m *Model) bottomFitted() string {
 	b := m.bottomView()
-	room := max(m.h-3, 1)
+	room := max(m.h-3-m.tabsHeight(), 1)
 	if lines := strings.Split(b, "\n"); len(lines) > room {
 		b = strings.Join(lines[len(lines)-room:], "\n") // keep the end: the keys to answer
 	}

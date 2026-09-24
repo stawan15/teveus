@@ -104,6 +104,7 @@ func (m *Model) openHelp() {
 		{"Work", "/undo", "undo the last turn's file changes (Direct API)"},
 		{"Work", "/diff", "show what changed"},
 		{"Work", "/resume", "reopen an earlier conversation"},
+		{"Work", "/sessions", "run several conversations at once (alt+1…9 to switch; on macOS Terminal turn on Use Option as Meta Key)"},
 		{"Work", "/init", "describe this project for the AI (AGENTS.md)"},
 		{"Work", "/model", "switch model"},
 		{"Work", "/login", "connect Claude or other providers"},

@@ -7,6 +7,15 @@
       "url": "https://github.com/stawan15/teveus/compare/v0.3.2...HEAD",
       "sections": [
         {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Several conversations at once in one window. `/sessions` lists them and lets you start, switch to or close one; `alt+1` to `alt+9` jump straight to a session. Sessions keep working while you look at another, and a line of tabs under the header names each one, with `●` for one that is working and `!` for one waiting for your approval. On macOS Terminal, turn on \"Use Option as Meta Key\" for the `alt` keys.",
+              "items": []
+            }
+          ]
+        },
+        {
           "title": "Security",
           "items": [
             {
@@ -18,6 +27,10 @@
         {
           "title": "Changed",
           "items": [
+            {
+              "text": "Typing `/` now lists only the eleven commands most people need (`/model`, `/login`, `/sessions`, `/mode`, `/resume`, `/undo`, `/diff`, `/clear`, `/settings`, `/help`, `/exit`). Every other command, including Claude Code's own, still works and appears as soon as you type part of its name.",
+              "items": []
+            },
             {
               "text": "Commits and pull requests made through teveus no longer carry a \"Co-Authored-By\" or \"Generated with\" line: not from Claude Code, and not from the Direct API engine. To bring them back, turn on \"Credit AI in commits\" in `/settings`.",
               "items": []

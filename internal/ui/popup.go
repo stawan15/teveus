@@ -35,6 +35,7 @@ type choice struct {
 	value   string
 	color   lipgloss.Color // label colour, for pickers whose choices differ in kind
 	run     func(m *Model) tea.Cmd
+	more    bool // left out of the list until the user types something to search for
 }
 
 type popup struct {
@@ -95,7 +96,13 @@ func (p *popup) current() (choice, bool) {
 func fuzzyFilter(items []choice, q string, paths bool) []choice {
 	words := strings.Fields(strings.ToLower(q))
 	if len(words) == 0 {
-		return items
+		var shown []choice
+		for _, it := range items {
+			if !it.more {
+				shown = append(shown, it)
+			}
+		}
+		return shown
 	}
 	type scored struct {
 		c     choice

@@ -5,10 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+- Several conversations at once in one window. `/sessions` lists them and lets you start, switch to or close one; `alt+1` to `alt+9` jump straight to a session. Sessions keep working while you look at another, and a line of tabs under the header names each one, with `●` for one that is working and `!` for one waiting for your approval. On macOS Terminal, turn on "Use Option as Meta Key" for the `alt` keys.
+
 ### Security
 - Built with Go 1.26.8, which fixes six vulnerabilities in Go's standard library (net/http, crypto/tls, net/url, encoding/xml and encoding/asn1). CI now checks for known vulnerabilities on every push.
 
 ### Changed
+- Typing `/` now lists only the eleven commands most people need (`/model`, `/login`, `/sessions`, `/mode`, `/resume`, `/undo`, `/diff`, `/clear`, `/settings`, `/help`, `/exit`). Every other command, including Claude Code's own, still works and appears as soon as you type part of its name.
 - Commits and pull requests made through teveus no longer carry a "Co-Authored-By" or "Generated with" line: not from Claude Code, and not from the Direct API engine. To bring them back, turn on "Credit AI in commits" in `/settings`.
 
 ## [0.3.2] - 2026-09-23

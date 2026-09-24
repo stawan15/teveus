@@ -49,6 +49,7 @@ func init() {
 			}
 			return nil
 		}},
+		{"sessions", "Run several conversations at once: switch, start or close one", "alt+1…9", func(m *Model, _ string) tea.Cmd { m.openSessions(); return nil }},
 		{"resume", "Resume an earlier conversation in this folder", "", func(m *Model, _ string) tea.Cmd { m.openResumePicker(); return nil }},
 		{"undo", "Undo the last turn's file edits (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.undo() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
@@ -86,6 +87,13 @@ func (m *Model) localCommand(name, arg string) (tea.Cmd, bool) {
 	return nil, false
 }
 
+// coreCmds are the only slash commands listed before the user types; the rest
+// still run and are found by searching.
+var coreCmds = map[string]bool{
+	"model": true, "login": true, "sessions": true, "mode": true, "resume": true, "undo": true,
+	"diff": true, "clear": true, "settings": true, "help": true, "exit": true,
+}
+
 func (m *Model) slashChoices() []choice {
 	var out []choice
 	seen := map[string]bool{}
@@ -96,7 +104,7 @@ func (m *Model) slashChoices() []choice {
 		if as := aliasesOf(c.name); len(as) > 0 && key == "" {
 			key = "/" + strings.Join(as, " /")
 		}
-		out = append(out, choice{label: "/" + c.name, value: c.name, desc: c.desc, key: key, aliases: aliasesOf(c.name),
+		out = append(out, choice{label: "/" + c.name, value: c.name, desc: c.desc, key: key, aliases: aliasesOf(c.name), more: !coreCmds[c.name],
 			run: func(m *Model) tea.Cmd { return c.run(m, "") }})
 	}
 	for _, c := range m.commands {
@@ -104,7 +112,9 @@ func (m *Model) slashChoices() []choice {
 			continue
 		}
 		seen[c.Name] = true
-		out = append(out, m.cliChoice(c))
+		ch := m.cliChoice(c)
+		ch.more = true
+		out = append(out, ch)
 	}
 	return out
 }

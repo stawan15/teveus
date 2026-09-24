@@ -46,7 +46,10 @@ type Model struct {
 	settings   Settings
 	client     claude.Backend
 	engine     string
-	gen        int // bumps on every (re)start so stale events are ignored
+	gen        int // this session's backend generation: events from any other are ignored or belong to a parked session
+	genSeq     int // last generation handed out, across all sessions
+	sessions   []*session
+	cur        int // index in sessions of the one on screen
 
 	w, h         int
 	chatW, sideW int
@@ -163,6 +166,7 @@ func New(cfg Config) *Model {
 	vp := scroller{MouseWheelDelta: 3}
 	return &Model{
 		cfg:      cfg,
+		sessions: []*session{{follow: true}},
 		settings: settings,
 		vp:       vp,
 		input:    ta,
@@ -244,7 +248,8 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		return nil
 	}
 	m.client = c
-	m.gen++
+	m.genSeq++
+	m.gen = m.genSeq
 	m.noteProjectMCP()
 	return listen(m.gen, c.Events())
 }
@@ -325,6 +330,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case eventMsg:
 		if msg.gen != m.gen {
+			if i, ok := m.sessionOf(msg.gen); ok {
+				m.backgroundEvent(i, msg.ev)
+				return m, listen(msg.gen, msg.ch)
+			}
 			return m, nil
 		}
 		m.handleEvent(msg.ev)
@@ -393,6 +402,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	// Global keys work in every state.
+	if ks := k.String(); len(ks) == 5 && strings.HasPrefix(ks, "alt+") && ks[4] >= '1' && ks[4] <= '9' {
+		return m, m.switchTo(int(ks[4] - '1'))
+	}
 	switch k.String() {
 	case "ctrl+c":
 		if m.pop.open() {
@@ -816,21 +828,23 @@ func (m *Model) remember(text string) {
 }
 
 func (m *Model) quit() tea.Cmd {
-	if m.client != nil {
-		m.client.Close()
-	}
+	m.closeAllSessions()
 	m.setKittyKeys(false)
 	return tea.Quit
+}
+
+func (m *Model) resetConversation() {
+	m.blocks, m.tools, m.stream, m.todos, m.tasks = nil, map[string]*block{}, nil, nil, nil
+	m.busy, m.perms, m.sessionID, m.phase, m.turnFrom = false, nil, "", "", 0
+	m.cost, m.prevCost, m.context, m.warnedCtx = 0, 0, 0, false
+	m.tokIn, m.tokOut, m.promptedModel, m.noProvider = 0, 0, false, nil
 }
 
 func (m *Model) clearConversation() tea.Cmd {
 	if m.client != nil {
 		m.client.Close()
 	}
-	m.blocks, m.tools, m.stream, m.todos, m.tasks = nil, map[string]*block{}, nil, nil, nil
-	m.busy, m.perms, m.sessionID = false, nil, ""
-	m.cost, m.prevCost, m.context, m.warnedCtx = 0, 0, 0, false
-	m.tokIn, m.tokOut, m.promptedModel, m.noProvider = 0, 0, false, nil
+	m.resetConversation()
 	opts := m.cfg.Claude
 	opts.Resume, opts.Continue = "", false
 	cmd := m.start(opts)

@@ -74,7 +74,7 @@ You only need the first three. Press **`?`** inside teveus to see the rest.
 
 ## Commands
 
-Type `/` to see them all. The most useful:
+Type `/` to see the main ones; keep typing to find the rest. The most useful:
 
 | Command | Does |
 |---|---|
@@ -82,6 +82,7 @@ Type `/` to see them all. The most useful:
 | `/model` | Switch model (search by name, or type `free`) |
 | `/effort` | How hard the model thinks: a slider from auto and low up to max |
 | `/undo` | Undo the last change |
+| `/sessions` | Run several conversations at once: switch, start or close one (`alt+1` to `alt+9` jump to one) |
 | `/resume` | Reopen an earlier conversation |
 | `/diff` | See what changed |
 | `/init` | Let the AI write notes about your project so it works better |

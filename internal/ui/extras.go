@@ -34,6 +34,7 @@ type Settings struct {
 	KeepSessionsDays int    `json:"keepSessionsDays,omitempty"`    // saved conversations: 0 = 30 days, -1 = forever
 	Effort           string `json:"effort,omitempty"`              // reasoning effort; "" = the model's default
 	MinimalCode      string `json:"minimalCode,omitempty"`         // "off", "lite", "full" (default) or "strict"
+	SubagentModel    string `json:"subagentModel,omitempty"`       // model for research subagents; "" = the conversation's
 
 	Engine       string   `json:"engine,omitempty"`       // "claude" (default) or "api"
 	Onboarded    bool     `json:"onboarded,omitempty"`    // first-run setup done

@@ -471,6 +471,10 @@ func (m *Model) statusBar() string {
 		right = hints("/login", "connect", "ctrl+k", "palette")
 	default:
 		left = sGreen.Render(" ●") + sDim.Render(" ready")
+		if sp := m.spendLine(); m.sideW == 0 && sp != "" {
+			// The sidebar isn't showing what this has cost, so say it here.
+			left += sFaint.Render("  " + sp)
+		}
 		right = hints("enter", "send", "shift+enter", "newline", "ctrl+k", "palette")
 	}
 	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
@@ -487,6 +491,15 @@ func (m *Model) statusBar() string {
 		return truncate(left, m.w)
 	}
 	return left + strings.Repeat(" ", gap) + right
+}
+
+// spendLine is this session's use, and every session's when there are several.
+func (m *Model) spendLine() string {
+	here := spendLabel(m.cost, m.tokIn, m.tokOut)
+	if all := m.totalSpend(); len(m.sessions) > 1 && all != "" && all != here {
+		return strings.TrimSpace(here + " · " + all + " in all")
+	}
+	return here
 }
 
 // shimmer paints text with a bright band sweeping across it.

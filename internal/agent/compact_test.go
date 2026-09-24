@@ -47,3 +47,25 @@ func TestCompactsAndRetriesWhenThePromptIsTooLong(t *testing.T) {
 		t.Fatalf("retry messages: %v", msgs)
 	}
 }
+
+func TestDroppingOldToolOutputSparesASummary(t *testing.T) {
+	big := strings.Replace(oaiToolCall("c1", "TodoWrite", `{"todos":[]}`), `"prompt_tokens":100`, `"prompt_tokens":900`, 1)
+	s := &script{replies: []string{big, oaiText("finished")}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[{"id":"m","context_length":1000}]}`))
+	defer srv.Close()
+	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "default")
+	<-r.e.ready
+	r.e.mu.Lock()
+	r.e.history = toolMsgs(8+9, 3500) // too little old output for a routine batch, but dropping it frees far more than the limit needs
+	r.e.mu.Unlock()
+	r.e.Send("go on")
+	if res := r.until(true); res.IsError {
+		t.Fatalf("result %+v", res)
+	}
+	if len(s.requests) != 2 || strings.Contains(fmt.Sprint(s.requests[1]["messages"]), "Summarise this conversation") {
+		t.Fatalf("expected no summary request, got %d requests", len(s.requests))
+	}
+	if strings.Count(fmt.Sprint(s.requests[1]["messages"]), "left out to save tokens") != 10 { // the nine, and the one the new result pushed out of the newest eight
+		t.Fatal("the old output should have been dropped from the second request")
+	}
+}

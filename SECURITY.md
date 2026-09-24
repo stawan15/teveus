@@ -17,11 +17,13 @@ An AI agent reads untrusted text (web pages, files, command output) and can act 
 - **Credentials are off limits.** teveus's file tools refuse, in every mode, to touch its own keys and settings, Claude Code's login, SSH and GPG keys, and common token files (`.aws`, `.netrc`, `.npmrc`, `.docker`, `.kube`, `gh`, `gcloud`).
 - **Your rules win.** Deny rules (`/permissions deny …`) apply even in autopilot. "Always allow" for a command is saved as a narrow prefix and never covers a command chained with `&&`, `;`, `|`, `$( )` or redirections.
 - **Project MCP servers need approval.** A repository's `.mcp.json` can start programs, so its servers stay off until you approve that exact file with `/mcp`; editing the file withdraws the approval.
+- **Hooks stay out of repositories.** Hooks run commands on your computer, so they are read only from teveus's own settings folder (`hooks.json`), which the file tools can't touch. A repository can add slash commands and skills, but those are prompts, like `CLAUDE.md`: they run nothing themselves and the model's tool calls still ask as usual.
 - **Private files.** Keys, prompt history, conversations and rules are stored readable only by your user account.
 - **Verified installs and updates.** `install.sh` checks the download against the release's SHA-256 checksums, and an update from inside teveus runs that same installer, pinned to the exact version it offered. teveus never updates without asking.
 
 ## Limits
 
 - Commands you approve run with your permissions, and autopilot approves everything except your deny rules. Use it in projects you trust.
+- Hooks and background commands run with your permissions. A background command you approved keeps running until it ends, you stop it, or its session closes.
 - A shell command can read anything your account can; the credential guard covers teveus's file tools, not commands you approve.
 - On the Claude Code engine, Claude Code's own permission system applies instead of the above.

@@ -150,3 +150,45 @@ func TestTabStripFitsTheWindow(t *testing.T) {
 		t.Fatal("tab strip shown with one session")
 	}
 }
+
+func TestSpendAcrossSessions(t *testing.T) {
+	m, _, _ := twoSessions(t)
+	if got := m.totalSpend(); got != "" {
+		t.Fatalf("nothing has been used yet, got %q", got)
+	}
+	m.cost = 0.25
+	m.sessions[1].tokIn, m.sessions[1].tokOut = 1500, 200
+	if got := spendLabel(m.spendOf(1)); got != "1.5k in · 200 out" {
+		t.Fatalf("token-only spend = %q", got)
+	}
+	if got := m.totalSpend(); got != "$0.250" {
+		t.Fatalf("total = %q", got)
+	}
+	m.openSessions()
+	var rows []string
+	for _, c := range m.pop.all {
+		rows = append(rows, c.label+"|"+c.desc)
+	}
+	all := strings.Join(rows, "\n")
+	if !strings.Contains(m.pop.title, "$0.250 in all") || !strings.Contains(all, "$0.250") || !strings.Contains(all, "1.5k in · 200 out") {
+		t.Fatalf("sessions picker %q:\n%s", m.pop.title, all)
+	}
+
+	m.pop.close()
+	m.settings.HideSide = true
+	m.layout()
+	if bar := ansi.Strip(m.statusBar()); !strings.Contains(bar, "$0.250") {
+		t.Fatalf("status bar without a sidebar should show the spend: %q", bar)
+	}
+}
+
+func TestNotifyNamesTheSession(t *testing.T) {
+	m, _, _ := twoSessions(t)
+	if got := m.notifyText("Claude finished"); got != "session 1: Claude finished" {
+		t.Fatalf("got %q", got)
+	}
+	m.sessions = m.sessions[:1]
+	if got := m.notifyText("Claude finished"); got != "Claude finished" {
+		t.Fatalf("one session needs no label, got %q", got)
+	}
+}

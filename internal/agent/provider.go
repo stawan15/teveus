@@ -73,6 +73,7 @@ type Message struct {
 	ToolCallID string          // tool
 	Result     string          // tool
 	IsError    bool            // tool
+	Pruned     bool            `json:",omitempty"` // tool: the result is sent as a short note (prune.go); Result keeps the original
 }
 
 type ToolCall struct {

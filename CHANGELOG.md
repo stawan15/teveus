@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
 ### Added
 - Several conversations at once in one window. `/sessions` lists them and lets you start, switch to or close one; `alt+1` to `alt+9` jump straight to a session. Sessions keep working while you look at another, and a line of tabs under the header names each one, with `●` for one that is working and `!` for one waiting for your approval. On macOS Terminal, turn on "Use Option as Meta Key" for the `alt` keys.
 
@@ -102,7 +104,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/stawan15/teveus/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/stawan15/teveus/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/stawan15/teveus/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/stawan15/teveus/compare/v0.2.0...v0.3.0

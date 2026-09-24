@@ -5,6 +5,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+- Your own slash commands and skills on the Direct API engine. Markdown files in `.claude/commands/` (for example `review.md` becomes `/review`, with `$ARGUMENTS` and `$1` filling in what you type after it) and in `.claude/skills/`, in the project or in `~/.claude`, show up in the `/` menu. The model can also load a skill on its own when a task matches it.
+- `/hooks`: run your own commands before or after the model's tool calls, such as a formatter after each edit or a check that blocks a command. They are kept in teveus's settings folder, never in the project, so a repository can't run commands by itself.
+- Long-running commands in the background on the Direct API engine: the model can start a dev server or a watcher, read its output later and stop it. They all stop when you close the session.
+- Notebooks (`.ipynb`) on the Direct API engine: the model reads them cell by cell, without the bulky outputs, and can replace, insert or delete a cell.
+- `/search text` finds words in the open conversation (pick a match to jump to it) and in your earlier conversations in this folder (pick one to resume it).
+- `/worktree`, or "New session in a git worktree" in `/sessions`: a session gets its own copy of the repository on its own branch, so several sessions can edit at once without overwriting each other. Closing it removes the copy unless it holds uncommitted work.
+- `/subagent` (or `/settings` → Research subagent model): run the research subagents on a cheaper model. Off until you choose one; they use the conversation's model by default, and fall back to it if the chosen one can't be reached.
+- What each session has used shows in `/sessions`, with the total, and in the status bar when the sidebar is hidden.
+
+### Changed
+- Long sessions on the Direct API engine use fewer tokens without losing anything: big tool output that is many steps old (a file read, a test log) is replaced in what the model is sent by a one-line note, and the model runs the tool again if it needs it. It happens in batches so the provider's prompt cache keeps working, and your transcript and `/resume` still show the full output.
+- Reading a file that hasn't changed since the model last read it now answers "unchanged, it's above" instead of sending the file again.
+- When a conversation nears the model's context limit, old tool output is dropped first, and the conversation is only summarised if that isn't enough. That saves the cost of the summary.
+- A session you aren't looking at now sends a desktop notification whenever it finishes or needs approval, naming the session, however short its turn was.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

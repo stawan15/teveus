@@ -49,7 +49,10 @@ type Model struct {
 	gen        int // this session's backend generation: events from any other are ignored or belong to a parked session
 	genSeq     int // last generation handed out, across all sessions
 	sessions   []*session
-	cur        int // index in sessions of the one on screen
+	cur        int    // index in sessions of the one on screen
+	home       string // the folder teveus was started in; new sessions start there
+	homeBranch string
+	bg         bool // handling an event of a session that isn't on screen
 
 	w, h         int
 	chatW, sideW int
@@ -165,20 +168,22 @@ func New(cfg Config) *Model {
 	}
 	vp := scroller{MouseWheelDelta: 3}
 	return &Model{
-		cfg:      cfg,
-		sessions: []*session{{follow: true}},
-		settings: settings,
-		vp:       vp,
-		input:    ta,
-		r:        &renderer{cwd: cwd, spin: spinFrames[0], expand: settings.ToolDetail},
-		tools:    map[string]*block{},
-		cwd:      cwd,
-		branch:   gitBranch(cwd),
-		mode:     mode,
-		model:    model,
-		engine:   engine,
-		history:  loadHistory(),
-		histIdx:  -1,
+		cfg:        cfg,
+		sessions:   []*session{{follow: true}},
+		settings:   settings,
+		vp:         vp,
+		input:      ta,
+		r:          &renderer{cwd: cwd, spin: spinFrames[0], expand: settings.ToolDetail},
+		tools:      map[string]*block{},
+		cwd:        cwd,
+		home:       cwd,
+		branch:     gitBranch(cwd),
+		homeBranch: gitBranch(cwd),
+		mode:       mode,
+		model:      model,
+		engine:     engine,
+		history:    loadHistory(),
+		histIdx:    -1,
 	}
 }
 
@@ -221,6 +226,7 @@ func (m *Model) startOptions(opts claude.Options) claude.Options {
 	if m.model != "" {
 		opts.Model = m.model
 	}
+	opts.Cwd = m.cwd // a session may work in a worktree
 	return opts
 }
 
@@ -238,7 +244,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
-			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution,
+			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution, SubagentModel: m.settings.SubagentModel,
 		})
 	} else {
 		c, err = claude.Start(opts)
@@ -294,6 +300,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case shellResultMsg:
 		m.handleShell(msg)
+		return m, nil
+
+	case worktreeMsg:
+		if msg.err != nil {
+			m.note(msg.err.Error(), false)
+			return m, nil
+		}
+		return m, m.addSession(msg.cwd, msg.name, &msg.wt)
+
+	case searchMsg:
+		m.showSearch(msg)
 		return m, nil
 
 	case diffMsg:
@@ -1103,7 +1120,7 @@ func (m *Model) handleEvent(ev claude.Event) {
 	case *claude.PermissionRequest:
 		m.perms = append(m.perms, e)
 		m.pop.close()
-		notify(m.agentName() + " needs your approval: " + e.ToolName)
+		notify(m.notifyText(m.agentName() + " needs your approval: " + e.ToolName))
 
 	case claude.RateLimit:
 		if e.FiveHour != nil {
@@ -1149,8 +1166,9 @@ func (m *Model) handleEvent(ev claude.Event) {
 		m.add(&block{kind: kindTurnEnd, text: fmt.Sprintf("Worked for %s · %s",
 			fmtDur(time.Duration(e.DurationMS)*time.Millisecond), spent)})
 		m.prevCost = e.CostUSD
-		if elapsed > 20*time.Second {
-			notify(m.agentName() + " finished")
+		if elapsed > 20*time.Second || m.bg {
+			// A session out of sight is worth a ping however short its turn was.
+			notify(m.notifyText(m.agentName() + " finished"))
 		}
 
 	case claude.ControlResult:

@@ -27,6 +27,10 @@ type Options struct {
 	ConfigDir  string // teveus's settings: MCP servers, permission rules
 	Effort     string // reasoning effort ("" = the model's default)
 
+	// SubagentModel ("provider/model-id") runs Task research subagents; empty
+	// means the same model as the conversation.
+	SubagentModel string
+
 	// Attribution lets the model credit itself in commits and pull requests
 	// (Co-Authored-By, "Generated with…"). Off by default: commits are the user's.
 	Attribution bool
@@ -44,10 +48,11 @@ type permReply struct {
 
 // Engine is a claude.Backend backed by direct provider API calls.
 type Engine struct {
-	opts Options
-	box  *Toolbox
-	mcp  *mcpManager
-	perm *permissions
+	opts  Options
+	box   *Toolbox
+	mcp   *mcpManager
+	perm  *permissions
+	hooks *hooks
 
 	evMu    sync.RWMutex
 	events  chan claude.Event
@@ -70,6 +75,7 @@ type Engine struct {
 	creds    map[string]Credential
 	ctxLen   map[string]int // context window by "provider/model", when known
 	stopTurn bool
+	seen     map[string]readSig // files the main conversation read and is still holding
 
 	cur         *checkpoint   // edits of the running turn
 	checkpoints []*checkpoint // one per finished turn, for /undo
@@ -85,6 +91,7 @@ func Start(opts Options) (*Engine, error) {
 		box:     NewToolbox(opts.Cwd),
 		mcp:     newMCPManager(opts.Cwd, opts.ConfigDir),
 		perm:    newPermissions(opts.ConfigDir, opts.Cwd),
+		hooks:   newHooks(opts.ConfigDir, opts.Cwd),
 		events:  make(chan claude.Event, 512),
 		queue:   make(chan userTurn, 32),
 		ready:   make(chan struct{}),
@@ -95,6 +102,7 @@ func Start(opts Options) (*Engine, error) {
 		session: "api-" + hex.EncodeToString(id),
 		creds:   map[string]Credential{},
 		ctxLen:  map[string]int{},
+		seen:    map[string]readSig{},
 	}
 	if opts.Resume != "" {
 		s, err := LoadSession(opts.SessionDir, opts.Resume)
@@ -128,6 +136,7 @@ func (e *Engine) Undo() ([]string, error) {
 	if cp.historyLen <= len(e.history) {
 		e.history = e.history[:cp.historyLen]
 	}
+	e.seen = map[string]readSig{}
 	e.saveLocked()
 	return restored, err
 }
@@ -185,6 +194,13 @@ func (e *Engine) SetAttribution(on bool) {
 func (e *Engine) SetEffort(effort string) {
 	e.mu.Lock()
 	e.opts.Effort = effort
+	e.mu.Unlock()
+}
+
+// SetSubagentModel picks the model research subagents run on ("" = the main one).
+func (e *Engine) SetSubagentModel(model string) {
+	e.mu.Lock()
+	e.opts.SubagentModel = model
 	e.mu.Unlock()
 }
 
@@ -261,7 +277,7 @@ func (e *Engine) loadProviders() {
 	e.emit(claude.Ready{
 		PermissionMode: mode,
 		Models:         models,
-		Commands:       []claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}},
+		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd))...),
 	})
 	e.emit(claude.Init{SessionID: e.session, Model: model, Cwd: e.opts.Cwd, PermissionMode: mode})
 }
@@ -350,6 +366,7 @@ func (e *Engine) Close() {
 	}
 	e.mu.Unlock()
 	close(e.queue)
+	e.box.closeJobs()
 	go e.mcp.close()
 	go func() {
 		e.emit(claude.Exited{Requested: true})
@@ -360,11 +377,15 @@ func (e *Engine) Close() {
 	}()
 }
 
-// client resolves "provider/model" to an API client and the model ID.
+// client resolves the conversation's "provider/model" to an API client and the model ID.
 func (e *Engine) client() (Client, string, error) {
 	e.mu.Lock()
 	model := e.model
 	e.mu.Unlock()
+	return e.clientFor(model)
+}
+
+func (e *Engine) clientFor(model string) (Client, string, error) {
 	if model == "" {
 		return nil, "", errors.New("no model selected: pick one with /model (connect a provider with /login)")
 	}
@@ -412,6 +433,9 @@ func (e *Engine) turn(text string, images []claude.Image) {
 		return
 	}
 
+	if strings.HasPrefix(strings.TrimSpace(text), "/") {
+		text = expandCustom(loadCustom(e.opts.Cwd), text)
+	}
 	e.mu.Lock()
 	cp := &checkpoint{historyLen: len(e.history), files: map[string][]byte{}}
 	e.cur = cp
@@ -488,10 +512,17 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		// The main conversation compacts itself before it outgrows the
 		// model's context, and once more if the API says it already has.
 		if window := e.contextLimit(); parent == "" && window > 0 && float64(lastContext) > autoCompactAt*float64(window) && !compacted {
-			if err := e.autoCompact(ctx, client, modelID, steps > 1, lastContext); err != nil {
-				return steps, total, err
+			// Dropping old tool output may be enough, and costs no summary.
+			lastContext -= e.pruneResults(true) / 4
+			if float64(lastContext) > autoCompactAt*float64(window) {
+				if err := e.autoCompact(ctx, client, modelID, steps > 1, lastContext); err != nil {
+					return steps, total, err
+				}
+				compacted = true
 			}
-			compacted = true
+		}
+		if parent == "" {
+			e.pruneResults(false)
 		}
 		e.mu.Lock()
 		effort := e.opts.Effort
@@ -499,7 +530,7 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		if parent != "" && effort != "" {
 			effort = "low" // research subagents do simple, many-step work
 		}
-		req := Request{Model: modelID, System: conv.system(), Messages: conv.messages(), Tools: defsOf(toolset), Effort: effort}
+		req := Request{Model: modelID, System: conv.system(), Messages: withoutPruned(conv.messages()), Tools: defsOf(toolset), Effort: effort}
 
 		streaming := false
 		stream := func(c Chunk) {
@@ -562,7 +593,7 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 				results = append(results, toolResult{"Not run: your reply reached the output limit, so this call may be incomplete. Send it again, splitting large content (like a big file) into several smaller Write/Edit calls.", true})
 			}
 		} else {
-			results = e.runTools(ctx, resp.ToolCalls, toolset)
+			results = e.runTools(ctx, resp.ToolCalls, toolset, parent)
 		}
 		for i, tc := range resp.ToolCalls {
 			r := results[i]
@@ -591,7 +622,7 @@ type toolResult struct {
 // runTools runs one step's tool calls. Read-only calls with no prompt to
 // show (reads, searches, subagents) run in parallel; anything else runs in
 // order, so permission prompts come one at a time.
-func (e *Engine) runTools(ctx context.Context, calls []ToolCall, toolset []tool) []toolResult {
+func (e *Engine) runTools(ctx context.Context, calls []ToolCall, toolset []tool, parent string) []toolResult {
 	results := make([]toolResult, len(calls))
 	parallel := len(calls) > 1
 	for _, tc := range calls {
@@ -601,7 +632,7 @@ func (e *Engine) runTools(ctx context.Context, calls []ToolCall, toolset []tool)
 	}
 	if !parallel {
 		for i, tc := range calls {
-			out, isErr := e.runTool(ctx, tc, toolset)
+			out, isErr := e.runTool(ctx, tc, toolset, parent)
 			results[i] = toolResult{out, isErr}
 		}
 		return results
@@ -611,7 +642,7 @@ func (e *Engine) runTools(ctx context.Context, calls []ToolCall, toolset []tool)
 		wg.Add(1)
 		go func(i int, tc ToolCall) {
 			defer wg.Done()
-			out, isErr := e.runTool(ctx, tc, toolset)
+			out, isErr := e.runTool(ctx, tc, toolset, parent)
 			results[i] = toolResult{out, isErr}
 		}(i, tc)
 	}
@@ -621,7 +652,7 @@ func (e *Engine) runTools(ctx context.Context, calls []ToolCall, toolset []tool)
 
 // runTool applies the permission mode, asks the user when needed and runs
 // the tool. Every call gets a result so the history stays valid.
-func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool) (string, bool) {
+func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, parent string) (string, bool) {
 	if ctx.Err() != nil {
 		return "Interrupted by the user.", true
 	}
@@ -649,8 +680,11 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool) (stri
 		outside = outside || !e.inProject(p)
 	}
 	e.mu.Lock()
-	mode, always := e.mode, e.always[t.def.Name]
+	mode, always, session := e.mode, e.always[t.def.Name], e.session
 	e.mu.Unlock()
+	if h := e.hooks.run(ctx, "PreToolUse", t.def.Name, session, in, ""); h.block {
+		return "Blocked by a PreToolUse hook: " + h.out, true
+	}
 	// Reads inside the project run freely; everything else is checked.
 	if t.access != readOnly || outside {
 		switch {
@@ -672,12 +706,20 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool) (stri
 	if t.access == editsFiles {
 		e.mu.Lock()
 		if e.cur != nil {
-			e.cur.remember(e.box.abs(str(in, "file_path")))
+			e.cur.remember(e.box.abs(editPath(in)))
 		}
 		e.mu.Unlock()
 	}
 	var out string
 	var err error
+	// Only the main conversation is told a file is unchanged: a subagent's
+	// reads never reach it.
+	readPath, sig, track := "", readSig{}, false
+	if t.def.Name == "Read" && parent == "" {
+		if readPath, sig, track = e.readSignature(in); track && e.unchangedRead(readPath, sig) {
+			return unchangedNote, false
+		}
+	}
 	if t.run == nil && t.def.Name == "Task" {
 		out, err = e.runTask(ctx, tc.ID, in)
 	} else {
@@ -685,6 +727,12 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool) (stri
 	}
 	if err != nil {
 		return err.Error(), true
+	}
+	if track {
+		e.noteRead(readPath, sig)
+	}
+	if h := e.hooks.run(ctx, "PostToolUse", t.def.Name, session, in, out); h.out != "" {
+		out += "\n\nPostToolUse hook reported:\n" + h.out
 	}
 	return out, false
 }
@@ -721,7 +769,7 @@ func (e *Engine) ask(ctx context.Context, t tool, tc ToolCall) permReply {
 		if r.always {
 			if t.access == editsFiles {
 				e.mu.Lock()
-				for _, name := range []string{"Edit", "Write"} {
+				for _, name := range []string{"Edit", "Write", "NotebookEdit"} {
 					e.always[name] = true
 				}
 				e.mu.Unlock()
@@ -764,7 +812,7 @@ func (e *Engine) compact(ctx context.Context, client Client, modelID string, sta
 // that hasn't started yet); midTurn adds a nudge to carry on with the task.
 func (e *Engine) compactHistory(ctx context.Context, client Client, modelID string, keepLast, midTurn bool) (string, error) {
 	e.mu.Lock()
-	hist := append([]Message(nil), e.history...)
+	hist := withoutPruned(e.history)
 	e.mu.Unlock()
 	var kept []Message
 	if n := len(hist); keepLast && n > 0 && hist[n-1].Role == "user" {
@@ -783,6 +831,7 @@ func (e *Engine) compactHistory(ctx context.Context, client Client, modelID stri
 	next = append(next, kept...)
 	e.mu.Lock()
 	e.history = next
+	e.seen = map[string]readSig{}
 	e.cost += resp.Usage.Cost
 	// Undo can't bring back what was summarised: keep file restores only.
 	e.checkpoints = nil

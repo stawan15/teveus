@@ -41,6 +41,10 @@ type Toolbox struct {
 	Cwd  string
 	mu   sync.Mutex
 	read map[string]bool
+
+	jobMu  sync.Mutex // background commands (jobs.go)
+	jobs   map[string]*job
+	jobSeq int
 }
 
 func NewToolbox(cwd string) *Toolbox { return &Toolbox{Cwd: cwd, read: map[string]bool{}} }
@@ -194,7 +198,13 @@ func runRead(_ context.Context, t *Toolbox, in map[string]any) (string, error) {
 		return fmt.Sprintf("(binary file, %d bytes)", len(b)), nil
 	}
 	t.markRead(p)
-	lines := strings.Split(string(b), "\n")
+	text := string(b)
+	if strings.HasSuffix(p, ".ipynb") {
+		if nb, err := notebookText(b); err == nil {
+			text = nb // the cells; a notebook that doesn't parse is shown as it is
+		}
+	}
+	lines := strings.Split(text, "\n")
 	start := num(in, "offset", 1) - 1
 	limit := num(in, "limit", 2000)
 	if start >= len(lines) {
@@ -270,6 +280,10 @@ func runEdit(_ context.Context, t *Toolbox, in map[string]any) (string, error) {
 const outputCap = 30000
 
 func runBash(ctx context.Context, t *Toolbox, in map[string]any) (string, error) {
+	if in["run_in_background"] == true {
+		id := t.startJob(str(in, "command"))
+		return "Started in the background as " + id + ". Read its output with BashOutput, stop it with KillShell.", nil
+	}
 	timeout := time.Duration(min(num(in, "timeout", 120000), 600000)) * time.Millisecond
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

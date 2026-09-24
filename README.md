@@ -49,10 +49,14 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
 | 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
+| 🧩 **Make it yours** | On the Direct API engine: your slash commands and skills from `.claude/commands` and `.claude/skills`, `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
+| 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
+| 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
 | ↩️ **Undo** | `/undo` puts files back the way they were |
 | 🕘 **Pick up later** | `/resume` reopens earlier conversations |
 | 💸 **Spend less, when you want** | Off until you turn them on: `/concise` for short answers, `/lean` to send fewer tool definitions, and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
 | ✂️ **Trim the fat** | `/trim` reviews your uncommitted changes for code you don't need; `/trim all` checks the whole project |
+| 🪙 **Long sessions stay cheap** | On the Direct API engine, old tool output is swapped for a one-line note (the model can run it again), unchanged files aren't re-sent, and `/subagent` runs research on a cheaper model |
 | 🎨 **Make it yours** | 6 themes (including high contrast), 3 guidance levels, reduce motion |
 
 ## Keys to know
@@ -84,6 +88,9 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/undo` | Undo the last change |
 | `/sessions` | Run several conversations at once: switch, start or close one (`alt+1` to `alt+9` jump to one) |
 | `/resume` | Reopen an earlier conversation |
+| `/search` | Find text in this and earlier conversations |
+| `/worktree` | Start a session in its own git worktree |
+| `/hooks` | Commands that run before or after tool calls |
 | `/diff` | See what changed |
 | `/init` | Let the AI write notes about your project so it works better |
 | `/settings` | All preferences in one place |

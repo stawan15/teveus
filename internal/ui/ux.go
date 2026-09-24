@@ -156,6 +156,7 @@ func (m *Model) openSettingsAt(sel int) {
 		{"AI", "Engine", engineLabel(m.engine), func(m *Model) tea.Cmd { m.openEnginePicker(); return nil }},
 		{"AI", "Model", orDefault(shortModel(m.model)), func(m *Model) tea.Cmd { m.openModelPicker(); return nil }},
 		{"AI", "Reasoning effort", m.effort(), func(m *Model) tea.Cmd { m.openEffortSlider(); return nil }},
+		{"AI", "Research subagent model (API)", subagentLabel(m.settings.SubagentModel), func(m *Model) tea.Cmd { return m.openSubagentPicker("") }},
 		{"AI", "Concise answers", onOff(m.settings.Concise), func(m *Model) tea.Cmd { return m.toggleConcise() }},
 		{"AI", "Lean tools (Claude Code)", onOff(m.settings.LeanTools), func(m *Model) tea.Cmd { return m.toggleLean() }},
 		{"AI", "Minimal code", m.minimalLevel(), func(m *Model) tea.Cmd { return m.setMinimal("") }},
@@ -216,4 +217,11 @@ func (m *Model) openLevelSlider() {
 		}
 	}
 	m.openSlider("Guidance level", "How much help teveus shows", cs, sel)
+}
+
+func subagentLabel(model string) string {
+	if model == "" {
+		return "same as main"
+	}
+	return shortModel(model)
 }

@@ -9,7 +9,7 @@ What does leave your computer goes to services **you** choose, under **their** t
 | When | What is sent | To |
 |---|---|---|
 | You use the **Claude Code** engine | Your messages, and whatever Claude Code reads or runs for them | Anthropic, by your installed Claude Code, under [Anthropic's terms and privacy policy](https://www.anthropic.com/legal/privacy). teveus only starts the `claude` program; it never sees or stores your Claude login. |
-| You use the **Direct API** engine | Your messages, images you attach, and the contents of files and command output the model reads while working | The AI provider whose model you picked (OpenAI, Anthropic, Google, OpenRouter, …), under that provider's terms. Local models (Ollama, LM Studio) stay on your machine. |
+| You use the **Direct API** engine | Your messages, images you attach, and the contents of files and command output the model reads while working | The AI provider whose model you picked (OpenAI, Anthropic, Google, OpenRouter, …), under that provider's terms. Local models (Ollama, LM Studio) stay on your machine. If you pick a separate model for research subagents (`/subagent`), what those subagents read goes to that model's provider instead. |
 | teveus starts on the Direct API engine | A request for the list of models | Each provider you've connected |
 | The model uses **WebFetch** (you approve it) | A request for that web address | That website |
 | The model uses **WebSearch** (you approve it) | The search words | Brave Search or Tavily, whichever key you connected |
@@ -31,7 +31,10 @@ Everything lives in `~/.config/teveus/` (on Windows, `%AppData%\teveus\`; `TEVEU
 | `history.json` | Your last 500 prompts, for the ↑ key | Until `/purge` |
 | `sessions/` | Direct API conversations (text and images), for `/resume` | 30 days, then deleted (`"keepSessionsDays"` in settings; `-1` keeps them) |
 | `permissions.json` | Allow/deny rules you saved | Until you remove them (`/permissions`) |
+| `hooks.json` | Commands you set to run around tool calls (`/hooks`) | Always |
 | `mcp-approved.json` | Which projects' MCP servers you approved | Always |
+
+With a git worktree session, teveus also creates `.teveus/worktrees/` inside your repository and lists `.teveus/` in the repository's `.git/info/exclude`, so it stays out of `git status`. A clean worktree is removed when its session closes.
 
 `/purge` deletes the saved conversations and prompt history at once. Deleting the folder removes everything, including keys. Claude Code keeps its own history in `~/.claude/`; teveus doesn't manage it.
 

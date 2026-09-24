@@ -10,7 +10,7 @@ import (
 // a subagent doesn't, so subagents never nest.
 func (e *Engine) tools(main bool) []tool {
 	list := append([]tool(nil), tools...)
-	list = append(list, webFetchTool)
+	list = append(list, webFetchTool, notebookTool)
 	if _, _, ok := searchKey(e.opts.Store); ok {
 		list = append(list, tool{access: network, def: ToolDef{Name: "WebSearch",
 			Description: "Search the web. Returns titles, URLs and snippets; WebFetch a result to read it.",
@@ -20,6 +20,9 @@ func (e *Engine) tools(main bool) []tool {
 			run: func(ctx context.Context, _ *Toolbox, in map[string]any) (string, error) {
 				return e.runWebSearch(ctx, in)
 			}})
+	}
+	if hasSkills(loadCustom(e.opts.Cwd)) {
+		list = append(list, skillTool(e.opts.Cwd))
 	}
 	list = append(list, e.mcpTools()...)
 	if main {
@@ -35,6 +38,10 @@ func (e *Engine) tools(main bool) []tool {
 	}
 	return list
 }
+
+// subagentSkips are read-only tools a research subagent still doesn't get:
+// they change or depend on the main conversation's state.
+var subagentSkips = map[string]bool{"TodoWrite": true, "Skill": true, "BashOutput": true, "KillShell": true}
 
 const subagentPrompt = `You are a research subagent working for a coding agent in the user's terminal (teveus). You have read-only tools; you cannot edit files or run commands.
 
@@ -69,14 +76,16 @@ func (e *Engine) runTask(ctx context.Context, id string, in map[string]any) (str
 	if err != nil {
 		return "", err
 	}
-	var readOnlyTools []tool
-	for _, t := range e.tools(false) {
-		if t.access == readOnly || t.access == network {
-			if t.def.Name != "TodoWrite" && !strings.HasPrefix(t.def.Name, "mcp__") {
-				readOnlyTools = append(readOnlyTools, t)
-			}
+	e.mu.Lock()
+	sub := e.opts.SubagentModel
+	e.mu.Unlock()
+	if sub != "" {
+		// A model that can't be reached (key removed) falls back to the main one.
+		if c, m, err := e.clientFor(sub); err == nil {
+			client, modelID = c, m
 		}
 	}
+	readOnlyTools := e.subagentTools()
 	conv := &subConv{e: e, hist: []Message{{Role: "user", Text: prompt}}}
 	if _, _, err := e.loop(ctx, client, modelID, conv, readOnlyTools, id); err != nil {
 		return "", err
@@ -87,4 +96,15 @@ func (e *Engine) runTask(ctx context.Context, id string, in map[string]any) (str
 		}
 	}
 	return "", errors.New("the subagent finished without a report")
+}
+
+// subagentTools are the read-only tools a research subagent gets.
+func (e *Engine) subagentTools() []tool {
+	var out []tool
+	for _, t := range e.tools(false) {
+		if (t.access == readOnly || t.access == network) && !subagentSkips[t.def.Name] && !strings.HasPrefix(t.def.Name, "mcp__") {
+			out = append(out, t)
+		}
+	}
+	return out
 }

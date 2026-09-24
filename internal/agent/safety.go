@@ -89,10 +89,18 @@ func within(p, root string) bool {
 // toolPaths returns the files or directories a file tool call touches.
 func (e *Engine) toolPaths(name string, in map[string]any) []string {
 	switch name {
-	case "Read", "Write", "Edit":
-		return []string{e.box.abs(str(in, "file_path"))}
+	case "Read", "Write", "Edit", "NotebookEdit":
+		return []string{e.box.abs(editPath(in))}
 	case "Grep", "Glob":
 		return []string{e.box.abs(str(in, "path"))}
 	}
 	return nil
+}
+
+// editPath is the file a Read, Write, Edit or NotebookEdit call is about.
+func editPath(in map[string]any) string {
+	if p := str(in, "file_path"); p != "" {
+		return p
+	}
+	return str(in, "notebook_path")
 }

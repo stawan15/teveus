@@ -187,8 +187,8 @@ func ruleMatches(rule, toolName string, in map[string]any) bool {
 			return err == nil && (strings.EqualFold(u.Hostname(), d) || strings.HasSuffix(strings.ToLower(u.Hostname()), "."+strings.ToLower(d)))
 		}
 		return str(in, "url") == arg
-	case "Read", "Edit", "Write":
-		ok, _ := filepath.Match(arg, str(in, "file_path"))
+	case "Read", "Edit", "Write", "NotebookEdit":
+		ok, _ := filepath.Match(arg, editPath(in))
 		return ok
 	}
 	return false

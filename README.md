@@ -2,8 +2,10 @@
 
 # teveus
 
-**A friendly terminal for AI coding.**
+**teveus is a free, open-source AI coding assistant that runs in your terminal.**
 Run Claude Code, or any AI provider with your own key, in one fast, good-looking app.
+
+[Website](https://www.teveus.xyz) · [Docs](https://www.teveus.xyz/docs) · [Releases](https://www.teveus.xyz/releases)
 
 ![teveus fixing a bug: Claude reads the code, proposes a change, you approve it](docs/demo.gif)
 

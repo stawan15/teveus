@@ -7,6 +7,15 @@
       "url": "https://github.com/stawan15/teveus/compare/v0.3.2...HEAD",
       "sections": [
         {
+          "title": "Security",
+          "items": [
+            {
+              "text": "Built with Go 1.26.8, which fixes six vulnerabilities in Go's standard library (net/http, crypto/tls, net/url, encoding/xml and encoding/asn1). CI now checks for known vulnerabilities on every push.",
+              "items": []
+            }
+          ]
+        },
+        {
           "title": "Changed",
           "items": [
             {

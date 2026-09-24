@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -305,11 +306,11 @@ func TestEditRequiresRead(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "f.txt"), []byte("a"), 0o644)
 	box := NewToolbox(dir)
-	if _, err := runEdit(nil, box, map[string]any{"file_path": "f.txt", "old_string": "a", "new_string": "b"}); err == nil {
+	if _, err := runEdit(context.Background(), box, map[string]any{"file_path": "f.txt", "old_string": "a", "new_string": "b"}); err == nil {
 		t.Fatal("edit without read should fail")
 	}
-	runRead(nil, box, map[string]any{"file_path": "f.txt"})
-	if _, err := runEdit(nil, box, map[string]any{"file_path": "f.txt", "old_string": "a", "new_string": "b"}); err != nil {
+	runRead(context.Background(), box, map[string]any{"file_path": "f.txt"})
+	if _, err := runEdit(context.Background(), box, map[string]any{"file_path": "f.txt", "old_string": "a", "new_string": "b"}); err != nil {
 		t.Fatal(err)
 	}
 }

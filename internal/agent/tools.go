@@ -242,6 +242,7 @@ func runEdit(_ context.Context, t *Toolbox, in map[string]any) (string, error) {
 		return "", err
 	}
 	if !t.wasRead(p) {
+		//lint:ignore ST1005 starts with the tool name
 		return "", fmt.Errorf("Read %s before editing it", p)
 	}
 	if old == nw {

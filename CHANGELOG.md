@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-24
+
 ### Fixed
 - Scrolling with the mouse wheel could fill the message box with your earlier prompts instead of scrolling the conversation, in terminals that turn the wheel into arrow keys. The wheel no longer sends arrow keys while teveus is open, so ↑ and ↓ only browse your earlier prompts.
 
@@ -137,7 +139,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/stawan15/teveus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/stawan15/teveus/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/stawan15/teveus/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/stawan15/teveus/compare/v0.3.2...v0.4.0

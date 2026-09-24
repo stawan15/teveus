@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-24
+
 ### Added
 - Your own slash commands and skills on the Direct API engine. Markdown files in `.claude/commands/` (for example `review.md` becomes `/review`, with `$ARGUMENTS` and `$1` filling in what you type after it) and in `.claude/skills/`, in the project or in `~/.claude`, show up in the `/` menu. The model can also load a skill on its own when a task matches it.
 - `/hooks`: run your own commands before or after the model's tool calls, such as a formatter after each edit or a check that blocks a command. They are kept in teveus's settings folder, never in the project, so a repository can't run commands by itself.
@@ -120,7 +122,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/stawan15/teveus/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/stawan15/teveus/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/stawan15/teveus/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/stawan15/teveus/compare/v0.3.0...v0.3.1

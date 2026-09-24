@@ -97,3 +97,15 @@ func TestSliderFitsEveryWidth(t *testing.T) {
 		t.Fatal("isScale")
 	}
 }
+
+func TestAttributionIsOffByDefault(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	if !m.startOptions(m.cfg.Claude).NoAttribution {
+		t.Fatal("Claude Code would add Co-Authored-By by default")
+	}
+	m.toggleAttribution()
+	if m.startOptions(m.cfg.Claude).NoAttribution || !LoadSettings().Attribution {
+		t.Fatal("turning it on didn't stick")
+	}
+}

@@ -41,6 +41,9 @@ func (e *Engine) systemPrompt() string {
 	if e.mode == "plan" {
 		sb.WriteString(planPrompt + "\n")
 	}
+	if !e.opts.Attribution {
+		sb.WriteString("\n# Git\n- Write commit messages and pull request descriptions as the user's own work: no Co-Authored-By trailers, no \"Generated with…\" lines, no mention of being an AI, unless the user asks for it.\n")
+	}
 	if e.opts.Style != "" {
 		sb.WriteString("\n# Communication\n" + e.opts.Style + "\n")
 	}

@@ -27,6 +27,7 @@ type Settings struct {
 	LeanTools        bool   `json:"leanTools,omitempty"`           // leave rarely used Claude Code tools out
 	StylePrompt      string `json:"stylePrompt,omitempty"`         // replaces the built-in concise prompt
 	ClaudeNotice     bool   `json:"claudeCodeConfirmed,omitempty"` // agreed to run their own Claude Code (claude_notice.go)
+	Attribution      bool   `json:"attribution,omitempty"`         // let the AI credit itself in commits and PRs (off by default)
 	NoUpdateCheck    bool   `json:"noUpdateCheck,omitempty"`       // don't look for new versions (update.go)
 	UpdateCheckedAt  int64  `json:"updateCheckedAt,omitempty"`     // unix time of the last daily check
 	SkipVersion      string `json:"skipVersion,omitempty"`         // a release the user chose to skip

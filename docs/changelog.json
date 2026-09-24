@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.3.2...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Commits and pull requests made through teveus no longer carry a \"Co-Authored-By\" or \"Generated with\" line: not from Claude Code, and not from the Direct API engine. To bring them back, turn on \"Credit AI in commits\" in `/settings`.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.3.2",

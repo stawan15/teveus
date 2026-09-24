@@ -174,6 +174,22 @@ func (m *Model) toggleConcise() tea.Cmd {
 	return m.restart("concise answers on")
 }
 
+// toggleAttribution lets the AI credit itself in commits and PRs, or not.
+func (m *Model) toggleAttribution() tea.Cmd {
+	m.settings.Attribution = !m.settings.Attribution
+	saveSettings(m.settings)
+	if eng, ok := m.client.(*agent.Engine); ok {
+		eng.SetAttribution(m.settings.Attribution)
+		m.note("AI credit in commits "+onOff(m.settings.Attribution), true)
+		return nil
+	}
+	if m.client == nil {
+		m.note("AI credit in commits "+onOff(m.settings.Attribution), true)
+		return nil
+	}
+	return m.restart("AI credit in commits " + onOff(m.settings.Attribution))
+}
+
 func (m *Model) toggleLean() tea.Cmd {
 	m.settings.LeanTools = !m.settings.LeanTools
 	saveSettings(m.settings)

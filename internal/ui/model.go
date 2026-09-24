@@ -213,6 +213,7 @@ func (m *Model) startOptions(opts claude.Options) claude.Options {
 	opts = m.applySavers(opts)
 	opts.PermissionMode = m.mode
 	opts.Effort = m.settings.Effort
+	opts.NoAttribution = !m.settings.Attribution
 	if m.model != "" {
 		opts.Model = m.model
 	}
@@ -233,7 +234,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
-			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort,
+			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution,
 		})
 	} else {
 		c, err = claude.Start(opts)

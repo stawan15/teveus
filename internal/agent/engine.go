@@ -26,6 +26,10 @@ type Options struct {
 	Resume     string // session ID to continue
 	ConfigDir  string // teveus's settings: MCP servers, permission rules
 	Effort     string // reasoning effort ("" = the model's default)
+
+	// Attribution lets the model credit itself in commits and pull requests
+	// (Co-Authored-By, "Generated with…"). Off by default: commits are the user's.
+	Attribution bool
 }
 
 const (
@@ -169,6 +173,13 @@ func (e *Engine) init() {
 // Reload re-reads credentials and model lists (after /login) while keeping
 // the conversation.
 func (e *Engine) Reload() { go e.loadProviders() }
+
+// SetAttribution changes whether commits may credit the AI, from the next request on.
+func (e *Engine) SetAttribution(on bool) {
+	e.mu.Lock()
+	e.opts.Attribution = on
+	e.mu.Unlock()
+}
 
 // SetEffort changes the reasoning effort from the next request on.
 func (e *Engine) SetEffort(effort string) {

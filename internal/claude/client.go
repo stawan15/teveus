@@ -28,6 +28,7 @@ type Options struct {
 	AppendPrompt   string   // appended to Claude Code's system prompt
 	DisallowTools  []string // built-in tools to leave out of the context
 	Effort         string   // reasoning effort: low, medium, high, xhigh, max ("" = the CLI's own setting)
+	NoAttribution  bool     // ask the CLI not to add Co-Authored-By / "Generated with" lines to commits and PRs
 	ExtraArgs      []string
 }
 
@@ -75,6 +76,10 @@ func Start(opts Options) (*Client, error) {
 	}
 	if opts.Effort != "" {
 		args = append(args, "--effort", opts.Effort)
+	}
+	if opts.NoAttribution {
+		// The CLI's documented "attribution" setting: empty text hides it.
+		args = append(args, "--settings", `{"attribution":{"commit":"","pr":""}}`)
 	}
 	args = append(args, opts.ExtraArgs...)
 

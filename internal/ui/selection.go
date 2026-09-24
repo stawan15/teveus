@@ -109,6 +109,13 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 
+	// A release the terminal never reported (it went to the window edge or to
+	// the terminal's own link handling) would leave the drag stuck, and
+	// autoScroll would keep scrolling the transcript up.
+	case msg.Action == tea.MouseActionMotion && m.sel.dragging && msg.Button != tea.MouseButtonLeft:
+		m.sel.dragging = false
+		return nil
+
 	case msg.Action == tea.MouseActionMotion && m.sel.dragging:
 		m.sel.row, m.sel.x = row, msg.X
 		m.sel.head = m.pointAt(msg.X, row)

@@ -32,6 +32,7 @@ Everything lives in `~/.config/teveus/` (on Windows, `%AppData%\teveus\`; `TEVEU
 | `sessions/` | Direct API conversations (text and images), for `/resume` | 30 days, then deleted (`"keepSessionsDays"` in settings; `-1` keeps them) |
 | `permissions.json` | Allow/deny rules you saved | Until you remove them (`/permissions`) |
 | `hooks.json` | Commands you set to run around tool calls (`/hooks`) | Always |
+| `trusted-folders.json` | Folders you said you trust | Always |
 | `mcp-approved.json` | Which projects' MCP servers you approved | Always |
 
 With a git worktree session, teveus also creates `.teveus/worktrees/` inside your repository and lists `.teveus/` in the repository's `.git/info/exclude`, so it stays out of `git status`. A clean worktree is removed when its session closes.

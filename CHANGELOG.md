@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+- Scrolling with the mouse or trackpad could type text like `[<65;28;24M` into the message box, in terminals that send mouse events in pieces.
+- `cmd+v` with only an image on the clipboard now attaches the image instead of doing nothing.
+
 ## [0.6.1] - 2026-09-24
 
 ### Fixed

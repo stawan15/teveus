@@ -60,6 +60,9 @@ func main() {
 	if !settings.NoMouse {
 		progOpts = append(progOpts, tea.WithMouseCellMotion())
 	}
+	if in, ok := ui.SplitKeysGuard(); ok {
+		progOpts = append(progOpts, tea.WithInput(in))
+	}
 	p := tea.NewProgram(ui.New(cfg), progOpts...)
 	_, err := p.Run()
 	fmt.Print("\x1b[=0;1u") // key protocol back to legacy, however the app exited

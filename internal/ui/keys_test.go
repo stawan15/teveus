@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -125,5 +127,38 @@ func TestShiftArrowsScrollAndPlainArrowsBrowseHistory(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if m.input.Value() != "earlier prompt" || m.vp.YOffset != at {
 		t.Fatalf("↑ should recall history only: input %q, offset %d", m.input.Value(), m.vp.YOffset)
+	}
+}
+
+func TestSplitKeysJoinsMouseReport(t *testing.T) {
+	for _, first := range []string{"\x1b", "\x1b[", "\x1b[<65;28;2"} {
+		rd, wr, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		const report = "\x1b[<65;28;24M"
+		go func() {
+			wr.WriteString(first)
+			time.Sleep(10 * time.Millisecond)
+			wr.WriteString(report[len(first):])
+		}()
+		in := splitKeys{File: rd, ready: func(time.Duration) bool { return true }}
+		buf := make([]byte, 256)
+		n, err := in.Read(buf)
+		if err != nil || string(buf[:n]) != report {
+			t.Errorf("%q first: got %q, %v", first, buf[:n], err)
+		}
+		rd.Close()
+		wr.Close()
+	}
+}
+
+func TestEmptyPasteFetchesClipboardImage(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Paste: true})
+	if cmd == nil {
+		t.Fatal("empty paste should look for a clipboard image")
 	}
 }

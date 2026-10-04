@@ -1,11 +1,27 @@
 {
-  "latest": "0.6.2",
+  "latest": "0.6.3",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.2...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.3...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.6.3",
+      "date": "2026-10-04",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.2...v0.6.3",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Scrolling fast with the mouse or trackpad could still type text like `[<65;28;24M` into the message box while the screen was busy redrawing.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.2",

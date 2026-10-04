@@ -12,6 +12,7 @@ require (
 	github.com/muesli/termenv v0.16.0
 	golang.org/x/image v0.46.0
 	golang.org/x/net v0.59.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
@@ -39,7 +40,6 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
-	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )

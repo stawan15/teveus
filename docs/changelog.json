@@ -5,7 +5,21 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.6.1...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Scrolling with the mouse or trackpad could type text like `[<65;28;24M` into the message box, in terminals that send mouse events in pieces.",
+              "items": []
+            },
+            {
+              "text": "`cmd+v` with only an image on the clipboard now attaches the image instead of doing nothing.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.1",

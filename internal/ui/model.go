@@ -395,7 +395,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	if k.String() == "ctrl+v" && typing {
+	// Cmd+V with only a picture on the clipboard pastes nothing, so an empty
+	// paste is a request for the image too.
+	if typing && (k.String() == "ctrl+v" || k.Type == tea.KeyRunes && k.Paste && len(k.Runes) == 0) {
 		return m, clipboardImage
 	}
 	if k.Type == tea.KeyRunes {

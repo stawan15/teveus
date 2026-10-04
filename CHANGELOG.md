@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-04
+
 ### Fixed
 - Scrolling with the mouse or trackpad could type text like `[<65;28;24M` into the message box, in terminals that send mouse events in pieces.
 - `cmd+v` with only an image on the clipboard now attaches the image instead of doing nothing.
@@ -143,7 +145,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/stawan15/teveus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/stawan15/teveus/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/stawan15/teveus/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/stawan15/teveus/compare/v0.4.0...v0.5.0

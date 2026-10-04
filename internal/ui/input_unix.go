@@ -25,5 +25,5 @@ func SplitKeysGuard() (io.Reader, bool) {
 		n, err := unix.Select(fd+1, &set, nil, nil, &tv)
 		return err == nil && n > 0
 	}
-	return splitKeys{File: os.Stdin, ready: ready}, true
+	return &splitKeys{File: os.Stdin, ready: ready}, true
 }

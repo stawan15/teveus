@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+- Scrolling fast with the mouse or trackpad could still type text like `[<65;28;24M` into the message box while the screen was busy redrawing.
+
 ## [0.6.2] - 2026-10-04
 
 ### Fixed

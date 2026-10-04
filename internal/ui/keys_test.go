@@ -142,7 +142,7 @@ func TestSplitKeysJoinsMouseReport(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 			wr.WriteString(report[len(first):])
 		}()
-		in := splitKeys{File: rd, ready: func(time.Duration) bool { return true }}
+		in := &splitKeys{File: rd, ready: func(time.Duration) bool { return true }}
 		buf := make([]byte, 256)
 		n, err := in.Read(buf)
 		if err != nil || string(buf[:n]) != report {
@@ -150,6 +150,34 @@ func TestSplitKeysJoinsMouseReport(t *testing.T) {
 		}
 		rd.Close()
 		wr.Close()
+	}
+}
+
+func TestSplitKeysHoldsReportCutByFullBuffer(t *testing.T) {
+	rd, wr, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rd.Close()
+	const report = "\x1b[<65;28;24M"
+	all := strings.Repeat(report, 30) // 360 bytes: the 256-byte buffer ends mid-report
+	wr.WriteString(all)
+	wr.Close()
+	in := &splitKeys{File: rd, ready: func(time.Duration) bool { return true }}
+	buf := make([]byte, 256)
+	var got string
+	for len(got) < len(all) {
+		n, err := in.Read(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(string(buf[:n]), "M") {
+			t.Fatalf("read ends mid-report: %q", buf[:n])
+		}
+		got += string(buf[:n])
+	}
+	if got != all {
+		t.Fatalf("lost input: got %d bytes, want %d", len(got), len(all))
 	}
 }
 

@@ -1,10 +1,16 @@
 {
-  "latest": "0.6.1",
+  "latest": "0.6.2",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.1...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.2...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.6.2",
+      "date": "2026-10-04",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.1...v0.6.2",
       "sections": [
         {
           "title": "Fixed",

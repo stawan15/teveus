@@ -197,22 +197,78 @@ func (m *Model) clearSelection() {
 	m.sel.has, m.sel.dragging = false, false
 }
 
+// softWrapped reports whether line i only ends because the renderer ran out
+// of width: the line is padded to the wrap width and the next word would not
+// have fit on it.
+func (m *Model) softWrapped(i int) bool {
+	cur, next := m.plainLine(i), strings.TrimSpace(m.plainLine(i+1))
+	if next == "" || strings.HasPrefix(next, "•") || strings.HasPrefix(next, "│") {
+		return false
+	}
+	w := ansi.StringWidth(cur)
+	if w < min(m.chatW-3, 120)-3 {
+		return false // not padded to the wrap width, so it ended on its own
+	}
+	word, _, _ := strings.Cut(next, " ")
+	return ansi.StringWidth(strings.TrimRight(cur, " "))+1+ansi.StringWidth(word) > w-4
+}
+
+// hyphenBreak reports whether the renderer broke a word after a hyphen (no
+// space was lost) rather than at a space before a minus sign.
+func hyphenBreak(line, next string) bool {
+	if !strings.HasSuffix(line, "-") {
+		return false
+	}
+	before := strings.TrimSuffix(strings.TrimSuffix(line, "-"), "-")
+	next = strings.TrimLeft(next, " ")
+	return !strings.HasSuffix(before, " ") || next != "" && unicode.IsLetter([]rune(next)[0])
+}
+
+// tabIndented reports whether the block holding transcript line i has code
+// indented with tabs. The renderer shows each tab as four spaces.
+func (m *Model) tabIndented(line int) bool {
+	for i := len(m.blockStart) - 1; i >= 0; i-- {
+		if m.blockStart[i] <= line {
+			b := m.blocks[i]
+			return b.kind == kindAssistant && strings.Contains(b.text, "\n\t")
+		}
+	}
+	return false
+}
+
+// spacesToTabs turns each leading group of four spaces back into a tab.
+func spacesToTabs(l string) string {
+	rest := strings.TrimLeft(l, " ")
+	n := len(l) - len(rest)
+	return strings.Repeat("\t", n/4) + strings.Repeat(" ", n%4) + rest
+}
+
 // selectedText returns the selection as plain text, trailing spaces and the
-// common indentation removed so pasted code keeps its shape.
+// common indentation removed so pasted code keeps its shape. Lines that were
+// only wrapped for the screen are joined back together.
 func (m *Model) selectedText() string {
 	a, b := m.sel.bounds()
 	var lines []string
+	var src []int // the transcript line each entry came from
 	for i := a.line; i <= b.line && i < len(m.lines); i++ {
 		plain := m.plainLine(i)
 		from, to, ok := m.sel.span(i, ansi.StringWidth(plain))
 		if !ok {
-			lines = append(lines, "")
+			lines, src = append(lines, ""), append(src, i)
 			continue
 		}
 		if i == a.line && strings.TrimSpace(ansi.Cut(plain, 0, from)) == "" {
 			from = 0 // starting at the first word: keep its indentation for dedenting
 		}
-		lines = append(lines, strings.TrimRight(ansi.Cut(plain, from, to), " "))
+		piece := strings.TrimRight(ansi.Cut(plain, from, to), " ")
+		if k := len(lines) - 1; i > a.line && k >= 0 && lines[k] != "" && piece != "" && m.softWrapped(i-1) {
+			if !hyphenBreak(lines[k], piece) {
+				lines[k] += " "
+			}
+			lines[k] += strings.TrimLeft(piece, " ")
+			continue
+		}
+		lines, src = append(lines, piece), append(src, i)
 	}
 	indent := -1
 	for _, l := range lines {
@@ -227,6 +283,9 @@ func (m *Model) selectedText() string {
 	for i, l := range lines {
 		if indent > 0 && len(l) >= indent {
 			lines[i] = l[indent:]
+		}
+		if m.tabIndented(src[i]) {
+			lines[i] = spacesToTabs(lines[i])
 		}
 	}
 	return strings.Trim(strings.Join(lines, "\n"), "\n")

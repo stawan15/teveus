@@ -1,6 +1,6 @@
 module github.com/stawan15/teveus
 
-go 1.26.8
+go 1.26.9
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1
@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/muesli/termenv v0.16.0
 	golang.org/x/image v0.46.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
 )
 

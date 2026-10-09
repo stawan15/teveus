@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-10-09
+
+### Fixed
+- Copying code or text that wrapped across several lines on screen now pastes it as one line, the way it was written, and code indented with tabs keeps its tabs.
+
 ## [0.6.3] - 2026-10-04
 
 ### Fixed
@@ -150,7 +155,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/stawan15/teveus/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/stawan15/teveus/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/stawan15/teveus/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/stawan15/teveus/compare/v0.6.0...v0.6.1

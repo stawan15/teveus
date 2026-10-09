@@ -1,11 +1,27 @@
 {
-  "latest": "0.6.3",
+  "latest": "0.6.4",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.3...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.4...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.6.4",
+      "date": "2026-10-09",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.3...v0.6.4",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Copying code or text that wrapped across several lines on screen now pastes it as one line, the way it was written, and code indented with tabs keeps its tabs.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.3",

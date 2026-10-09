@@ -51,7 +51,7 @@ func TestDragSelectCopiesDedentedText(t *testing.T) {
 		t.Fatal("no selection highlight")
 	}
 	mouse(m, tea.MouseActionRelease, tea.MouseButtonLeft, x2, y2)
-	want := "func add(a, b int) int {\n    return a + b\n}"
+	want := "func add(a, b int) int {\n\treturn a + b\n}"
 	if *copied != want {
 		t.Fatalf("copied %q, want %q", *copied, want)
 	}
@@ -117,5 +117,49 @@ func TestCtrlCCopiesSelectionInsteadOfQuitting(t *testing.T) {
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if *copied != "please" || m.sel.has || cmd != nil {
 		t.Fatalf("copied=%q has=%v cmd=%v", *copied, m.sel.has, cmd != nil)
+	}
+}
+
+func TestCopyJoinsLinesWrappedForTheScreen(t *testing.T) {
+	m, _ := newSelModel(t)
+	m.blocks = nil
+	long := "go test ./internal/agent -run TestPlanModeRefusesEdits -v --count=1 -timeout 30s -race -cover ./..."
+	m.add(&block{kind: kindAssistant, text: "```sh\n" + long + "\n```"})
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 20})
+	m.refresh()
+	m.vp.GotoTop()
+	m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{len(m.lines) - 1, 200}
+	if got := m.selectedText(); got != long {
+		t.Fatalf("wrapped code not joined:\n%q\nwant %q", got, long)
+	}
+}
+
+func TestHyphenBreak(t *testing.T) {
+	for _, c := range []struct {
+		line, next string
+		want       bool
+	}{
+		{"go test -v --", "count=1", true},
+		{"... -timeout 30s -", "race", true},
+		{"point{len(m.lines) -", "1, 200}", false},
+		{"a well-", "known", true},
+		{"no hyphen", "here", false},
+	} {
+		if got := hyphenBreak(c.line, c.next); got != c.want {
+			t.Errorf("hyphenBreak(%q, %q) = %v", c.line, c.next, got)
+		}
+	}
+}
+
+func TestCopyRestoresTabIndent(t *testing.T) {
+	m, _ := newSelModel(t)
+	m.blocks = nil
+	code := "func f() {\n\tif x {\n\t\treturn\n\t}\n}"
+	m.add(&block{kind: kindAssistant, text: "```go\n" + code + "\n```"})
+	m.Update(tea.WindowSizeMsg{Width: 110, Height: 20})
+	m.refresh()
+	m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{len(m.lines) - 1, 200}
+	if got := m.selectedText(); got != code {
+		t.Fatalf("got %q, want %q", got, code)
 	}
 }

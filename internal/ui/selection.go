@@ -79,6 +79,17 @@ func (m *Model) plainLine(i int) string {
 // toggles the tool card under it.
 func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 	row := msg.Y - 1 // header line
+	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && len(m.queue) > 0 && !m.pop.open() && len(m.perms) == 0 {
+		lines := strings.Count(m.bottomFitted(), "\n") + 1
+		qLines := strings.Count(m.queueView(), "\n") + 1
+		if i := msg.Y - (m.h - 1 - lines); i >= 0 && i < qLines {
+			if i == 2 && len(m.queue) > 3 {
+				i = len(m.queue) - 1 // the "N more" line
+			}
+			m.editQueued(i)
+			return nil
+		}
+	}
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown:
 		var cmd tea.Cmd

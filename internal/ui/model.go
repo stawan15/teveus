@@ -73,6 +73,7 @@ type Model struct {
 	turnFrom int // index of the first block of the running turn
 
 	busy      bool
+	queue     []string // messages typed during a turn, sent one per finished turn
 	phase     string
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
@@ -458,6 +459,11 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "shift+down":
 		m.vp.ScrollDown(m.vp.MouseWheelDelta)
 		return m, nil
+	case "ctrl+e":
+		if len(m.queue) > 0 {
+			m.editQueued(len(m.queue) - 1)
+			return m, nil
+		}
 	case "ctrl+o":
 		return m, m.toggleDetails()
 	case "ctrl+b":
@@ -805,6 +811,10 @@ func (m *Model) submit(text string) tea.Cmd {
 }
 
 func (m *Model) send(text string) tea.Cmd {
+	if m.busy && m.client != nil && len(m.outImages) == 0 {
+		m.queue, m.pasteShown = append(m.queue, text), ""
+		return nil
+	}
 	var cmd tea.Cmd
 	if m.client == nil {
 		// The process died (or never started); resume the same session.
@@ -864,7 +874,7 @@ func (m *Model) quit() tea.Cmd {
 }
 
 func (m *Model) resetConversation() {
-	m.blocks, m.tools, m.stream, m.todos, m.tasks = nil, map[string]*block{}, nil, nil, nil
+	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.queue = nil, map[string]*block{}, nil, nil, nil, nil
 	m.busy, m.perms, m.sessionID, m.phase, m.turnFrom = false, nil, "", "", 0
 	m.cost, m.prevCost, m.context, m.warnedCtx = 0, 0, 0, false
 	m.tokIn, m.tokOut, m.promptedModel, m.noProvider = 0, 0, false, nil
@@ -1144,6 +1154,7 @@ func (m *Model) handleEvent(ev claude.Event) {
 		}
 
 	case claude.Result:
+		defer m.sendQueued()
 		elapsed := time.Since(m.turnStart)
 		m.finishTurn()
 		m.cost = e.CostUSD
@@ -1209,6 +1220,27 @@ func (m *Model) handleEvent(ev claude.Event) {
 			}
 			m.add(&block{kind: kindError, text: msg + "\n(send a message to resume the session)"})
 		}
+	}
+}
+
+// editQueued takes a waiting message back into the input to be changed.
+func (m *Model) editQueued(i int) {
+	if i < 0 || i >= len(m.queue) {
+		return
+	}
+	if strings.TrimSpace(m.input.Value()) != "" {
+		m.note("finish or clear the current message first", false)
+		return
+	}
+	m.input.SetValue(m.queue[i])
+	m.queue = append(m.queue[:i], m.queue[i+1:]...)
+}
+
+func (m *Model) sendQueued() {
+	if len(m.queue) > 0 && !m.busy && m.client != nil {
+		next := m.queue[0]
+		m.queue = m.queue[1:]
+		m.send(next)
 	}
 }
 

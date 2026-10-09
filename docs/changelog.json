@@ -1,11 +1,40 @@
 {
-  "latest": "0.6.4",
+  "latest": "0.6.5",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.4...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.5...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.6.5",
+      "date": "2026-10-09",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.4...v0.6.5",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Messages you type while a reply is still running now wait in a faint queue above the input and send one after another, instead of interrupting the turn.",
+              "items": []
+            },
+            {
+              "text": "Click a waiting message (or press ctrl+e) to pull it back into the input and edit it.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "The side panel no longer breaks the saver list mid-line, and shows the current model.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.4",

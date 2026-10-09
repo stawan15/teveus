@@ -395,7 +395,7 @@ func (m *Model) queueView() string {
 			break
 		}
 		q = strings.Join(strings.Fields(q), " ")
-		out = append(out, sFaint.Render(" ⏳ "+truncate(q, m.w-32)+" ✎"))
+		out = append(out, sFaint.Render(" › "+truncate(q, m.w-32)))
 	}
 	if len(out) > 0 {
 		out[0] += sFaint.Render("  click or ctrl+e to edit")

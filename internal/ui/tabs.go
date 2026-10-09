@@ -30,6 +30,7 @@ type session struct {
 	turnFrom int
 
 	busy      bool
+	queue     []string
 	phase     string
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
@@ -56,6 +57,7 @@ func (m *Model) save() {
 	s := m.sessions[m.cur]
 	s.client, s.engine, s.gen = m.client, m.engine, m.gen
 	s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom = m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom
+	s.queue = m.queue
 	s.busy, s.phase, s.turnStart, s.perms = m.busy, m.phase, m.turnStart, m.perms
 	s.sessionID, s.model, s.mode = m.sessionID, m.model, m.mode
 	s.cost, s.prevCost, s.context = m.cost, m.prevCost, m.context
@@ -69,6 +71,7 @@ func (m *Model) load() {
 	s := m.sessions[m.cur]
 	m.client, m.engine, m.gen = s.client, s.engine, s.gen
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom = s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom
+	m.queue = s.queue
 	m.busy, m.phase, m.turnStart, m.perms = s.busy, s.phase, s.turnStart, s.perms
 	m.sessionID, m.model, m.mode = s.sessionID, s.model, s.mode
 	m.cost, m.prevCost, m.context = s.cost, s.prevCost, s.context

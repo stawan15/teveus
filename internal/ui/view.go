@@ -240,6 +240,9 @@ func (m *Model) sidebar(height int) string {
 	}
 
 	section("SESSION", "")
+	if m.model != "" {
+		s = append(s, kv("model", sText.Render(truncate(shortModel(m.model), w-9))))
+	}
 	s = append(s, kv("mode", lipgloss.NewStyle().Foreground(modeColor(m.mode)).Render("● "+modeLabel(m.mode))))
 	if m.engine == "api" && m.cost == 0 {
 		s = append(s, kv("tokens", sText.Render(fmtTokens(m.tokIn)+" in · "+fmtTokens(m.tokOut)+" out")))
@@ -256,7 +259,19 @@ func (m *Model) sidebar(height int) string {
 	if m.settings.Effort != "" {
 		s = append(s, kv("effort", sAccent2.Render(m.settings.Effort)))
 	}
-	s = append(s, kv("saver", sGreen.Render(m.saverLabel())))
+	// Wrap the saver list on item boundaries with a hanging indent.
+	line, first := "", true
+	for _, it := range strings.Split(m.saverLabel(), " · ") {
+		if line != "" && 9+lipgloss.Width(line)+3+lipgloss.Width(it) > w {
+			s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sGreen.Render(line)))
+			line, first = "", false
+		}
+		if line != "" {
+			line += " · "
+		}
+		line += it
+	}
+	s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sGreen.Render(line)))
 	if m.sessionID != "" {
 		id := strings.TrimPrefix(m.sessionID, "ses_")
 		s = append(s, kv("session", sDim.Render(id[:min(8, len(id))])))
@@ -362,9 +377,30 @@ func (m *Model) bottomView() string {
 	if len(m.perms) > 0 {
 		parts = append(parts, m.permView())
 	} else {
+		if q := m.queueView(); q != "" {
+			parts = append(parts, q)
+		}
 		parts = append(parts, m.inputView())
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+// queueView lists messages waiting for the current turn, faint and just
+// above the input they came from. It takes no space when the queue is empty.
+func (m *Model) queueView() string {
+	var out []string
+	for i, q := range m.queue {
+		if i == 2 && len(m.queue) > 3 {
+			out = append(out, sFaint.Render(fmt.Sprintf(" … %d more queued", len(m.queue)-2)))
+			break
+		}
+		q = strings.Join(strings.Fields(q), " ")
+		out = append(out, sFaint.Render(" ⏳ "+truncate(q, m.w-32)+" ✎"))
+	}
+	if len(out) > 0 {
+		out[0] += sFaint.Render("  click or ctrl+e to edit")
+	}
+	return strings.Join(out, "\n")
 }
 
 // inputView draws the input box with the permission mode set into its top

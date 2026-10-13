@@ -1,11 +1,27 @@
 {
-  "latest": "0.6.6",
+  "latest": "0.6.7",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.6...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.7...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.6.7",
+      "date": "2026-10-13",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.6...v0.6.7",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Uses less CPU while idle: the screen refresh slows down when nothing is running.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.6",

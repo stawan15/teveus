@@ -211,8 +211,10 @@ func (m *Model) Init() tea.Cmd {
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
-func tick() tea.Cmd {
-	return tea.Tick(90*time.Millisecond, func(time.Time) tea.Msg { return tickMsg{} })
+func tick() tea.Cmd { return tickIn(90 * time.Millisecond) }
+
+func tickIn(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
 func listen(gen int, ch <-chan claude.Event) tea.Cmd {
@@ -291,6 +293,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.refresh()
+		}
+		// Nothing animates while idle, so wake up less often (saves CPU on slow machines).
+		if !m.busy && !m.sel.dragging {
+			return m, tickIn(500 * time.Millisecond)
 		}
 		return m, tick()
 

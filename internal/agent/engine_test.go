@@ -265,7 +265,7 @@ func TestDenyEndsTurn(t *testing.T) {
 }
 
 func TestInterruptStopsCommand(t *testing.T) {
-	s := &script{replies: []string{oaiToolCall("c1", "Bash", `{"command":"sleep 30"}`)}}
+	s := &script{replies: []string{oaiToolCall("c1", "Bash", fmt.Sprintf(`{"command":%q}`, testLongCommand()))}}
 	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
 	defer srv.Close()
 	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "auto")

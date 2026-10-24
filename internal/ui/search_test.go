@@ -32,7 +32,7 @@ func TestSnippet(t *testing.T) {
 
 func TestSearchFindsEarlierAndCurrentConversations(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	cwd := t.TempDir()
 	agent.SaveSession(sessionDir(), agent.Session{ID: "old1", Cwd: cwd, Title: "database work", Updated: time.Now(),
 		History: []agent.Message{

@@ -328,8 +328,7 @@ func TestRewindToEarlierTurn(t *testing.T) {
 
 func TestDiffAndClaudeSessionReplay(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := isolateHome(t)
 	dir := filepath.Join(home, "proj")
 	os.MkdirAll(dir, 0o755)
 	for _, args := range [][]string{{"init", "-q"}, {"-c", "user.email=a@b", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "x"}} {

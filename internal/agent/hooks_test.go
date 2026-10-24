@@ -1,13 +1,28 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func hookCommand(t *testing.T, name, unix, windows string) string {
+	t.Helper()
+	content, ext := unix, ".sh"
+	if runtime.GOOS == "windows" {
+		content, ext = windows, ".bat"
+	}
+	path := filepath.Join(t.TempDir(), name+ext)
+	if err := os.WriteFile(path, []byte(content), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 // startWithHooks starts an engine whose config directory holds hooks.json.
 func startWithHooks(t *testing.T, s *script, hooksJSON string) (*run, string) {
@@ -23,10 +38,14 @@ func startWithHooks(t *testing.T, s *script, hooksJSON string) (*run, string) {
 
 func TestPreToolUseHookBlocks(t *testing.T) {
 	s := &script{replies: []string{
-		oaiToolCall("c1", "Bash", `{"command":"touch ran"}`),
+		oaiToolCall("c1", "Bash", `{"command":"echo x > ran"}`),
 		oaiText("ok"),
 	}}
-	r, dir := startWithHooks(t, s, `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo no touching >&2; exit 2"}]}]}}`)
+	pre := hookCommand(t, "pre",
+		"#!/bin/sh\necho no touching >&2\nexit 2\n",
+		"@echo off\r\necho no touching 1>&2\r\nexit /b 2\r\n")
+	preJSON, _ := json.Marshal(pre)
+	r, dir := startWithHooks(t, s, fmt.Sprintf(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":%s}]}]}}`, preJSON))
 	r.e.Send("go")
 	r.until(true)
 	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
@@ -43,7 +62,11 @@ func TestPostToolUseHookFeedback(t *testing.T) {
 		oaiText("ok"),
 	}}
 	// The hook gets the call on stdin and can fail the way a linter would.
-	r, dir := startWithHooks(t, s, `{"hooks":{"PostToolUse":[{"matcher":"Edit|Write","hooks":[{"command":"grep -q a.txt && echo lint: a.txt is bad >&2; exit 1"}]}]}}`)
+	post := hookCommand(t, "post",
+		"#!/bin/sh\nif [ -f a.txt ]; then\n  echo \"lint: a.txt is bad\" >&2\nfi\nexit 1\n",
+		"@echo off\r\nif exist a.txt echo lint: a.txt is bad 1>&2\r\nexit /b 1\r\n")
+	postJSON, _ := json.Marshal(post)
+	r, dir := startWithHooks(t, s, fmt.Sprintf(`{"hooks":{"PostToolUse":[{"matcher":"Edit|Write","hooks":[{"command":%s}]}]}}`, postJSON))
 	r.e.Send("go")
 	r.until(true)
 	if _, err := os.Stat(filepath.Join(dir, "a.txt")); err != nil {

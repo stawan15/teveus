@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -131,6 +132,13 @@ func TestUpToDateAndBusyStayOutOfTheWay(t *testing.T) {
 }
 
 func TestUpdateUsesTheWayItWasInstalled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		how, args := updateCommand("0.3.2")
+		if len(args) != 0 || !strings.Contains(how, releasesPage) {
+			t.Fatalf("windows copy: %q %v", how, args)
+		}
+		return
+	}
 	exe, _ := os.Executable()
 	exe, _ = filepath.EvalSymlinks(exe)
 	dir := filepath.Dir(exe)

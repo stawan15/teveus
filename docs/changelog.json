@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.8.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "On Windows, interrupting a shell command (or letting it time out) now stops the programs it started, instead of leaving them running.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.8.0",

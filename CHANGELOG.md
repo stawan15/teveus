@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- On Windows, interrupting a shell command (or letting it time out) now stops the programs it started, instead of leaving them running.
+
 ## [0.8.0] - 2026-10-25
 
 ### Added

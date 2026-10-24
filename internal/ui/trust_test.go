@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -27,8 +28,12 @@ func TestFolderTrust(t *testing.T) {
 	if FolderTrusted(root + "-other") {
 		t.Fatal("a folder that only shares a name prefix was trusted")
 	}
-	if fi, err := os.Stat(trustPath()); err != nil || fi.Mode().Perm() != 0o600 {
-		t.Fatalf("trust file: %v %v", fi, err)
+	fi, err := os.Stat(trustPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
+		t.Fatalf("trust file mode = %v", fi.Mode().Perm())
 	}
 }
 

@@ -1,10 +1,16 @@
 {
-  "latest": "0.7.0",
+  "latest": "0.8.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.7.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.8.0...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.8.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.7.0...v0.8.0",
       "sections": [
         {
           "title": "Added",

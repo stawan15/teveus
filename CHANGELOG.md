@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-25
+
 ### Added
 
 - `/rewind` shows the files and a diff of what it will change before anything is touched: press enter to restore, or esc to go back.
@@ -192,7 +194,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/stawan15/teveus/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/stawan15/teveus/compare/v0.6.7...v0.7.0
 [0.6.7]: https://github.com/stawan15/teveus/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/stawan15/teveus/compare/v0.6.5...v0.6.6

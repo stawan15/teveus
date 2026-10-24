@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.7.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`/rewind` shows the files and a diff of what it will change before anything is touched: press enter to restore, or esc to go back.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.7.0",

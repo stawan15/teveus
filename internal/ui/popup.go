@@ -21,6 +21,7 @@ const (
 	popMention           // filtered by the input box ("@…")
 	popPalette           // ctrl+k: has its own search field
 	popPicker            // a titled choice list (model, effort, theme…)
+	popReview            // a picker for reviewing a change before confirming it
 	popInput             // a one-line text field (API keys, URLs)
 	popSlider            // ordered levels on a track (slider.go)
 )
@@ -55,6 +56,7 @@ type popup struct {
 	holdEnd time.Time                // …until this time, so the body gets read
 	preview func(m *Model, c choice) // called as the selection moves
 	cancel  func(m *Model)           // called on esc
+	back    func(m *Model) tea.Cmd   // popReview: esc returns here
 
 	// popInput
 	hint   string
@@ -240,10 +242,13 @@ func (m *Model) popupView() string {
 	if p.mode == popPicker || p.mode == popPalette {
 		rows = max(8, min(18, (m.h-12)/2)) // long lists get room to breathe
 	}
+	if p.mode == popReview {
+		rows = max(4, min(8, (m.h-16)/2))
+	}
 
 	var lines []string
-	if p.title != "" || p.mode == popPalette || p.mode == popPicker {
-		title := p.title
+	if p.title != "" || p.mode == popPalette || p.mode == popPicker || p.mode == popReview {
+		title := termSafe(p.title)
 		if title == "" {
 			title = "Command palette"
 		}
@@ -252,7 +257,7 @@ func (m *Model) popupView() string {
 			head = gradient(title, p.accent, cAccent2, true)
 		}
 		if p.tag != "" {
-			head += "   " + p.tag
+			head += "   " + termSafe(p.tag)
 		}
 		if len(p.all) > 12 {
 			unique := map[string]bool{}
@@ -282,11 +287,11 @@ func (m *Model) popupView() string {
 			head += "   " + sAccent.Render("⌕ ") + q + sAccent.Render("▏")
 		}
 		lines = append(lines, head)
-		if p.hint != "" && p.mode == popPicker {
-			lines = append(lines, sDim.Width(inner).Render(p.hint))
+		if p.hint != "" && (p.mode == popPicker || p.mode == popReview) {
+			lines = append(lines, sDim.Width(inner).Render(truncate(termSafe(p.hint), inner)))
 		}
 		for _, b := range p.body {
-			lines = append(lines, lipgloss.NewStyle().Width(inner).Render(b))
+			lines = append(lines, lipgloss.NewStyle().Width(inner).Render(termSafe(b)))
 		}
 		lines = append(lines, "")
 	}
@@ -299,8 +304,8 @@ func (m *Model) popupView() string {
 	labelW, metaW := 0, 0
 	groups := map[string]int{}
 	for _, c := range p.list {
-		labelW = max(labelW, lipgloss.Width(c.label))
-		metaW = max(metaW, lipgloss.Width(c.key))
+		labelW = max(labelW, lipgloss.Width(termSafe(c.label)))
+		metaW = max(metaW, lipgloss.Width(termSafe(c.key)))
 		groups[c.group]++
 	}
 	labelW = min(labelW, inner*2/5)
@@ -327,7 +332,7 @@ func (m *Model) popupView() string {
 			if i > start {
 				lines = append(lines, "")
 			}
-			header := sAccent2.Bold(true).Render(strings.ToUpper(c.group))
+			header := sAccent2.Bold(true).Render(strings.ToUpper(termSafe(c.group)))
 			if len(p.all) > 20 {
 				header += sFaint.Render(fmt.Sprintf("  %d", groups[c.group]))
 			}
@@ -355,16 +360,16 @@ func (m *Model) popupView() string {
 		if held {
 			lab, dsc = st(sFaint), st(sFaint)
 		}
-		label := truncate(c.label, labelW)
+		label := truncate(termSafe(c.label), labelW)
 		label += strings.Repeat(" ", labelW-lipgloss.Width(label))
 
 		right := ""
-		meta := c.key
+		meta := termSafe(c.key)
 		if !grouped && c.group != "" && p.mode == popPicker && len(groups) > 1 {
 			meta = strings.TrimSpace(meta + "  " + c.group)
 		}
 		if c.badge != "" {
-			right += st(lipgloss.NewStyle().Foreground(cGreen).Bold(true)).Render(c.badge)
+			right += st(lipgloss.NewStyle().Foreground(cGreen).Bold(true)).Render(termSafe(c.badge))
 			if meta != "" {
 				right += st(sText).Render("  ")
 			}
@@ -373,7 +378,7 @@ func (m *Model) popupView() string {
 			right += st(sDim).Render(truncate(meta, max(metaW, 12)+20))
 		}
 		descW := max(inner-2-labelW-2-lipgloss.Width(right)-2, 0)
-		desc := truncate(c.desc, max(descW, 1))
+		desc := truncate(termSafe(c.desc), max(descW, 1))
 		if descW == 0 {
 			desc = ""
 		}

@@ -658,6 +658,35 @@ func (m *Model) handlePopupKey(k tea.KeyMsg) (bool, tea.Cmd) {
 		}
 		return true, nil
 	}
+	if p.mode == popReview {
+		switch k.String() {
+		case "up", "ctrl+p":
+			p.move(-1)
+			m.previewSel()
+		case "down", "ctrl+n":
+			p.move(1)
+			m.previewSel()
+		case "esc":
+			back := p.back
+			p.close()
+			m.layout()
+			if back != nil {
+				return true, back(m)
+			}
+		case "enter":
+			c, ok := p.current()
+			if !ok {
+				return true, nil
+			}
+			run := c.run
+			p.close()
+			m.layout()
+			if run != nil {
+				return true, run(m)
+			}
+		}
+		return true, nil
+	}
 	own := p.mode == popPalette || p.mode == popPicker // popup has its own search field
 	switch k.String() {
 	case "up", "ctrl+p":

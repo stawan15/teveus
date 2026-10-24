@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -107,16 +108,16 @@ func (c *checkpoint) restore() ([]string, error) {
 	var restored []string
 	for _, p := range c.order {
 		orig := c.files[p]
-		var err error
 		if orig == nil {
-			err = os.Remove(p)
-			if os.IsNotExist(err) {
-				err = nil
+			if _, err := os.Lstat(p); os.IsNotExist(err) {
+				continue
 			}
-		} else {
-			err = os.WriteFile(p, orig, 0o644)
-		}
-		if err != nil {
+			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+				return restored, err
+			}
+		} else if cur, err := os.ReadFile(p); err == nil && bytes.Equal(cur, orig) {
+			continue
+		} else if err := os.WriteFile(p, orig, 0o644); err != nil {
 			return restored, err
 		}
 		restored = append(restored, p)

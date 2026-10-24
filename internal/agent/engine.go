@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -161,13 +163,19 @@ func (e *Engine) RewindPoints() []RewindPoint {
 	defer e.mu.Unlock()
 	points := make([]RewindPoint, 0, len(e.checkpoints))
 	for i, cp := range e.checkpoints {
-		p := RewindPoint{Index: i, Files: len(cp.files)}
-		if cp.historyLen >= 0 && cp.historyLen < len(e.history) && e.history[cp.historyLen].Role == "user" {
-			p.Prompt = e.history[cp.historyLen].Text
-		}
-		points = append(points, p)
+		points = append(points, RewindPoint{Index: i, Prompt: e.rewindPromptLocked(i), Files: len(cp.files)})
 	}
 	return points
+}
+
+// rewindPromptLocked returns the prompt that started the turn at index. Call
+// with e.mu held.
+func (e *Engine) rewindPromptLocked(index int) string {
+	cp := e.checkpoints[index]
+	if cp.historyLen >= 0 && cp.historyLen < len(e.history) && e.history[cp.historyLen].Role == "user" {
+		return e.history[cp.historyLen].Text
+	}
+	return ""
 }
 
 // RewindTo restores the files changed since the turn at index and drops that
@@ -183,10 +191,7 @@ func (e *Engine) RewindTo(index int) (RewindResult, error) {
 	if index < 0 || index >= len(e.checkpoints) {
 		return res, errors.New("nothing to rewind")
 	}
-	cp := e.checkpoints[index]
-	if cp.historyLen >= 0 && cp.historyLen < len(e.history) && e.history[cp.historyLen].Role == "user" {
-		res.Prompt = e.history[cp.historyLen].Text
-	}
+	res.Prompt = e.rewindPromptLocked(index)
 	// Restore newest first, so each file ends up as it was before the chosen
 	// turn even when later turns changed it again.
 	seen := map[string]bool{}
@@ -206,6 +211,154 @@ func (e *Engine) RewindTo(index int) (RewindResult, error) {
 	e.rewindLocked(index)
 	res.History = append([]Message(nil), e.history...)
 	return res, restoreErr
+}
+
+// RewindStatus says what restoring a file will do to the working tree.
+type RewindStatus string
+
+const (
+	RewindModified RewindStatus = "modified"
+	RewindDeleted  RewindStatus = "deleted"
+	RewindRestored RewindStatus = "restored"
+)
+
+// RewindFile is one file a rewind will change. Before and After are nil when
+// they don't exist (or when the change is binary or too large to preview).
+type RewindFile struct {
+	Path     string
+	Status   RewindStatus
+	Before   []byte
+	After    []byte
+	Added    int
+	Removed  int
+	Binary   bool
+	TooLarge bool
+	Err      string
+}
+
+// RewindPreview is what a rewind will change, before anything is touched.
+type RewindPreview struct {
+	Prompt  string
+	Files   []RewindFile
+	Added   int
+	Removed int
+}
+
+const rewindPreviewLimit = 256 << 10
+
+// PreviewRewind compares the working tree with the state the turn at index
+// would restore, without changing anything.
+func (e *Engine) PreviewRewind(index int) (RewindPreview, error) {
+	var prev RewindPreview
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cancel != nil {
+		return prev, errors.New("wait for the current turn to finish")
+	}
+	if index < 0 || index >= len(e.checkpoints) {
+		return prev, errors.New("nothing to rewind")
+	}
+	prev.Prompt = e.rewindPromptLocked(index)
+
+	// Restoring newest first leaves the state saved by the earliest checkpoint
+	// in the range, so keep that value for each path.
+	target := map[string][]byte{}
+	for i := len(e.checkpoints) - 1; i >= index; i-- {
+		cp := e.checkpoints[i]
+		for _, p := range cp.order {
+			target[p] = cp.files[p]
+		}
+	}
+	paths := make([]string, 0, len(target))
+	for p := range target {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+
+	for _, p := range paths {
+		want := target[p]
+		cur, readErr := os.ReadFile(p)
+		_, statErr := os.Lstat(p)
+		exists := statErr == nil
+		errText := ""
+		switch {
+		case statErr != nil && !os.IsNotExist(statErr):
+			errText = "couldn't check the current file"
+		case readErr != nil && !os.IsNotExist(readErr):
+			errText = "couldn't read the current file"
+		}
+		if want == nil && !exists && errText == "" {
+			continue
+		}
+		if want != nil && exists && readErr == nil && bytes.Equal(cur, want) {
+			continue
+		}
+
+		f := RewindFile{Path: p, Before: cur, After: want, Err: errText}
+		switch {
+		case want == nil:
+			f.Status = RewindDeleted
+			f.Removed = rewindLineCount(cur)
+		case !exists:
+			f.Status = RewindRestored
+			f.Added = rewindLineCount(want)
+		default:
+			f.Status = RewindModified
+			f.Added, f.Removed = rewindLineDelta(cur, want)
+		}
+		switch {
+		case errText != "":
+			f.Before, f.After = nil, nil
+			f.Added, f.Removed = 0, 0
+		case rewindIsBinary(cur) || rewindIsBinary(want):
+			f.Binary = true
+			f.Before, f.After = nil, nil
+			f.Added, f.Removed = 0, 0
+		case len(cur)+len(want) > rewindPreviewLimit:
+			f.TooLarge = true
+			f.Before, f.After = nil, nil
+			f.Added, f.Removed = 0, 0
+		}
+		// Callers get their own copy; these slices live in the checkpoints that
+		// RewindTo later restores.
+		f.Before, f.After = bytes.Clone(f.Before), bytes.Clone(f.After)
+		prev.Files = append(prev.Files, f)
+		prev.Added += f.Added
+		prev.Removed += f.Removed
+	}
+	return prev, nil
+}
+
+func rewindIsBinary(b []byte) bool {
+	if len(b) > 8<<10 {
+		b = b[:8<<10]
+	}
+	return bytes.IndexByte(b, 0) >= 0
+}
+
+func rewindLines(b []byte) [][]byte {
+	b = bytes.TrimRight(b, "\n")
+	if len(b) == 0 {
+		return nil
+	}
+	return bytes.Split(b, []byte{'\n'})
+}
+
+func rewindLineCount(b []byte) int { return len(rewindLines(b)) }
+
+// rewindLineDelta counts lines like the UI's trimmed diff: a shared prefix and
+// suffix are context, everything between them changed.
+func rewindLineDelta(before, after []byte) (added, removed int) {
+	a, b := rewindLines(before), rewindLines(after)
+	pre := 0
+	for pre < len(a) && pre < len(b) && bytes.Equal(a[pre], b[pre]) {
+		pre++
+	}
+	suf := 0
+	for suf < len(a)-pre && suf < len(b)-pre && bytes.Equal(a[len(a)-1-suf], b[len(b)-1-suf]) {
+		suf++
+	}
+	return len(b) - pre - suf, len(a) - pre - suf
 }
 
 // rewindLocked truncates the conversation and drops the checkpoints from index

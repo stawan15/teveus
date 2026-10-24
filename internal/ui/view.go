@@ -370,6 +370,10 @@ func usageLine(name string, win *claude.Window, w int) []string {
 }
 
 func (m *Model) bottomView() string {
+	if m.pop.mode == popReview {
+		// The review needs the room the input would take.
+		return m.popupView()
+	}
 	var parts []string
 	if m.pop.open() {
 		parts = append(parts, m.popupView())
@@ -491,6 +495,9 @@ func (m *Model) statusBar() string {
 	case m.pop.mode == popSlider:
 		left = sAccent.Render(" ›") + sDim.Render(" adjust")
 		right = hints("← →", "adjust", "enter", "save", "esc", "cancel")
+	case m.pop.mode == popReview:
+		left = sAccent.Render(" ›") + sDim.Render(" review · nothing changes yet")
+		right = hints("↑↓", "file", "enter", "restore all", "esc", "back")
 	case m.pop.open():
 		left = sAccent.Render(" ›") + sDim.Render(" choose")
 		right = hints("↑↓", "select", "enter", "run", "esc", "close")

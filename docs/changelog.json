@@ -1,16 +1,31 @@
 {
-  "latest": "0.6.7",
+  "latest": "0.7.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.6.7...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.7.0...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.7.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.6.7...v0.7.0",
       "sections": [
         {
           "title": "Added",
           "items": [
             {
               "text": "`/rewind` restores the conversation and the files it changed to before any earlier turn, not just the last one (Direct API engine).",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Security",
+          "items": [
+            {
+              "text": "Updated the Go build to 1.26.10, fixing a standard-library certificate-check vulnerability.",
               "items": []
             }
           ]

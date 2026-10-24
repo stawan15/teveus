@@ -10,6 +10,13 @@ import (
 	"testing"
 )
 
+func isolateHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -38,7 +45,7 @@ func TestExpandCustom(t *testing.T) {
 }
 
 func TestLoadCustom(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	root := t.TempDir()
 	os.Mkdir(filepath.Join(root, ".git"), 0o755)
 	sub := filepath.Join(root, "pkg")
@@ -68,7 +75,7 @@ func TestLoadCustom(t *testing.T) {
 }
 
 func TestCustomCommandReachesModel(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	s := &script{replies: []string{oaiText("ok")}}
 	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
 	defer srv.Close()
@@ -83,7 +90,7 @@ func TestCustomCommandReachesModel(t *testing.T) {
 }
 
 func TestSkillTool(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude/skills/pdf/SKILL.md"), "---\ndescription: PDFs\n---\nUse pdftotext.")
 	out, err := skillTool(dir).run(context.TODO(), nil, map[string]any{"skill": "pdf"})

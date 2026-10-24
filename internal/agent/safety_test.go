@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,15 @@ import (
 
 	"github.com/stawan15/teveus/internal/claude"
 )
+
+func jsonArgs(kv ...any) string {
+	m := map[string]any{}
+	for i := 0; i+1 < len(kv); i += 2 {
+		m[kv[i].(string)] = kv[i+1]
+	}
+	b, _ := json.Marshal(m)
+	return string(b)
+}
 
 // safetyRun runs one tool call in a mode and reports whether the user was
 // asked and what the model was told.
@@ -44,7 +54,7 @@ func TestCredentialFilesAreOffLimitsInEveryMode(t *testing.T) {
 	os.WriteFile(filepath.Join(cfg, "auth.json"), []byte(`{"openai":{"key":"sk-secret"}}`), 0o600)
 	for _, mode := range []string{"default", "auto"} {
 		asked, res := safetyRun(t, mode, cfg, "Read", func(string) string {
-			return `{"file_path":"` + filepath.Join(cfg, "auth.json") + `"}`
+			return jsonArgs("file_path", filepath.Join(cfg, "auth.json"))
 		})
 		if asked || strings.Contains(res, "sk-secret") || !strings.Contains(res, "holds credentials") {
 			t.Fatalf("%s: asked=%v result=%s", mode, asked, res)
@@ -83,17 +93,17 @@ func TestOutsideTheProjectAsks(t *testing.T) {
 	}); asked {
 		t.Error("asked to read inside the project")
 	}
-	if asked, _ := safetyRun(t, "default", "", "Read "+`{"file_path":"`+filepath.Join(outside, "notes.txt")+`"}`, nil); !asked {
+	if asked, _ := safetyRun(t, "default", "", "Read "+jsonArgs("file_path", filepath.Join(outside, "notes.txt")), nil); !asked {
 		t.Error("read outside the project without asking")
 	}
-	if asked, _ := safetyRun(t, "default", "", "Grep "+`{"pattern":"x","path":"`+outside+`"}`, nil); !asked {
+	if asked, _ := safetyRun(t, "default", "", "Grep "+jsonArgs("pattern", "x", "path", outside), nil); !asked {
 		t.Error("searched outside the project without asking")
 	}
 	// Accept-edits covers the project only.
 	if asked, _ := safetyRun(t, "acceptEdits", "", "Write "+`{"file_path":"new.txt","content":"x"}`, nil); asked {
 		t.Error("accept-edits asked about a project file")
 	}
-	if asked, _ := safetyRun(t, "acceptEdits", "", "Write "+`{"file_path":"`+filepath.Join(outside, "x.txt")+`","content":"x"}`, nil); !asked {
+	if asked, _ := safetyRun(t, "acceptEdits", "", "Write "+jsonArgs("file_path", filepath.Join(outside, "x.txt"), "content", "x"), nil); !asked {
 		t.Error("accept-edits wrote outside the project without asking")
 	}
 	// Plan mode may look things up on the web, but asks first.

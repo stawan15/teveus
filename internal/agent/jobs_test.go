@@ -11,7 +11,7 @@ func TestBackgroundJob(t *testing.T) {
 	box := NewToolbox(t.TempDir())
 	t.Cleanup(box.closeJobs)
 
-	out, err := runBash(context.TODO(), box, map[string]any{"command": "echo one; sleep 0.3; echo two; sleep 30", "run_in_background": true})
+	out, err := runBash(context.TODO(), box, map[string]any{"command": testDelayedCommand(), "run_in_background": true})
 	if err != nil || !strings.Contains(out, "bash_1") {
 		t.Fatalf("start = %q, %v", out, err)
 	}
@@ -34,7 +34,7 @@ func TestBackgroundJob(t *testing.T) {
 	if !strings.Contains(seen, "two") {
 		t.Fatalf("never saw the later output: %q", seen)
 	}
-	if strings.Count(seen, "\none\n") > 1 {
+	if strings.Count(strings.ReplaceAll(seen, "\r\n", "\n"), "\none\n") > 1 {
 		t.Fatalf("output was returned twice: %q", seen)
 	}
 
@@ -65,7 +65,7 @@ func TestJobKeepsOnlyTheTail(t *testing.T) {
 }
 
 func TestSubagentsCannotTouchBackgroundJobs(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	e := &Engine{opts: Options{Cwd: t.TempDir()}, mcp: nil}
 	var names []string
 	for _, tl := range e.subagentTools() {

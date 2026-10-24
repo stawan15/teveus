@@ -9,6 +9,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 - `/rewind` restores the conversation and the files it changed to before any earlier turn, not just the last one (Direct API engine).
 
+### Security
+
+- Updated the Go build to 1.26.10, fixing a standard-library certificate-check vulnerability.
+
 ## [0.6.7] - 2026-10-13
 
 ### Changed

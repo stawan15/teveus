@@ -54,6 +54,7 @@ func init() {
 		{"resume", "Resume an earlier conversation in this folder", "", func(m *Model, _ string) tea.Cmd { m.openResumePicker(); return nil }},
 		{"search", "Find text in this conversation and earlier ones", "", func(m *Model, arg string) tea.Cmd { return m.search(arg) }},
 		{"undo", "Undo the last turn's file edits (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.undo() }},
+		{"rewind", "Restore files and conversation to an earlier turn (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.rewind() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
 		{"diff", "Show what changed in the working tree (git)", "", func(m *Model, _ string) tea.Cmd { return m.gitDiff() }},
 		{"update", "Check for a new version of teveus and install it", "", func(m *Model, _ string) tea.Cmd { return m.updateNow() }},
@@ -94,7 +95,7 @@ func (m *Model) localCommand(name, arg string) (tea.Cmd, bool) {
 // coreCmds are the only slash commands listed before the user types; the rest
 // still run and are found by searching.
 var coreCmds = map[string]bool{
-	"model": true, "login": true, "sessions": true, "mode": true, "resume": true, "undo": true,
+	"model": true, "login": true, "sessions": true, "mode": true, "resume": true, "undo": true, "rewind": true,
 	"diff": true, "clear": true, "settings": true, "help": true, "exit": true,
 }
 
@@ -158,6 +159,7 @@ func (m *Model) openPalette() {
 		{group: "session", label: "Compact conversation", desc: "summarise history to free context", key: "/compact", run: run(func(m *Model) tea.Cmd { return m.send("/compact") })},
 		{group: "session", label: "Resume a conversation…", desc: "earlier sessions in this folder", key: "/resume", run: run(func(m *Model) tea.Cmd { m.openResumePicker(); return nil })},
 		{group: "session", label: "Undo last turn", desc: "restore files the last turn changed", key: "/undo", run: run(func(m *Model) tea.Cmd { return m.undo() })},
+		{group: "session", label: "Rewind to an earlier turn", desc: "restore files and conversation", key: "/rewind", run: run(func(m *Model) tea.Cmd { return m.rewind() })},
 		{group: "session", label: "Show changes", desc: "git status and diff stat", key: "/diff", run: run(func(m *Model) tea.Cmd { return m.gitDiff() })},
 		{group: "session", label: "Export conversation", desc: "save as Markdown in this folder", key: "/export", run: run(func(m *Model) tea.Cmd { return m.exportTranscript() })},
 		{group: "session", label: "Initialise project", desc: "write AGENTS.md / CLAUDE.md", key: "/init", run: run(func(m *Model) tea.Cmd { return m.initProject() })},

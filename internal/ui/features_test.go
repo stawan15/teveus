@@ -215,6 +215,72 @@ func TestUndoResumeAndShell(t *testing.T) {
 	h2.m.client.Close()
 }
 
+func TestRewindToEarlierTurn(t *testing.T) {
+	cs := &chatServer{}
+	_, dir := apiSetup(t, cs)
+	first := filepath.Join(dir, "first.txt")
+	second := filepath.Join(dir, "second.txt")
+	cs.replies = []string{
+		writeCall(first, "one\n"),
+		`{"choices":[{"delta":{"content":"Made first.txt."}}]}`,
+		writeCall(second, "two\n"),
+		`{"choices":[{"delta":{"content":"Made second.txt."}}]}`,
+	}
+
+	h := newHarness(t, Config{Claude: claude.Options{Cwd: dir, Model: "custom/m1", PermissionMode: "acceptEdits"}, Dark: true, Engine: "api"})
+	h.until("ready", func() bool { return h.m.sessionID != "" && len(h.m.models) > 0 })
+
+	h.typ("first prompt")
+	h.enter()
+	h.until("first turn", func() bool { return !h.m.busy && len(h.m.blocks) >= 3 })
+	h.typ("second prompt")
+	h.enter()
+	h.until("second turn", func() bool {
+		return !h.m.busy && len(h.m.blocks) >= 6 && strings.Contains(plain(h.m.View()), "Made second.txt.")
+	})
+
+	// The picker lists the newest turn first.
+	h.typ("/rewind")
+	h.enter()
+	if h.m.pop.mode != popPicker || len(h.m.pop.list) != 2 {
+		t.Fatalf("no rewind picker:\n%s", plain(h.m.View()))
+	}
+	h.enter()
+
+	if _, err := os.Stat(second); !os.IsNotExist(err) {
+		t.Fatal("rewind did not remove second.txt")
+	}
+	if b, err := os.ReadFile(first); err != nil || string(b) != "one\n" {
+		t.Fatalf("first.txt = %q, %v", b, err)
+	}
+	if h.m.input.Value() != "second prompt" {
+		t.Fatalf("prompt not restored: %q", h.m.input.Value())
+	}
+	for _, b := range h.m.blocks {
+		if b.kind == kindUser && b.text == "second prompt" {
+			t.Fatal("the rewound turn is still in the transcript")
+		}
+	}
+	h.m.input.Reset()
+
+	// Rewind once more: the first turn and its file go too.
+	h.typ("/rewind")
+	h.enter()
+	h.enter()
+	if _, err := os.Stat(first); !os.IsNotExist(err) {
+		t.Fatal("second rewind did not remove first.txt")
+	}
+	if h.m.input.Value() != "first prompt" {
+		t.Fatalf("prompt not restored: %q", h.m.input.Value())
+	}
+	for _, b := range h.m.blocks {
+		if b.kind == kindUser {
+			t.Fatalf("transcript still has a user turn: %q", b.text)
+		}
+	}
+	h.m.client.Close()
+}
+
 func TestDiffAndClaudeSessionReplay(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	home := t.TempDir()

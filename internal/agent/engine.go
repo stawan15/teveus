@@ -141,6 +141,83 @@ func (e *Engine) Undo() ([]string, error) {
 	return restored, err
 }
 
+// RewindPoint is one earlier turn that /rewind can go back to.
+type RewindPoint struct {
+	Index  int
+	Prompt string
+	Files  int
+}
+
+// RewindResult is what a rewind restored and the conversation left behind.
+type RewindResult struct {
+	Restored []string
+	History  []Message
+	Prompt   string
+}
+
+// RewindPoints lists the turns /rewind can restore, oldest first.
+func (e *Engine) RewindPoints() []RewindPoint {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	points := make([]RewindPoint, 0, len(e.checkpoints))
+	for i, cp := range e.checkpoints {
+		p := RewindPoint{Index: i, Files: len(cp.files)}
+		if cp.historyLen >= 0 && cp.historyLen < len(e.history) && e.history[cp.historyLen].Role == "user" {
+			p.Prompt = e.history[cp.historyLen].Text
+		}
+		points = append(points, p)
+	}
+	return points
+}
+
+// RewindTo restores the files changed since the turn at index and drops that
+// turn and everything after it from the conversation. Shell commands aren't
+// undone.
+func (e *Engine) RewindTo(index int) (RewindResult, error) {
+	var res RewindResult
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.cancel != nil {
+		return res, errors.New("wait for the current turn to finish")
+	}
+	if index < 0 || index >= len(e.checkpoints) {
+		return res, errors.New("nothing to rewind")
+	}
+	cp := e.checkpoints[index]
+	if cp.historyLen >= 0 && cp.historyLen < len(e.history) && e.history[cp.historyLen].Role == "user" {
+		res.Prompt = e.history[cp.historyLen].Text
+	}
+	// Restore newest first, so each file ends up as it was before the chosen
+	// turn even when later turns changed it again.
+	seen := map[string]bool{}
+	var restoreErr error
+	for i := len(e.checkpoints) - 1; i >= index; i-- {
+		restored, err := e.checkpoints[i].restore()
+		for _, p := range restored {
+			if !seen[p] {
+				seen[p] = true
+				res.Restored = append(res.Restored, p)
+			}
+		}
+		if err != nil && restoreErr == nil {
+			restoreErr = err
+		}
+	}
+	e.rewindLocked(index)
+	res.History = append([]Message(nil), e.history...)
+	return res, restoreErr
+}
+
+// rewindLocked truncates the conversation and drops the checkpoints from index
+// on. Call with e.mu held.
+func (e *Engine) rewindLocked(index int) {
+	n := min(max(e.checkpoints[index].historyLen, 0), len(e.history))
+	e.history = e.history[:n]
+	e.checkpoints = e.checkpoints[:index]
+	e.seen = map[string]readSig{}
+	e.saveLocked()
+}
+
 // AddContext puts text into the conversation without starting a turn
 // (used for the output of "!command").
 func (e *Engine) AddContext(text string) {

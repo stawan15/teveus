@@ -12,6 +12,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/stawan15/teveus/internal/agent"
 )
@@ -142,6 +143,11 @@ func (m *Model) rewind() tea.Cmd {
 		m.note("nothing to rewind", false)
 		return nil
 	}
+	m.openRewindPicker(eng, points, 0)
+	return nil
+}
+
+func (m *Model) openRewindPicker(eng *agent.Engine, points []agent.RewindPoint, sel int) {
 	cs := make([]choice, 0, len(points))
 	for i := len(points) - 1; i >= 0; i-- {
 		p := points[i]
@@ -156,10 +162,136 @@ func (m *Model) rewind() tea.Cmd {
 		}
 		label = truncate(label, 64)
 		cs = append(cs, choice{label: label, desc: desc,
-			run: func(m *Model) tea.Cmd { return m.rewindTo(eng, p.Index) }})
+			run: func(m *Model) tea.Cmd { return m.reviewRewind(eng, p, points) }})
 	}
-	m.openPicker("Rewind to before…", cs, 0)
+	m.openPicker("Rewind to before…", cs, sel)
+	if m.h >= 20 {
+		m.pop.hint = truncate("Pick a turn to review; nothing changes yet", max(m.w-6, 20))
+		m.layout()
+	}
+}
+
+// reviewRewind shows what a turn changed and waits for confirmation. Nothing
+// is touched until the user presses enter.
+func (m *Model) reviewRewind(eng *agent.Engine, p agent.RewindPoint, points []agent.RewindPoint) tea.Cmd {
+	prev, err := eng.PreviewRewind(p.Index)
+	if err != nil {
+		m.note(err.Error(), false)
+		return nil
+	}
+	inner := max(m.w-6, 20)
+	maxDiffLines := max(3, min(10, m.h-16))
+	cs := make([]choice, 0, len(prev.Files)+1)
+	byPath := map[string]agent.RewindFile{}
+	for _, f := range prev.Files {
+		byPath[f.Path] = f
+		cs = append(cs, choice{
+			label: m.rewindPath(f.Path),
+			desc:  rewindFileDesc(f),
+			color: rewindFileColor(f),
+			value: f.Path,
+			run:   func(m *Model) tea.Cmd { return m.rewindTo(eng, p.Index) },
+		})
+	}
+	if len(cs) == 0 {
+		cs = append(cs, choice{
+			label: "No file changes",
+			desc:  "only the conversation and prompt are rewound",
+			color: cDim,
+			run:   func(m *Model) tea.Cmd { return m.rewindTo(eng, p.Index) },
+		})
+	}
+
+	hint := "Nothing changes until you press enter"
+	if prompt := strings.Join(strings.Fields(p.Prompt), " "); prompt != "" {
+		hint = truncate("“"+prompt+"”", inner)
+	}
+	back := 0
+	for i, q := range points {
+		if q.Index == p.Index {
+			back = len(points) - 1 - i
+			break
+		}
+	}
+
+	m.pop = popup{mode: popReview, title: "Review rewind", hint: hint, all: cs, flat: true}
+	m.pop.filter()
+	m.pop.preview = func(m *Model, c choice) {
+		if f, ok := byPath[c.value]; ok {
+			body := []string{sAccent.Bold(true).Render(truncate(c.label, inner))}
+			body = append(body, m.rewindDiff(f, inner, maxDiffLines)...)
+			m.pop.body = append(body, sFaint.Render("Shell commands aren't undone."))
+		} else {
+			m.pop.body = []string{sDim.Render("No files will change; only the conversation and prompt are rewound."),
+				sFaint.Render("Shell commands aren't undone.")}
+		}
+	}
+	m.pop.back = func(m *Model) tea.Cmd {
+		m.openRewindPicker(eng, points, back)
+		return nil
+	}
+	m.previewSel()
+	m.layout()
 	return nil
+}
+
+func (m *Model) rewindPath(path string) string {
+	if rel, err := filepath.Rel(m.cwd, path); err == nil && !strings.HasPrefix(rel, "..") {
+		return rel
+	}
+	return path
+}
+
+func rewindFileColor(f agent.RewindFile) lipgloss.Color {
+	switch {
+	case f.Err != "":
+		return cRed
+	case f.Status == agent.RewindDeleted:
+		return cRed
+	case f.Status == agent.RewindRestored:
+		return cGreen
+	default:
+		return cYellow
+	}
+}
+
+func rewindFileDesc(f agent.RewindFile) string {
+	desc := string(f.Status)
+	switch {
+	case f.Err != "":
+		return desc + " · can't read it now"
+	case f.Binary:
+		return desc + " · binary file"
+	case f.TooLarge:
+		return desc + " · large file"
+	}
+	if f.Added > 0 {
+		desc += fmt.Sprintf(" · +%d", f.Added)
+	}
+	if f.Removed > 0 {
+		desc += fmt.Sprintf(" · −%d", f.Removed)
+	}
+	return desc
+}
+
+func (m *Model) rewindDiff(f agent.RewindFile, width, maxLines int) []string {
+	switch {
+	case f.Err != "":
+		return []string{sDim.Render(truncate("No preview: "+f.Err+". The rewind will still try.", width))}
+	case f.Binary:
+		return []string{sDim.Render("Binary file · no text preview. The rewind will still apply.")}
+	case f.TooLarge:
+		return []string{sDim.Render("Large file · too large for a preview. The rewind will still apply.")}
+	}
+	lines := diffLines(string(f.Before), string(f.After), width)
+	if len(lines) == 0 {
+		return []string{sDim.Render("No visible text changes.")}
+	}
+	if len(lines) > maxLines {
+		more := len(lines) - maxLines
+		lines = append(lines[:maxLines:maxLines], sFaint.Render(fmt.Sprintf("… +%d lines", more)))
+	}
+	return lines
 }
 
 func (m *Model) rewindTo(eng *agent.Engine, index int) tea.Cmd {
@@ -174,10 +306,7 @@ func (m *Model) rewindTo(eng *agent.Engine, index int) tea.Cmd {
 	m.input.SetValue(res.Prompt)
 	var names []string
 	for _, p := range res.Restored {
-		if rel, err := filepath.Rel(m.cwd, p); err == nil && !strings.HasPrefix(rel, "..") {
-			p = rel
-		}
-		names = append(names, p)
+		names = append(names, m.rewindPath(p))
 	}
 	msg := "rewound to before that turn"
 	if len(names) > 0 {

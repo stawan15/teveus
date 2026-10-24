@@ -245,7 +245,51 @@ func TestRewindToEarlierTurn(t *testing.T) {
 	if h.m.pop.mode != popPicker || len(h.m.pop.list) != 2 {
 		t.Fatalf("no rewind picker:\n%s", plain(h.m.View()))
 	}
+	if !strings.Contains(plain(h.m.View()), "Pick a turn to review") {
+		t.Fatalf("picker does not explain the review:\n%s", plain(h.m.View()))
+	}
+
+	// The picker remembers which turn was reviewed after esc goes back.
+	h.step(tea.KeyMsg{Type: tea.KeyDown})
 	h.enter()
+	older := plain(h.m.View())
+	if !strings.Contains(older, "first.txt") || !strings.Contains(older, "second.txt") {
+		t.Fatalf("older review is missing files:\n%s", older)
+	}
+	h.step(tea.KeyMsg{Type: tea.KeyEsc})
+	if h.m.pop.mode != popPicker || h.m.pop.sel != 1 {
+		t.Fatalf("picker selection was not kept: %+v", h.m.pop)
+	}
+	h.step(tea.KeyMsg{Type: tea.KeyUp})
+
+	// The review shows the file and its diff, and touches nothing yet.
+	h.enter()
+	if h.m.pop.mode != popReview {
+		t.Fatalf("no rewind review:\n%s", plain(h.m.View()))
+	}
+	if _, err := os.Stat(second); err != nil {
+		t.Fatal("opening the review changed second.txt")
+	}
+	review := plain(h.m.View())
+	if os.Getenv("SNAP") != "" {
+		t.Logf("rewind review:\n%s", review)
+	}
+	if !strings.Contains(review, "second.txt") || !strings.Contains(review, "- two") ||
+		!strings.Contains(review, "Shell commands aren't undone") {
+		t.Fatalf("review is missing the change or its limits:\n%s", review)
+	}
+
+	// esc goes back to the turn picker without changing anything.
+	h.step(tea.KeyMsg{Type: tea.KeyEsc})
+	if h.m.pop.mode != popPicker {
+		t.Fatalf("esc did not return to the picker:\n%s", plain(h.m.View()))
+	}
+	if _, err := os.Stat(second); err != nil {
+		t.Fatal("esc changed second.txt")
+	}
+
+	h.enter() // review again
+	h.enter() // restore
 
 	if _, err := os.Stat(second); !os.IsNotExist(err) {
 		t.Fatal("rewind did not remove second.txt")
@@ -265,6 +309,7 @@ func TestRewindToEarlierTurn(t *testing.T) {
 
 	// Rewind once more: the first turn and its file go too.
 	h.typ("/rewind")
+	h.enter()
 	h.enter()
 	h.enter()
 	if _, err := os.Stat(first); !os.IsNotExist(err) {
@@ -329,4 +374,42 @@ func TestDiffAndClaudeSessionReplay(t *testing.T) {
 	if d, ok := msg.(diffMsg); !ok || !strings.Contains(string(d), "a.txt") {
 		t.Fatalf("diff = %#v", msg)
 	}
+}
+
+func TestRewindReviewWithoutFileChanges(t *testing.T) {
+	cs := &chatServer{}
+	_, dir := apiSetup(t, cs)
+	kept := filepath.Join(dir, "kept.txt")
+	cs.replies = []string{
+		writeCall(kept, "one\n"),
+		`{"choices":[{"delta":{"content":"Made kept.txt."}}]}`,
+		`{"choices":[{"delta":{"content":"Only talked."}}]}`,
+	}
+
+	h := newHarness(t, Config{Claude: claude.Options{Cwd: dir, Model: "custom/m1", PermissionMode: "acceptEdits"}, Dark: true, Engine: "api"})
+	h.until("ready", func() bool { return h.m.sessionID != "" && len(h.m.models) > 0 })
+	h.typ("first prompt")
+	h.enter()
+	h.until("first turn", func() bool { return !h.m.busy && len(h.m.blocks) >= 3 })
+	h.typ("second prompt")
+	h.enter()
+	h.until("second turn", func() bool { return !h.m.busy && len(h.m.blocks) >= 5 })
+
+	h.typ("/rewind")
+	h.enter()
+	h.enter()
+	if h.m.pop.mode != popReview || len(h.m.pop.list) != 1 {
+		t.Fatalf("no review:\n%s", plain(h.m.View()))
+	}
+	if c := h.m.pop.list[0]; c.label != "No file changes" {
+		t.Fatalf("review choice = %+v", c)
+	}
+	h.enter()
+	if b, err := os.ReadFile(kept); err != nil || string(b) != "one\n" {
+		t.Fatalf("kept.txt = %q, %v", b, err)
+	}
+	if h.m.input.Value() != "second prompt" {
+		t.Fatalf("prompt not restored: %q", h.m.input.Value())
+	}
+	h.m.client.Close()
 }

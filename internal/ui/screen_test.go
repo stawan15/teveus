@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/stawan15/teveus/internal/agent"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -77,6 +78,18 @@ func TestScreenNeverOverflows(t *testing.T) {
 		m.openEffortSlider()
 		check("effort slider")
 		m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+		m.pop = popup{mode: popReview, title: "Review rewind", hint: mixed, flat: true,
+			all: []choice{{label: long + mixed, desc: strings.Repeat("changed ", 12), value: "x"}}}
+		m.pop.filter()
+		m.pop.body = m.rewindDiff(agent.RewindFile{
+			Path: long, Status: agent.RewindModified,
+			Before: []byte(strings.Repeat(mixed+"\n", 30)), After: []byte(strings.Repeat(long+"\n", 30)),
+		}, w-6, max(3, min(10, h-16)))
+		m.layout()
+		check("rewind review")
+		m.pop.close()
+		m.layout()
 
 		m.vp.GotoTop()
 		m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{3, 10}

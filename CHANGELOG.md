@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- `/rewind` shows the files and a diff of what it will change before anything is touched: press enter to restore, or esc to go back.
+
 ## [0.7.0] - 2026-10-25
 
 ### Added

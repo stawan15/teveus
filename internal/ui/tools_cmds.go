@@ -23,8 +23,9 @@ var aliases = map[string]string{
 	"r": "resume", "continue": "resume", "sessions": "resume",
 	"?": "help", "h": "help",
 	"prefs": "settings", "config": "settings", "preferences": "settings",
-	"m": "model",
-	"u": "undo",
+	"m":  "model",
+	"u":  "undo",
+	"rw": "rewind",
 }
 
 func aliasesOf(name string) []string {
@@ -126,6 +127,69 @@ func (m *Model) undo() tea.Cmd {
 	m.add(&block{kind: kindInfo, text: msg + " (shell commands aren't undone)"})
 	m.afterInput()
 	m.refresh()
+	return nil
+}
+
+// rewind restores the conversation and files to before an earlier turn.
+func (m *Model) rewind() tea.Cmd {
+	eng, ok := m.client.(*agent.Engine)
+	if !ok {
+		m.note("/rewind works on the Direct API engine; with Claude Code use git to revert", false)
+		return nil
+	}
+	points := eng.RewindPoints()
+	if len(points) == 0 {
+		m.note("nothing to rewind", false)
+		return nil
+	}
+	cs := make([]choice, 0, len(points))
+	for i := len(points) - 1; i >= 0; i-- {
+		p := points[i]
+		back := len(points) - i
+		desc := plural(back, "%d turn") + " back"
+		if p.Files > 0 {
+			desc += " · " + plural(p.Files, "%d file")
+		}
+		label := strings.Join(strings.Fields(p.Prompt), " ")
+		if label == "" {
+			label = "(no prompt)"
+		}
+		label = truncate(label, 64)
+		cs = append(cs, choice{label: label, desc: desc,
+			run: func(m *Model) tea.Cmd { return m.rewindTo(eng, p.Index) }})
+	}
+	m.openPicker("Rewind to before…", cs, 0)
+	return nil
+}
+
+func (m *Model) rewindTo(eng *agent.Engine, index int) tea.Cmd {
+	res, err := eng.RewindTo(index)
+	if err != nil && len(res.History) == 0 && len(res.Restored) == 0 {
+		m.note(err.Error(), false)
+		return nil
+	}
+	m.blocks, m.tools, m.stream = nil, map[string]*block{}, nil
+	m.todos, m.tasks = nil, nil
+	m.replayAPI(res.History)
+	m.input.SetValue(res.Prompt)
+	var names []string
+	for _, p := range res.Restored {
+		if rel, err := filepath.Rel(m.cwd, p); err == nil && !strings.HasPrefix(rel, "..") {
+			p = rel
+		}
+		names = append(names, p)
+	}
+	msg := "rewound to before that turn"
+	if len(names) > 0 {
+		msg += " · restored " + strings.Join(names, ", ")
+	}
+	if err != nil {
+		msg += " · " + err.Error()
+	}
+	m.add(&block{kind: kindInfo, text: msg + " (shell commands aren't undone)"})
+	m.afterInput()
+	m.refresh()
+	m.vp.GotoBottom()
 	return nil
 }
 

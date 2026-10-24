@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.6.7...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`/rewind` restores the conversation and the files it changed to before any earlier turn, not just the last one (Direct API engine).",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.6.7",

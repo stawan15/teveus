@@ -54,7 +54,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🧩 **Make it yours** | On the Direct API engine: your slash commands and skills from `.claude/commands` and `.claude/skills`, `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
 | 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
 | 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
-| ↩️ **Undo** | `/undo` puts files back the way they were |
+| ↩️ **Undo and rewind** | `/undo` puts files back the way they were; `/rewind` goes back to any earlier turn |
 | 🕘 **Pick up later** | `/resume` reopens earlier conversations |
 | 💸 **Spend less, when you want** | Off until you turn them on: `/concise` for short answers, `/lean` to send fewer tool definitions, and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
 | ✂️ **Trim the fat** | `/trim` reviews your uncommitted changes for code you don't need; `/trim all` checks the whole project |
@@ -88,6 +88,7 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/model` | Switch model (search by name, or type `free`) |
 | `/effort` | How hard the model thinks: a slider from auto and low up to max |
 | `/undo` | Undo the last change |
+| `/rewind` | Go back to an earlier turn: restore its files and the conversation |
 | `/sessions` | Run several conversations at once: switch, start or close one (`alt+1` to `alt+9` jump to one) |
 | `/resume` | Reopen an earlier conversation |
 | `/search` | Find text in this and earlier conversations |

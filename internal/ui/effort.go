@@ -24,19 +24,59 @@ func (m *Model) effort() string {
 	return m.settings.Effort
 }
 
+// effortInUse is the level the current model is actually asked for, and
+// whether the user's pick had to be lowered to get there. Claude Code takes
+// the CLI's own wording, so its scale is trusted as-is.
+func (m *Model) effortInUse() (string, bool) {
+	want := m.settings.Effort
+	if want == "" {
+		return "auto", false
+	}
+	if m.engine != "api" {
+		return want, false
+	}
+	lvl, capped := agent.ClampEffort(want, m.model)
+	return lvl, capped
+}
+
 func (m *Model) openEffortSlider() {
 	var cs []choice
 	sel := 0
+	// Levels above what this model takes can't be reached, so they say so
+	// instead of pretending a setting will be sent.
+	cap, capped := m.effortCeiling()
 	for i, l := range effortLevels {
-		name := l.name
+		name, desc := l.name, l.desc
 		if name == m.effort() {
 			sel = i
 		}
-		cs = append(cs, choice{label: name, value: name, desc: l.desc, run: func(m *Model) tea.Cmd { return m.setEffort(name) }})
+		if capped && effortRankOf(name) > effortRankOf(cap) {
+			desc = "this model stops at " + cap
+		}
+		cs = append(cs, choice{label: name, value: name, desc: desc, run: func(m *Model) tea.Cmd { return m.setEffort(name) }})
 	}
 	m.openSlider("Reasoning effort", "How hard the model thinks before it answers", cs, sel)
 	m.pop.ends = [2]string{"faster · cheaper", "smarter · slower"}
 	m.pop.colors = neutralFirst(len(cs))
+}
+
+// effortCeiling is the highest level the current model takes, and whether that
+// is below the top of the scale.
+func (m *Model) effortCeiling() (string, bool) {
+	if m.engine != "api" {
+		return "max", false
+	}
+	lvl, capped := agent.ClampEffort("max", m.model)
+	return lvl, capped
+}
+
+func effortRankOf(level string) int {
+	for i, l := range effortLevels {
+		if l.name == level {
+			return i
+		}
+	}
+	return 0
 }
 
 // setEffort applies a level: from the next request on the Direct API engine,

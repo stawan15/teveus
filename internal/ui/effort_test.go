@@ -44,3 +44,44 @@ func TestEffortSlider(t *testing.T) {
 		t.Fatal("auto should clear it")
 	}
 }
+
+func TestSidebarShowsTheEffortActuallyInUse(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.engine, m.model = "api", "openai/gpt-5.4"
+	m.settings.Effort = "max"
+
+	side := ansi.Strip(m.sidebar(30))
+	if !strings.Contains(side, "high") || !strings.Contains(side, "max capped") {
+		t.Fatalf("sidebar claims max is in use:\n%s", side)
+	}
+	if strings.Contains(side, "effort    max") {
+		t.Fatalf("sidebar shows the picked level as if it were sent:\n%s", side)
+	}
+
+	// A provider that takes max is shown plainly.
+	m.model = "anthropic/claude-x"
+	side = ansi.Strip(m.sidebar(30))
+	if !strings.Contains(side, "max") || strings.Contains(side, "capped") {
+		t.Fatalf("anthropic's max is shown as capped:\n%s", side)
+	}
+}
+
+func TestEffortSliderMarksUnreachableLevels(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.engine, m.model = "api", "openai/gpt-5.4"
+	m.openEffortSlider()
+
+	var capped []string
+	for _, c := range m.pop.list {
+		if strings.Contains(c.desc, "stops at high") {
+			capped = append(capped, c.label)
+		}
+	}
+	if len(capped) != 2 || capped[0] != "xhigh" || capped[1] != "max" {
+		t.Fatalf("levels above the model's ceiling aren't marked: %v", capped)
+	}
+}

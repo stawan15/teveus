@@ -14,6 +14,9 @@ import (
 
 type anthropicClient struct {
 	base, key string
+	// effortRefused is told when a model rejects the effort field, so the
+	// engine stops asking that model for a level it won't take.
+	effortRefused func(model, level string, err error)
 }
 
 var cacheMark = map[string]string{"type": "ephemeral"}
@@ -83,7 +86,11 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request, emit func(Chu
 	}
 	resp, err := c.do(ctx, "POST", "/messages", body)
 	if err != nil && req.Effort != "" && rejectsParam(err, "effort", "output_config") {
-		// Older models (Haiku 4.5, Sonnet 4.5) don't take effort: run at their default.
+		// This model doesn't take effort. The engine remembers the refusal, so
+		// the next request asks for less instead of spending this retry again.
+		if c.effortRefused != nil {
+			c.effortRefused(req.Model, req.Effort, err)
+		}
 		delete(body, "output_config")
 		resp, err = c.do(ctx, "POST", "/messages", body)
 	}

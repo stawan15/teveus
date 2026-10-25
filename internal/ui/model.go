@@ -1170,6 +1170,12 @@ func (m *Model) handleEvent(ev claude.Event) {
 			m.mode = e.PermissionMode
 		}
 
+	case claude.Notice:
+		m.add(&block{kind: kindInfo, text: e.Text})
+		if !m.bg {
+			m.vp.GotoBottom()
+		}
+
 	case claude.Status:
 		if e.PermissionMode != "" {
 			m.mode = e.PermissionMode

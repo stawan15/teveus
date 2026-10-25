@@ -246,7 +246,14 @@ func (m *Model) sidebar(height int) string {
 		s = append(s, kv("context", ctx.Render(fmt.Sprintf("%.1fk tokens", float64(m.context)/1000))))
 	}
 	if m.settings.Effort != "" {
-		s = append(s, kv("effort", sAccent2.Render(m.settings.Effort)))
+		// Show what the model is actually asked for, not only what was picked:
+		// "max" on a model that stops at "high" would be a lie.
+		lvl, capped := m.effortInUse()
+		v := sAccent2.Render(lvl)
+		if capped {
+			v += sFaint.Render(" (" + m.settings.Effort + " capped)")
+		}
+		s = append(s, kv("effort", v))
 	}
 	// Wrap the saver list on item boundaries with a hanging indent.
 	sav := sGreen

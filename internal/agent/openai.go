@@ -20,6 +20,9 @@ type openaiClient struct {
 	base, key, provider  string
 	chatPath, modelsPath string
 	sessionHeader        string
+	// effortRefused is told when a model rejects the effort field, so the
+	// engine stops asking that model for a level it won't take.
+	effortRefused func(model, level string, err error)
 }
 
 func newOpenAIClient(p Provider, base, key string) *openaiClient {
@@ -137,7 +140,11 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 	}
 	resp, err := c.do(ctx, "POST", c.chatPath, body, req.SessionID)
 	if err != nil && req.Effort != "" && rejectsParam(err, "reasoning") {
-		// Not a reasoning model: run it without the setting.
+		// Not a reasoning model. Remembered, so the next request doesn't ask
+		// again and pay this retry twice.
+		if c.effortRefused != nil {
+			c.effortRefused(req.Model, req.Effort, err)
+		}
 		delete(body, "reasoning")
 		delete(body, "reasoning_effort")
 		resp, err = c.do(ctx, "POST", c.chatPath, body, req.SessionID)

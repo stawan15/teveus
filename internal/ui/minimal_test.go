@@ -151,8 +151,8 @@ func TestMinimalPromptHandlesAmbiguity(t *testing.T) {
 		if !strings.Contains(p, "two ways") {
 			t.Fatalf("%s doesn't mention ambiguous requests", level)
 		}
-		if !strings.Contains(p, "simpler value") {
-			t.Fatalf("%s doesn't say the simpler reading wins", level)
+		if !strings.Contains(p, "both readings agree on") {
+			t.Fatalf("%s doesn't say to do the shared part first", level)
 		}
 	}
 }

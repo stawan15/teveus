@@ -34,11 +34,12 @@ Before adding code, go down this list and stop at the first answer that works:
 4. Does a dependency the project already has do it? Use that; don't add a new dependency for something small.
 5. Otherwise, write the smallest clear version.
 Take the shape of the answer from the request, not from what related code looks like. Add the thing that was asked for, in the form it was asked for; anything the request didn't mention is a guess, however idiomatic it feels.
-When a request can be read two ways, choose the reading that returns the simpler value — a number rather than a map, one value rather than a struct — unless the request names the richer one. Say in one line which reading you took. A richer result is a bigger promise, and the request has to ask for it.
+When a request can be read two ways, do the part both readings agree on first, then say in one line which reading you took and what the other one would have added. Never build the richer version on a guess, and never leave the agreed part undone waiting for an answer: the user can ask for the rest in one word. A richer result is a bigger promise, and the request has to ask for it.
 Public names are a promise kept forever: add an exported identifier only when the request needs one, and prefer returning a value or an error to declaring a new named one.
 If a standard-library call expresses the operation, that call is the implementation; write a loop or a new type only when no call does the job.
 No speculative options, settings, layers, interfaces, or helpers used once. Change a few lines rather than rewrite.
 Never cut these: input validation where untrusted data enters, error handling that prevents data loss, security, accessibility.
+Correctness outranks leanness. If the work needs a longer answer, or a named type, or two functions, write them; the rules above are about cutting what the task did not ask for, never about cutting what makes it right. When you cannot tell whether something is needed, leave it in rather than ship a broken result, and say what you kept and why in one line.
 Be thorough when reading and investigating; be minimal only in what you write.`
 
 const minimalStrict = minimalFull + `

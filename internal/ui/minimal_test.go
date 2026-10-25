@@ -110,30 +110,49 @@ func TestAttributionIsOffByDefault(t *testing.T) {
 	}
 }
 
-func TestMinimalPromptNamesTheOverEngineeringTraps(t *testing.T) {
-	// The benchmark showed the model inventing an exported sentinel error and
-	// a Builder for a one-line job. Both are named so the prompt heads them off.
+func TestMinimalPromptStatesPrinciplesNotCases(t *testing.T) {
+	// The first version of this named the benchmark's own examples, which
+	// would only ever fix those. The rules have to be general.
 	for _, level := range []string{"full", "strict"} {
-		p := minimalPrompt(level)
-		for _, want := range []string{"ErrDivByZero", "builder", "standard-library"} {
-			if !strings.Contains(strings.ToLower(p), strings.ToLower(want)) {
-				t.Fatalf("%s prompt doesn't mention %q", level, want)
+		p := strings.ToLower(minimalPrompt(level))
+		for _, want := range []string{
+			"as asked",         // add what the request asks for, in that form
+			"exported",         // public names are a promise
+			"standard-library", // a library call beats a hand-written shape
+		} {
+			if !strings.Contains(p, want) {
+				t.Fatalf("%s prompt lacks the rule about %q", level, want)
+			}
+		}
+		// Naming one caller's own functions would tie the rule to that case.
+		for _, leak := range []string{"div", "errdiv", "wordcount", "builder", "closure"} {
+			if strings.Contains(p, leak) {
+				t.Fatalf("%s prompt names the benchmark's case %q instead of a rule", level, leak)
+			}
+		}
+		// Never cut what keeps code correct.
+		for _, keep := range []string{"validation", "security", "accessibility"} {
+			if !strings.Contains(p, keep) {
+				t.Fatalf("%s dropped %q", level, keep)
 			}
 		}
 	}
-	// strict adds the reread-the-diff rule; full doesn't need it.
-	if !strings.Contains(minimalPrompt("strict"), "reread your diff") {
-		t.Fatal("strict doesn't ask for the final pass over the diff")
+	// Strict must also protect against cutting too much: lean is not broken.
+	if st := strings.ToLower(minimalPrompt("strict")); !strings.Contains(st, "still compiles") {
+		t.Fatal("strict doesn't ask for the lean result to still work")
 	}
-	if strings.Contains(minimalPrompt("full"), "reread your diff") {
-		t.Fatal("full carries the strict-only rule")
-	}
-	// Neither level may trade away the things that must never be cut.
+}
+
+func TestMinimalPromptHandlesAmbiguity(t *testing.T) {
+	// Reading a request two ways is how the model grew a WordCount that
+	// returned a tally. The rule has to say which reading wins, generally.
 	for _, level := range []string{"full", "strict"} {
-		for _, keep := range []string{"validation", "security", "accessibility"} {
-			if !strings.Contains(minimalPrompt(level), keep) {
-				t.Fatalf("%s dropped %q", level, keep)
-			}
+		p := strings.ToLower(minimalPrompt(level))
+		if !strings.Contains(p, "two ways") {
+			t.Fatalf("%s doesn't mention ambiguous requests", level)
+		}
+		if !strings.Contains(p, "simpler value") {
+			t.Fatalf("%s doesn't say the simpler reading wins", level)
 		}
 	}
 }

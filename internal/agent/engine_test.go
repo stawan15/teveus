@@ -426,3 +426,58 @@ func shortSleepCommand() string {
 	}
 	return "sleep 1"
 }
+
+func TestEmptyReplyIsAskedAgain(t *testing.T) {
+	// A model that answers nothing has done no work; ending the turn there
+	// looks like the agent gave up. It gets asked once more instead.
+	s := &script{replies: []string{
+		`data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":50,"completion_tokens":0}}` + "\n" + `data: [DONE]`,
+		oaiText("Here is the answer."),
+	}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "auto")
+
+	r.e.Send("do the thing")
+	res := r.until(true)
+	if res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+	if len(s.requests) != 2 {
+		t.Fatalf("requests = %d, want a retry after the empty reply", len(s.requests))
+	}
+	last := fmt.Sprint(s.requests[1]["messages"])
+	if !strings.Contains(last, "empty") {
+		t.Fatalf("the model wasn't told why it is being asked again:\n%s", last)
+	}
+	// The answer the user sees is the real one, not the empty first reply.
+	seen := ""
+	for _, ev := range r.events {
+		if am, ok := ev.(claude.AssistantMessage); ok {
+			for _, b := range am.Blocks {
+				seen += b.Text
+			}
+		}
+	}
+	if !strings.Contains(seen, "Here is the answer") {
+		t.Fatalf("assistant text = %q", seen)
+	}
+}
+
+func TestTwoEmptyRepliesEndTheTurn(t *testing.T) {
+	// Bounded: a model stuck answering nothing must not loop forever.
+	empty := `data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":0}}` + "\n" + `data: [DONE]`
+	s := &script{replies: []string{empty, empty, empty, empty}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "auto")
+
+	r.e.Send("tricky")
+	res := r.until(true)
+	if res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+	if len(s.requests) > 3 {
+		t.Fatalf("requests = %d: it kept asking a model that says nothing", len(s.requests))
+	}
+}

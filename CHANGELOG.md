@@ -9,7 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ### Changed
 
-- Minimal code now names the over-engineering it used to let through: an exported sentinel error nobody asked for, a builder or iterator where one standard-library call does the job. It also says to reread the diff before finishing and delete what the task didn't ask for.
+- Minimal code now states four rules instead of examples: take the answer's shape from the request, add what was asked for and nothing else; when a request reads two ways, the simpler value wins; a public name is a promise; a standard-library call is the implementation. Strict ends with a line-by-line pass over the diff and a check that the leaner result still does the whole job.
+- A reply with neither words nor a tool call is asked again instead of ending the turn silently, which looked like the agent had given up.
 - On an OpenCode Go plan, the cost you see is the list price of the tokens instead of $0, so the sidebar and the turn footer show what the work would have cost.
 
 ## [0.23.0] - 2026-10-25

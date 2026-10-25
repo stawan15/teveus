@@ -82,6 +82,7 @@ type Engine struct {
 	cur         *checkpoint   // edits of the running turn
 	checkpoints []*checkpoint // one per finished turn, for /undo
 	usageAt     time.Time     // when plan usage was last fetched
+	inject      []Message     // said while a turn runs: added at its next step
 }
 
 var _ claude.Backend = (*Engine)(nil)
@@ -543,11 +544,49 @@ func (e *Engine) worker() {
 	}
 }
 
+// Inject adds a message to the turn that is running, so the model sees it at
+// its next step: the agent reads it between tool calls rather than finishing
+// first. With no turn running it queues like Send.
+func (e *Engine) Inject(text string) error {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	e.mu.Lock()
+	running := e.cancel != nil
+	if running {
+		e.inject = append(e.inject, Message{Role: "user", Text: text})
+	}
+	e.mu.Unlock()
+	if running {
+		return nil
+	}
+	return e.Send(text)
+}
+
+// takeInjected hands the loop anything said while it was working, as the
+// user turn it is. Called between steps, never mid-request.
+func (e *Engine) takeInjected(conv conversation) bool {
+	e.mu.Lock()
+	if len(e.inject) == 0 {
+		e.mu.Unlock()
+		return false
+	}
+	pending := e.inject
+	e.inject = nil
+	e.mu.Unlock()
+	for _, m := range pending {
+		conv.add(m)
+		e.emit(claude.UserMessage{Text: m.Text})
+	}
+	return true
+}
+
 func (e *Engine) Interrupt() error {
 	e.mu.Lock()
 	if e.cancel != nil {
 		e.cancel()
 	}
+	e.inject = nil
 	e.mu.Unlock()
 	return nil
 }
@@ -797,6 +836,11 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 	compacted := false
 	for steps < limit {
 		steps++
+		// Anything said while this turn was running joins it here, between
+		// steps, so the model acts on it now instead of after the turn ends.
+		if parent == "" {
+			e.takeInjected(conv)
+		}
 		// The main conversation compacts itself before it outgrows the
 		// model's context, and once more if the API says it already has.
 		if window := e.contextLimit(); parent == "" && window > 0 && float64(lastContext) > autoCompactAt*float64(window) && !compacted {

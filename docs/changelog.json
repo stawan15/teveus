@@ -1,11 +1,27 @@
 {
-  "latest": "0.21.0",
+  "latest": "0.22.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.21.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.22.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.22.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.21.0...v0.22.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Type while the agent is working and it now reads you at its next step instead of waiting for the whole turn to finish: the message joins the running conversation between tool calls, and appears in the transcript where it landed. On the API engine the box says \"Say it now\"; Claude Code has no way to take a message mid-turn, so there it still queues for the end of the turn.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.21.0",

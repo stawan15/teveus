@@ -190,10 +190,12 @@ function render(v) {
     : tabs.some(t => t.state === 'working') ? ' busy' : '');
 
   stop.hidden = !v.busy;
-  // While it works, sending adds the message to the queue rather than
-  // interrupting, so say so on the button.
+  // While it works, sending either joins the running turn (the API engine
+  // reads it between steps) or waits for it to end (Claude Code, which has no
+  // way to take it mid-turn).
   insertBtn.hidden = !v.busy;
-  ta.placeholder = v.busy ? 'Queue a message…' : 'Message…';
+  ta.placeholder = !v.busy ? 'Message…'
+    : v.inline ? 'Say it now: it joins the work…' : 'Queue a message…';
   showQueue(v.queue || []);
 
   // Rebuilding the list on every poll would fight the scroll position, so

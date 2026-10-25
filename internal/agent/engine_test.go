@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -348,4 +349,80 @@ func TestProviderExtrasAreEchoedBack(t *testing.T) {
 	if len(rd) != 1 || rd[0].(map[string]any)["text"] != "Let me check." || rd[0].(map[string]any)["signature"] != "RS" {
 		t.Fatalf("reasoning_details = %v", rd)
 	}
+}
+
+func TestInjectedMessageJoinsTheRunningTurn(t *testing.T) {
+	// The first step calls a tool; the message said while that runs must reach
+	// the model on the very next step, not after the turn ends.
+	s := &script{replies: []string{
+		oaiToolCall("c1", "Bash", fmt.Sprintf(`{"command":%q}`, shortSleepCommand())),
+		oaiText("done, and I read your note"),
+	}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	store := NewStore(t.TempDir())
+	store.Save("custom", Credential{BaseURL: srv.URL})
+	e, _ := Start(Options{Cwd: dir, Model: "custom/m", Mode: "auto", Store: store})
+	t.Cleanup(e.Close)
+
+	e.Send("start")
+	// Say it while the slow tool runs: it must still join this turn.
+	time.Sleep(400 * time.Millisecond)
+	if err := e.Inject("also mention the tests"); err != nil {
+		t.Fatalf("inject: %v", err)
+	}
+
+	r := &run{t: t, e: e}
+	res := r.until(true)
+	if res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+
+	if len(s.requests) != 2 {
+		t.Fatalf("requests = %d, want the turn to continue for the note", len(s.requests))
+	}
+	second := fmt.Sprint(s.requests[1]["messages"])
+	if !strings.Contains(second, "also mention the tests") {
+		t.Fatalf("the note never reached the model:\n%s", second)
+	}
+
+	// And the UI was told where it landed, inside the same turn.
+	var sawUser bool
+	for _, ev := range r.events {
+		if um, ok := ev.(claude.UserMessage); ok && um.Text == "also mention the tests" {
+			sawUser = true
+		}
+	}
+	if !sawUser {
+		t.Fatal("no UserMessage event for the injected note")
+	}
+}
+
+func TestInjectWithNoTurnQueues(t *testing.T) {
+	s := &script{replies: []string{oaiText("hi")}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "auto")
+
+	if err := r.e.Inject("later"); err != nil {
+		t.Fatalf("inject: %v", err)
+	}
+	// With nothing running it behaves like Send: the worker picks it up.
+	if res := r.until(true); res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+	if len(s.requests) != 1 || !strings.Contains(fmt.Sprint(s.requests[0]["messages"]), "later") {
+		t.Fatalf("the message didn't run: %d requests", len(s.requests))
+	}
+}
+
+// shortSleepCommand blocks for about a second, long enough for the test to
+// say something while the turn is still working.
+func shortSleepCommand() string {
+	if runtime.GOOS == "windows" {
+		return `ping -n 2 127.0.0.1 >NUL`
+	}
+	return "sleep 1"
 }

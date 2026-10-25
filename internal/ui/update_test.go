@@ -13,6 +13,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/stawan15/teveus/internal/claude"
 )
 
 func TestVersions(t *testing.T) {
@@ -190,5 +192,28 @@ func TestFailedUpdateKeepsRunning(t *testing.T) {
 	view := ansi.Strip(m.View())
 	if !strings.Contains(view, "didn't finish") {
 		t.Fatalf("the failure isn't shown:\n%s", view)
+	}
+}
+
+func TestInjectedMessageAppearsWhereItLanded(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.busy = true
+	m.add(&block{kind: kindUser, text: "make the tests pass"})
+	m.add(&block{kind: kindAssistant, text: "Looking at the failures."})
+
+	// The engine says the user spoke mid-turn: show it there, between steps.
+	m.handleEvent(claude.UserMessage{Text: "also update the changelog"})
+	m.layout()
+	m.refresh()
+	view := ansi.Strip(strings.Join(m.lines, "\n"))
+	iUser := strings.Index(view, "make the tests pass")
+	iNote := strings.Index(view, "also update the changelog")
+	if iNote < 0 {
+		t.Fatalf("the note never appeared:\n%s", view)
+	}
+	if iNote < iUser {
+		t.Fatalf("the note landed before the turn started:\n%s", view)
 	}
 }

@@ -15,6 +15,14 @@ type Backend interface {
 	Close()
 }
 
+// Injector is a backend that can take a message into the turn that is running,
+// so it reaches the model at its next step instead of waiting for the turn to
+// finish. The Claude Code CLI has no way to do this, so only tooks that drive
+// their own loop offer it.
+type Injector interface {
+	Inject(text string) error
+}
+
 // Image is a picture attached to a user turn.
 type Image struct {
 	MediaType string // image/png, image/jpeg, image/gif or image/webp

@@ -935,6 +935,12 @@ func (m *Model) submit(text string) tea.Cmd {
 
 func (m *Model) send(text string) tea.Cmd {
 	if m.busy && m.client != nil && len(m.outImages) == 0 {
+		// A backend that runs its own loop can take the message into the turn
+		// already running, and the model reads it between tool calls. Claude
+		// Code can't, so there the message waits for the turn to finish.
+		if inj, ok := m.client.(claude.Injector); ok && inj.Inject(text) == nil {
+			return nil
+		}
 		m.queue, m.pasteShown = append(m.queue, text), ""
 		return nil
 	}
@@ -1165,6 +1171,13 @@ func (m *Model) handleEvent(ev claude.Event) {
 			m.phase = "Compacting the conversation"
 		case strings.HasPrefix(e.Status, "retrying"):
 			m.phase = "Provider busy, r" + strings.TrimPrefix(e.Status, "r")
+		}
+
+	case claude.UserMessage:
+		// Said while the turn was running: show it where it landed.
+		m.add(&block{kind: kindUser, text: e.Text})
+		if !m.bg {
+			m.vp.GotoBottom()
 		}
 
 	case claude.Compacted:

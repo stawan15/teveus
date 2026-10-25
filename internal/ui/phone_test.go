@@ -590,3 +590,57 @@ func TestPhoneShowsQueuedMessages(t *testing.T) {
 		t.Fatalf("queue after the turn ended = %v", after.Queue)
 	}
 }
+
+// injectingBackend is a backend whose loop can take a message mid-turn.
+type injectingBackend struct {
+	tabBackend
+	injected []string
+}
+
+func (b *injectingBackend) Inject(text string) error {
+	b.injected = append(b.injected, text)
+	return nil
+}
+
+func TestPhoneMessageJoinsTheRunningTurn(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	b := &injectingBackend{tabBackend: tabBackend{ch: make(chan claude.Event, 8)}}
+	m.client = b
+	m.busy = true
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if !v.Inline {
+		t.Fatal("the page doesn't know a message can join the running turn")
+	}
+
+	phonePost(t, p, "/prompt", `{"text":"also the tests"}`)
+	m.handlePhone((<-msgs).(phoneMsg))
+
+	// Straight into the turn that is running, not the queue that waits for it.
+	if len(b.injected) != 1 || b.injected[0] != "also the tests" {
+		t.Fatalf("injected = %v", b.injected)
+	}
+	if len(m.queue) != 0 {
+		t.Fatalf("queue = %v, want the message to be in the turn", m.queue)
+	}
+}
+
+func TestPhoneMessageQueuesWhenTheBackendCannotInject(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.client = &tabBackend{ch: make(chan claude.Event, 8)} // no Inject
+	m.busy = true
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if v.Inline {
+		t.Fatal("the page claims it can inject, but the backend can't")
+	}
+	phonePost(t, p, "/prompt", `{"text":"later please"}`)
+	m.handlePhone((<-msgs).(phoneMsg))
+	if len(m.queue) != 1 || m.queue[0] != "later please" {
+		t.Fatalf("queue = %v", m.queue)
+	}
+}

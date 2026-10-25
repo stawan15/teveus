@@ -47,7 +47,8 @@ type phoneView struct {
 	Cur      int         `json:"cur"` // the session on screen
 	Tab      string      `json:"tab"` // this window's session, for other windows to show
 	Cmds     []phoneCmd  `json:"cmds"`
-	Queue    []string    `json:"queue"`            // sent while working: runs when this turn ends
+	Queue    []string    `json:"queue"`            // sent while working and waiting for the turn to end
+	Inline   bool        `json:"inline"`           // a message said now joins the running turn
 	Prompt   *phoneAsk   `json:"prompt,omitempty"` // a picker or slider the terminal is showing
 }
 
@@ -373,6 +374,7 @@ func (p *phoneServer) update(m *Model) {
 	}
 	v.Prompt = phonePopup(&m.pop)
 	v.Queue = append([]string(nil), m.queue...)
+	_, v.Inline = m.client.(claude.Injector)
 	for _, b := range m.blocks {
 		if line, ok := phoneBlock(b, m); ok {
 			v.Msgs = append(v.Msgs, line)

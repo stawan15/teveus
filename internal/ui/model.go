@@ -126,6 +126,10 @@ type eventMsg struct {
 
 type tickMsg struct{}
 
+// repaintMsg asks for a full redraw after the screen was drawn over
+// (returning from ctrl+z). tea.ClearScreen resets the renderer's cached state.
+type repaintMsg struct{}
+
 func New(cfg Config) *Model {
 	tightenConfig()
 	ta := textarea.New()
@@ -312,6 +316,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refresh()
 		return m, nil
 
+	case tea.ResumeMsg:
+		// Back from ctrl+z: the shell drew over the screen while teveus was
+		// stopped, and Bubble Tea's renderer still believes its last frame is
+		// on screen, so nothing would be drawn. Ask for a clear, which also
+		// resets that belief, and put the key protocol back.
+		m.setKittyKeys(true)
+		for _, b := range m.blocks {
+			b.invalidate()
+		}
+		m.layout()
+		m.refresh()
+		return m, func() tea.Msg { return repaintMsg{} }
+
+	case repaintMsg:
+		return m, tea.ClearScreen
+
 	case tickMsg:
 		m.autoScroll()
 		m.frame++
@@ -479,6 +499,12 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.switchTo(int(ks[4] - '1'))
 	}
 	switch k.String() {
+	case "ctrl+z":
+		// Suspend the way Bubble Tea restores the terminal first. Left to the
+		// terminal, ctrl+z stops the process while the alternate screen, the
+		// key protocol and mouse capture are still on, so (fg) comes back
+		// printing into a screen that was never restored.
+		return m, func() tea.Msg { return tea.Suspend() }
 	case "ctrl+c":
 		if m.pop.open() {
 			m.closePopup(true)

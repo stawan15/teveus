@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-25
+
+### Fixed
+
+- `ctrl+z` suspends cleanly and `fg` brings teveus back. Before, the terminal stopped the process while the app was still in its alternate screen, so the shell came back printing into a screen that was never restored — stray `64;29;18M` text, and the window had to be closed. A signal that doesn't come from `ctrl+z` now restores the terminal before it stops the process.
+
 ## [0.27.0] - 2026-10-25
 
 ### Changed
@@ -336,7 +342,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/stawan15/teveus/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/stawan15/teveus/compare/v0.24.0...v0.25.0

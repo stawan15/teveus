@@ -42,6 +42,7 @@ type Settings struct {
 	ReduceMotion bool     `json:"reduceMotion,omitempty"` // no spinners or shimmer
 	APIModel     string   `json:"apiModel,omitempty"`     // last model picked on the API engine
 	RecentModels []string `json:"recentModels,omitempty"` // newest first
+	PhonePage    bool     `json:"phonePage,omitempty"`    // serve the phone page (phone.go); off by default
 }
 
 func configDir() string {

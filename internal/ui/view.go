@@ -83,6 +83,9 @@ func (m *Model) refresh() {
 	if follow {
 		m.vp.GotoBottom()
 	}
+	if m.phone != nil {
+		m.phone.snapshot(m)
+	}
 }
 
 func (m *Model) View() string {

@@ -20,17 +20,19 @@ import (
 )
 
 type Config struct {
-	Claude   claude.Options
-	Dark     bool
-	Theme    string // overrides the saved theme when set
-	Settings Settings
-	Full     bool   // disable the usage savers for this run
-	Engine   string // overrides the saved engine when set
-	Onboard  bool   // show first-run setup (set by main when it hasn't run yet)
-	Version  string
-	KeyOut   io.Writer // the terminal, for key-protocol escapes; nil in tests
-	Headless bool      // teveus -p: no UI to ask in
-	AskTrust bool      // this folder hasn't been trusted yet (set by main; trust.go)
+	Claude    claude.Options
+	Dark      bool
+	Theme     string // overrides the saved theme when set
+	Settings  Settings
+	Full      bool   // disable the usage savers for this run
+	Engine    string // overrides the saved engine when set
+	Onboard   bool   // show first-run setup (set by main when it hasn't run yet)
+	Version   string
+	KeyOut    io.Writer     // the terminal, for key-protocol escapes; nil in tests
+	Headless  bool          // teveus -p: no UI to ask in
+	AskTrust  bool          // this folder hasn't been trusted yet (set by main; trust.go)
+	PhoneAddr string        // serve the phone page on this address; "" = no page
+	Send      func(tea.Msg) // hands a message to the running program (the phone page)
 }
 
 var modes = []string{"default", "acceptEdits", "plan", "auto"}
@@ -46,6 +48,7 @@ type Model struct {
 	mcpNoted   bool
 	settings   Settings
 	client     claude.Backend
+	phone      *phoneServer
 	engine     string
 	gen        int // this session's backend generation: events from any other are ignored or belong to a parked session
 	genSeq     int // last generation handed out, across all sessions
@@ -211,7 +214,26 @@ func (m *Model) Init() tea.Cmd {
 	} else {
 		start = m.start(m.cfg.Claude)
 	}
-	return tea.Batch(textarea.Blink, tick(), start, indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions(), m.startupUpdateCheck())
+	return tea.Batch(textarea.Blink, tick(), start, indexFiles(m.cwd), checkClaudeAuth(m.cfg.Claude.Binary), m.pruneSessions(), m.startupUpdateCheck(), m.startPhoneServer())
+}
+
+// startPhoneServer opens the phone page when it's turned on, and puts its link
+// in the transcript so it can be copied to the phone.
+func (m *Model) startPhoneServer() tea.Cmd {
+	addr := m.cfg.PhoneAddr
+	if addr == "" && m.settings.PhonePage {
+		addr = phoneAddr
+	}
+	if addr == "" || m.cfg.Send == nil {
+		return nil
+	}
+	url, err := m.startPhone(addr, m.cfg.Send)
+	if err != nil {
+		m.add(&block{kind: kindError, text: "phone page: " + err.Error()})
+		return nil
+	}
+	m.add(&block{kind: kindInfo, text: "Phone: open " + url + " on a device that can reach this machine. Anyone with the link can prompt and approve, so keep it to yourself."})
+	return nil
 }
 
 var spinFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -377,6 +399,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		return m, m.handleMouse(msg)
+
+	case phoneMsg:
+		return m, m.handlePhone(msg)
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -796,6 +821,46 @@ func (m *Model) insertMention(path string) {
 	m.input.SetValue(v[:i] + "@" + path + " ")
 	m.pop.close()
 	m.afterInput()
+}
+
+// handlePhone applies what the phone page asked for, through the same paths
+// the keyboard uses: a permission answer goes to the prompt it answers, and a
+// message goes through submit().
+func (m *Model) handlePhone(msg phoneMsg) tea.Cmd {
+	switch {
+	case msg.interrupt:
+		if m.busy && m.client != nil {
+			m.client.Interrupt()
+			m.note("interrupting…", false)
+		}
+	case msg.perm != "":
+		if m.client == nil {
+			m.note("no session is running", false)
+			return nil
+		}
+		// The prompt may have been answered in the terminal already.
+		if len(m.perms) == 0 || m.perms[0].RequestID != msg.request {
+			m.note("that approval was already answered", false)
+			return nil
+		}
+		p := m.perms[0]
+		switch msg.perm {
+		case "allow":
+			m.client.Allow(p, false)
+		case "always":
+			m.client.Allow(p, true)
+		default:
+			m.client.Deny(p, "The user denied this tool use. Stop and wait for their instructions.")
+		}
+		m.perms = m.perms[1:]
+		m.layout()
+		m.refresh()
+	case msg.text != "":
+		cmd := m.submit(msg.text)
+		m.refresh()
+		return cmd
+	}
+	return nil
 }
 
 func (m *Model) handlePermissionKey(k tea.KeyMsg) tea.Cmd {

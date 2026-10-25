@@ -21,6 +21,8 @@ What does leave your computer goes to services **you** choose, under **their** t
 
 Nothing else is sent. Your clipboard is only read when you press `ctrl+v`, and only written when you copy.
 
+The phone page (`/settings` → Phone page, off by default) is a web server on your own computer: your phone talks to it over your network, and nothing goes anywhere else. It holds no keys and no stored history, and it stops when you turn it off or quit teveus.
+
 ## What is stored on your computer
 
 Everything lives in `~/.config/teveus/` (on Windows, `%AppData%\teveus\`; `TEVEUS_CONFIG` moves it). Files are readable only by your user account.

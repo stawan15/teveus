@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-25
+
 ### Added
 
 - With OpenCode Go, the sidebar shows how much of your rolling, weekly and monthly allowances you've used, with reset times.
@@ -225,7 +227,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/stawan15/teveus/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/stawan15/teveus/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/stawan15/teveus/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/stawan15/teveus/compare/v0.8.0...v0.9.0

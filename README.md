@@ -61,6 +61,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
 | 🧩 **Make it yours** | On the Direct API engine: your slash commands and skills from `.claude/commands` and `.claude/skills`, `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
 | 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
+| 📱 **Take it to your phone** | `/phone` serves a page your phone opens: prompt, watch replies and approve tools from the sofa. Every open window shows up there, and the link stays the same between runs |
 | 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
 | ↩️ **Undo and rewind** | `/undo` puts files back the way they were; `/rewind` shows what will change, then goes back to any earlier turn |
 | 🕘 **Pick up later** | `/resume` reopens earlier conversations |
@@ -107,8 +108,21 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/settings` | All preferences in one place |
 | `/mcp` | See MCP servers, and approve a project's `.mcp.json` |
 | `/permissions` | Saved allow/deny rules for tools |
+| `/phone` | Prompt and approve from your phone: turns the phone page on or off, or shows its link |
 | `/update` | Check for a new version and install it |
 | `!command` | Run a shell command, e.g. `!npm test` |
+
+## From your phone
+
+Leave a long task running and walk away: `/phone` turns on a small web page served by teveus itself, and you open its link on your phone.
+
+- **Prompt, watch, approve.** Type a message, read the replies, and answer the same approval question the terminal asks, with Allow, Always or Deny. There's a stop button for a turn that's gone wrong.
+- **Every window.** Each teveus you have open in a terminal shows up, with what it's doing, so the phone reaches all of them, not just one.
+- **Same shortcuts.** Type `/` on the page to search and run any command the app has.
+- **Off until you ask.** It starts from `/phone` or `/settings`, and stops when you turn it off or quit.
+- **One link, kept.** It stays the same between runs so you can save it to your home screen. Delete `~/.config/teveus/phone-token` to give out a new one and revoke the old link.
+
+Anyone with the link can prompt and approve while the page is on, so keep it on a network you trust: your home Wi-Fi, or a [Tailscale](https://tailscale.com) address if you want it from anywhere. Nothing leaves your computer except the questions you type.
 
 ## Connect other AI providers
 

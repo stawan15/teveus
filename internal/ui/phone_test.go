@@ -440,6 +440,35 @@ func TestPhoneListsOtherWindows(t *testing.T) {
 	}
 }
 
+func TestPhoneListsSlashCommands(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if len(v.Cmds) != len(localCmds) {
+		t.Fatalf("%d commands on the page, want %d", len(v.Cmds), len(localCmds))
+	}
+	byName := map[string]string{}
+	for _, c := range v.Cmds {
+		byName[c.Name] = c.Desc
+	}
+	for _, want := range []string{"model", "mode", "clear", "sessions"} {
+		if byName[want] == "" {
+			t.Fatalf("/%s is missing from the page's commands", want)
+		}
+	}
+
+	// Running one goes through the same path as typing it in the terminal.
+	if code := phonePost(t, p, "/prompt", `{"text":"/mode"}`); code != http.StatusNoContent {
+		t.Fatalf("command = %d", code)
+	}
+	msg := (<-msgs).(phoneMsg)
+	if msg.text != "/mode" {
+		t.Fatalf("message = %#v", msg)
+	}
+}
+
 func TestPhoneRejectsABadAction(t *testing.T) {
 	m, p, _ := phoneTestModel(t)
 	m.perms = append(m.perms, &claude.PermissionRequest{RequestID: "r", ToolName: "Bash"})

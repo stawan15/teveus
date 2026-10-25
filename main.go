@@ -71,12 +71,19 @@ func main() {
 			send(msg)
 		}
 	}
-	p := tea.NewProgram(ui.New(cfg), progOpts...)
+	model := ui.New(cfg)
+	p := tea.NewProgram(model, progOpts...)
 	send = p.Send
 	_, err := p.Run()
 	fmt.Print("\x1b[=0;1u") // key protocol back to legacy, however the app exited
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+	// An update replaces the binary under us, so the app stops rather than
+	// carrying on in a process whose terminal has been handed to an installer
+	// and back. Say what to do now that we are back in a normal shell.
+	if v := model.Updated(); v != "" {
+		fmt.Println("✓ teveus " + v + " is installed. Start it again to use it.")
 	}
 }

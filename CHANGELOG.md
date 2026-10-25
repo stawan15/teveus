@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-25
+
+### Fixed
+
+- After an update, teveus now quits to a clean shell and tells you to start it again, instead of sitting in a terminal that ignored ctrl+c and had to be closed with the window's button. The phone page shuts down too, so its port is released.
+
 ## [0.18.0] - 2026-10-25
 
 ### Fixed
@@ -279,7 +285,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/stawan15/teveus/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/stawan15/teveus/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/stawan15/teveus/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/stawan15/teveus/compare/v0.15.0...v0.16.0

@@ -113,6 +113,7 @@ type Model struct {
 	notice        string
 	noticeOK      bool
 	noticeAt      time.Time
+	updated       string // a version just installed; lets the caller restart cleanly
 }
 
 type eventMsg struct {
@@ -368,8 +369,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleUpdate(msg)
 
 	case updateDoneMsg:
-		m.handleUpdateDone(msg)
-		return m, nil
+		return m, m.handleUpdateDone(msg)
 
 	case mcpApprovedMsg:
 		return m, m.handleMCPApproved(msg)
@@ -988,6 +988,7 @@ func (m *Model) remember(text string) {
 
 func (m *Model) quit() tea.Cmd {
 	m.closeAllSessions()
+	m.stopPhone()
 	m.setKittyKeys(false)
 	return tea.Quit
 }

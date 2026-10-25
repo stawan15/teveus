@@ -104,6 +104,7 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/worktree` | Start a session in its own git worktree |
 | `/hooks` | Commands that run before or after tool calls |
 | `/diff` | See what changed |
+| `/commit` | Let the AI stage the work, write the message and commit it (`/commit only the parser` steers it) |
 | `/init` | Let the AI write notes about your project so it works better |
 | `/settings` | All preferences in one place |
 | `/mcp` | See MCP servers, and approve a project's `.mcp.json` |

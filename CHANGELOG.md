@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-25
+
+### Added
+
+- `/commit` finishes the job: it checks there is something to commit, then the AI stages what this work touched, writes the message in your project's style and makes the commit — no trip to another terminal. Add words (`/commit only the parser`) to steer what goes in. It never commits secrets, never uses `--no-verify`, and never pushes.
+
 ## [0.22.0] - 2026-10-25
 
 ### Added
@@ -309,7 +315,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/stawan15/teveus/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/stawan15/teveus/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/stawan15/teveus/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/stawan15/teveus/compare/v0.19.1...v0.20.0

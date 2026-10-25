@@ -1,11 +1,27 @@
 {
-  "latest": "0.17.0",
+  "latest": "0.18.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.17.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.18.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.18.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.17.0...v0.18.0",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "The phone page no longer zooms: pinch, double-tap and iOS's zoom-on-focus are all held off, so the layout stays put while you type.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.17.0",

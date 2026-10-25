@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-25
+
+### Fixed
+
+- The phone page no longer zooms: pinch, double-tap and iOS's zoom-on-focus are all held off, so the layout stays put while you type.
+
 ## [0.17.0] - 2026-10-25
 
 ### Added
@@ -273,7 +279,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/stawan15/teveus/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/stawan15/teveus/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/stawan15/teveus/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/stawan15/teveus/compare/v0.14.0...v0.15.0

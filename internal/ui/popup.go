@@ -252,9 +252,9 @@ func (m *Model) popupView() string {
 		if title == "" {
 			title = "Command palette"
 		}
-		head := sAccent.Bold(true).Render(title)
+		head := sBold.Render(title)
 		if p.accent != "" {
-			head = gradient(title, p.accent, cAccent2, true)
+			head = lipgloss.NewStyle().Foreground(p.accent).Bold(true).Render(title)
 		}
 		if p.tag != "" {
 			head += "   " + termSafe(p.tag)
@@ -332,7 +332,7 @@ func (m *Model) popupView() string {
 			if i > start {
 				lines = append(lines, "")
 			}
-			header := sAccent2.Bold(true).Render(strings.ToUpper(termSafe(c.group)))
+			header := sDim.Bold(true).Render(strings.ToUpper(termSafe(c.group)))
 			if len(p.all) > 20 {
 				header += sFaint.Render(fmt.Sprintf("  %d", groups[c.group]))
 			}
@@ -342,7 +342,7 @@ func (m *Model) popupView() string {
 		sel := i == p.sel
 		st := func(x lipgloss.Style) lipgloss.Style {
 			if sel {
-				return x.Background(cSurface)
+				return x.Background(cSel)
 			}
 			return x
 		}

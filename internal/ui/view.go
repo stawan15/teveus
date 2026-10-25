@@ -50,6 +50,9 @@ func (m *Model) refresh() {
 		write(m.welcome(m.chatW - 3))
 	}
 	m.blockStart = m.blockStart[:0]
+	if len(m.blocks) > 0 {
+		write("\n")
+	}
 	for i, b := range m.blocks {
 		if i > 0 {
 			// Proximity: consecutive tool calls sit together, turns breathe.
@@ -57,8 +60,9 @@ func (m *Model) refresh() {
 			// Pro is compact: blank lines only between turns.
 			switch {
 			case b.kind == kindUser:
-				// A faint rule opens each turn, so replies don't run together.
-				write("\n\n" + sFaint.Render(strings.Repeat("─", width)) + "\n\n")
+				// A short rule opens each turn; the user block carries the
+				// rest of the visual break.
+				write("\n\n" + sFaint.Render(strings.Repeat("─", min(width, 28))) + "\n\n")
 			case (prev.kind == kindTool && b.kind == kindTool) || m.level() == "pro":
 				write("\n")
 			default:
@@ -113,14 +117,15 @@ func (m *Model) bottomFitted() string {
 }
 
 func (m *Model) header() string {
-	left := gradient(" ✦ teveus", cAccent, cAccent2, true)
+	left := " " + sAccent.Render("✦") + "  " + sBold.Render("teveus")
 	if m.engine == "api" {
-		left += " " + pill("API", cAccent2)
+		left += " " + lipgloss.NewStyle().Background(cSurface).Foreground(cAccent2).Bold(true).
+			Padding(0, 1).Render("API")
 	}
-	sep := sFaint.Render("  ·  ")
+	sep := sFaint.Render("   ")
 	parts := []string{sDim.Render(shortPath(m.cwd))}
 	if m.branch != "" {
-		parts = append(parts, sAccent2.Render("⎇ "+m.branch))
+		parts = append(parts, sFaint.Render("⎇ ")+sAccent2.Render(m.branch))
 	}
 	if m.model != "" {
 		parts = append(parts, sText.Render(shortModel(m.model)))
@@ -135,8 +140,7 @@ func (m *Model) header() string {
 }
 
 var logo = []string{
-	"▀█▀ █▀▀ █ █ █▀▀ █ █ █▀▀",
-	" █  ██▄ ▀▄▀ ██▄ █▄█ ▄▄█",
+	"t e v e u s",
 }
 
 // starters are example first prompts: new users see what the tool can do and
@@ -158,6 +162,7 @@ func (m *Model) level() string {
 func (m *Model) welcome(width int) string {
 	var lines []string
 	if m.vp.Height >= 16 {
+		lines = append(lines, gradient("✦", cAccent, cAccent2, true), "")
 		for _, l := range logo {
 			lines = append(lines, gradient(l, cAccent, cAccent2, true))
 		}
@@ -167,7 +172,7 @@ func (m *Model) welcome(width int) string {
 	if m.engine == "api" && m.model != "" {
 		greeting += sFaint.Render("  ·  " + shortModel(m.model))
 	}
-	lines = append(lines, sDim.Render(greeting), "")
+	lines = append(lines, sText.Render(greeting), "")
 	if m.engine == "" {
 		// Nothing runs until the user chooses where the AI comes from.
 		lines = append(lines, sText.Render("Connect an AI to start:  ")+keycap("/login"), "")
@@ -181,30 +186,17 @@ func (m *Model) welcome(width int) string {
 	// Starter prompts
 	var rows []string
 	for i, s := range starters {
-		rows = append(rows, keycap(fmt.Sprint(i+1))+" "+sText.Render(s))
+		num := lipgloss.NewStyle().Background(cSel).Foreground(cAccent).Bold(true).Padding(0, 1).Render(fmt.Sprint(i + 1))
+		rows = append(rows, num+"  "+sText.Render(s))
 	}
 	lines = append(lines, lipgloss.JoinVertical(lipgloss.Left, rows...), "")
 
-	tips := [][2]string{
-		{"?", "all shortcuts"}, {"ctrl+k", "command palette"},
-		{"@", "mention a file"}, {"/", "slash commands"},
-		{"shift+tab", "permission mode"}, {"/settings", "preferences"},
-	}
-	colW := 0
-	for _, t := range tips {
-		colW = max(colW, lipgloss.Width(keycap(t[0]))+1+lipgloss.Width(t[1]))
-	}
-	cell := func(t [2]string) string {
-		s := keycap(t[0]) + " " + sDim.Render(t[1])
-		return s + strings.Repeat(" ", colW-lipgloss.Width(s))
-	}
-	twoCols := width >= colW*2+8
-	for i := 0; i < len(tips); i += 2 {
-		if twoCols {
-			lines = append(lines, cell(tips[i])+"    "+cell(tips[i+1]))
-		} else {
-			lines = append(lines, cell(tips[i]), cell(tips[i+1]))
-		}
+	if width >= 64 {
+		lines = append(lines, hints("ctrl+k", "palette", "@", "files", "/", "commands"))
+		lines = append(lines, sDim.Render("? all shortcuts   ·   shift+tab permission mode   ·   /settings"))
+	} else {
+		lines = append(lines, hints("ctrl+k", "palette", "@", "files"))
+		lines = append(lines, sDim.Render("? shortcuts   ·   /settings"))
 	}
 	if m.level() == "guided" {
 		lines = append(lines, "", sFaint.Render("Type a request in plain words and press enter. Claude asks before changing files."))
@@ -228,12 +220,11 @@ func (m *Model) sidebar(height int) string {
 		if len(s) > 0 {
 			s = append(s, "")
 		}
-		t := sAccent2.Bold(true).Render(title)
+		t := sDim.Bold(true).Render(strings.ToUpper(title))
 		if right != "" {
-			t += " " + sDim.Render(right)
+			t += "  " + sFaint.Render(right)
 		}
-		rule := w - lipgloss.Width(t) - 1
-		s = append(s, t+" "+sFaint.Render(strings.Repeat("─", max(rule, 0))))
+		s = append(s, t)
 	}
 	kv := func(k, v string) string {
 		return sDim.Render(fmt.Sprintf("%-9s", k)) + v
@@ -260,10 +251,14 @@ func (m *Model) sidebar(height int) string {
 		s = append(s, kv("effort", sAccent2.Render(m.settings.Effort)))
 	}
 	// Wrap the saver list on item boundaries with a hanging indent.
+	sav := sGreen
+	if m.saverLabel() == "off" {
+		sav = sDim
+	}
 	line, first := "", true
 	for _, it := range strings.Split(m.saverLabel(), " · ") {
 		if line != "" && 9+lipgloss.Width(line)+3+lipgloss.Width(it) > w {
-			s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sGreen.Render(line)))
+			s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
 			line, first = "", false
 		}
 		if line != "" {
@@ -271,7 +266,7 @@ func (m *Model) sidebar(height int) string {
 		}
 		line += it
 	}
-	s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sGreen.Render(line)))
+	s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
 	if m.sessionID != "" {
 		id := strings.TrimPrefix(m.sessionID, "ses_")
 		s = append(s, kv("session", sDim.Render(id[:min(8, len(id))])))
@@ -407,25 +402,26 @@ func (m *Model) queueView() string {
 	return strings.Join(out, "\n")
 }
 
-// inputView draws the input box with the permission mode set into its top
-// border, so the mode sits right where you type.
+// inputView draws the input box with the permission mode set into its bottom
+// border, so the mode sits right where you type without crowding the text.
 func (m *Model) inputView() string {
 	col := modeColor(m.mode)
-	bc := lipgloss.NewStyle().Foreground(col)
-	w := m.w - 2
-	label := lipgloss.NewStyle().Foreground(col).Bold(true).Render(" ● " + modeLabel(m.mode) + " ")
+	bc := lipgloss.NewStyle().Foreground(cFaint)
+	label := " " + lipgloss.NewStyle().Foreground(col).Render("● "+modeLabel(m.mode)) + " "
 	right := sFaint.Render(" shift+tab ")
-	// The body is w wide plus its two side borders; the top line must match:
-	// "╭─" + label + fill + right + "─╮".
+	w := m.w - 2
+	// The body is w wide plus its two side borders; the bottom line must
+	// match: "╰─" + label + fill + right + "─╯".
 	fill := w + 2 - 4 - lipgloss.Width(label) - lipgloss.Width(right)
-	top := bc.Render("╭─") + label + bc.Render(strings.Repeat("─", max(fill, 0))) + right + bc.Render("─╮")
+	top := bc.Render("╭" + strings.Repeat("─", w) + "╮")
+	bottom := bc.Render("╰─") + label + bc.Render(strings.Repeat("─", max(fill, 0))) + right + bc.Render("─╯")
 	body := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder(), false, true, true, true).
-		BorderForeground(col).
+		Border(lipgloss.RoundedBorder(), false, true, false, true).
+		BorderForeground(cFaint).
 		Padding(0, 1).
 		Width(w).
 		Render(m.input.View())
-	return top + "\n" + body
+	return top + "\n" + body + "\n" + bottom
 }
 
 func (m *Model) permView() string {
@@ -434,9 +430,12 @@ func (m *Model) permView() string {
 	json.Unmarshal(p.Input, &in)
 	inner := m.w - 6
 
-	title := sYellow.Bold(true).Render("⚠ Allow " + displayName(p.ToolName) + "?")
+	title := sYellow.Bold(true).Render("⚠  Approval needed") + "   " + sBold.Render(displayName(p.ToolName))
 	if p.Description != "" {
-		title += "  " + sDim.Render(truncate(p.Description, inner-20))
+		room := inner - lipgloss.Width(title) - 3
+		if room > 8 {
+			title += "  " + sDim.Render(truncate(p.Description, room))
+		}
 	}
 	// Leave the prompt's frame, title and keys (6 lines), the header and
 	// status bar, and a few transcript lines on screen.

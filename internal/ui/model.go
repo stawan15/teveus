@@ -847,6 +847,10 @@ func (m *Model) handlePhone(msg phoneMsg) tea.Cmd {
 		cmd := m.switchTo(*msg.session)
 		m.refresh()
 		return cmd
+	case msg.popup:
+		cmd := m.answerPhonePopup(msg.index, msg.text)
+		m.refresh()
+		return cmd
 	case msg.perm != "":
 		if m.client == nil {
 			m.note("no session is running", false)

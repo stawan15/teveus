@@ -486,3 +486,76 @@ func TestPhoneRejectsABadAction(t *testing.T) {
 		t.Fatalf("GET /perm = %d, want 405", resp.StatusCode)
 	}
 }
+
+func TestPhoneAnswersTheSubWindowTheTerminalOpened(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.engine = "api"
+	m.model = "openai/gpt-5.4"
+
+	// /model opens a picker in the terminal. Until now the phone showed nothing
+	// and the command did nothing there.
+	var picked string
+	m.openPicker("Model", []choice{
+		{label: "gpt-5.4", desc: "openai", run: func(m *Model) tea.Cmd { picked = "gpt-5.4"; return nil }},
+		{label: "gemini-3.5", desc: "google", run: func(m *Model) tea.Cmd { picked = "gemini-3.5"; return nil }},
+	}, 0)
+	m.refresh() // the idle tick is what makes an open picker visible
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if v.Prompt == nil || v.Prompt.Kind != "pick" {
+		t.Fatalf("prompt = %+v", v.Prompt)
+	}
+	if v.Prompt.Title != "Model" || len(v.Prompt.Opts) != 2 || !v.Prompt.Opts[0].Now {
+		t.Fatalf("prompt = %+v", v.Prompt)
+	}
+
+	if code := phonePost(t, p, "/popup", `{"index":1}`); code != http.StatusNoContent {
+		t.Fatalf("answer = %d", code)
+	}
+	msg := (<-msgs).(phoneMsg)
+	if !msg.popup || msg.index != 1 {
+		t.Fatalf("message = %#v", msg)
+	}
+	m.handlePhone(msg)
+	if picked != "gemini-3.5" {
+		t.Fatalf("picked %q", picked)
+	}
+	if m.pop.open() {
+		t.Fatal("the picker stayed open after the phone chose")
+	}
+	// A fresh value: decoding into an old struct keeps fields the JSON omits.
+	var after phoneView
+	phoneGet(t, p, "/state", &after)
+	if after.Prompt != nil {
+		t.Fatalf("the page still shows %+v", after.Prompt)
+	}
+}
+
+func TestPhoneAnswersAnInputBox(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	var got string
+	m.pop = popup{mode: popInput, title: "Brave key", masked: true,
+		submit: func(m *Model, v string) tea.Cmd { got = v; return nil }}
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if v.Prompt == nil || v.Prompt.Kind != "input" || !v.Prompt.Masked {
+		t.Fatalf("prompt = %+v", v.Prompt)
+	}
+	if code := phonePost(t, p, "/popup", `{"text":"sk-abc"}`); code != http.StatusNoContent {
+		t.Fatalf("answer = %d", code)
+	}
+	m.handlePhone((<-msgs).(phoneMsg))
+	if got != "sk-abc" {
+		t.Fatalf("submitted %q", got)
+	}
+}
+
+func TestPhonePopupAnswerNeedsSomethingOpen(t *testing.T) {
+	_, p, _ := phoneTestModel(t)
+	if code := phonePost(t, p, "/popup", `{"index":0}`); code != http.StatusConflict {
+		t.Fatalf("answer with nothing open = %d, want 409", code)
+	}
+}

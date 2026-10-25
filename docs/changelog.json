@@ -1,11 +1,27 @@
 {
-  "latest": "0.19.1",
+  "latest": "0.20.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.19.1...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.20.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.20.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.19.1...v0.20.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "The phone page shows the sub-windows the terminal opens — `/model`'s list, `/effort`'s slider, an API-key field, the \"do you trust this folder?\" question — and you can answer them from the phone. Before, those commands ran but their window only appeared in the terminal.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.19.1",

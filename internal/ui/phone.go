@@ -27,6 +27,8 @@ type phoneMsg struct {
 	request   string // the permission request the answer belongs to
 	mode      string // a permission mode to switch to
 	session   *int   // a session to switch to
+	popup     bool   // an answer to the open picker, slider or input
+	index     int    // which row it picked; -1 for a text answer
 	interrupt bool
 }
 
@@ -45,6 +47,30 @@ type phoneView struct {
 	Cur      int         `json:"cur"` // the session on screen
 	Tab      string      `json:"tab"` // this window's session, for other windows to show
 	Cmds     []phoneCmd  `json:"cmds"`
+	Prompt   *phoneAsk   `json:"prompt,omitempty"` // a picker or slider the terminal is showing
+}
+
+// phoneAsk is a picker, slider or text field the app has open, so the phone
+// shows the same sub-window the terminal does: /model, /effort, /theme and the
+// rest would otherwise do nothing on a phone.
+type phoneAsk struct {
+	Kind   string     `json:"kind"` // "pick", "slider" or "input"
+	Title  string     `json:"title"`
+	Hint   string     `json:"hint,omitempty"`
+	Opts   []phoneOpt `json:"opts,omitempty"`
+	Sel    int        `json:"sel"`
+	Masked bool       `json:"masked,omitempty"`
+	Query  string     `json:"query,omitempty"`
+	Ends   [2]string  `json:"ends,omitempty"` // slider: what the low and high ends mean
+}
+
+// phoneOpt is one row of a picker or one level of a slider.
+type phoneOpt struct {
+	Label string `json:"label"`
+	Desc  string `json:"desc,omitempty"`
+	Key   string `json:"key,omitempty"`
+	Now   bool   `json:"now,omitempty"`
+	Held  bool   `json:"held,omitempty"` // can't be picked for a moment
 }
 
 // phoneCmd is one slash command the page can run, so the phone gets the same
@@ -234,6 +260,7 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 	mux.HandleFunc("/perm", p.answer)
 	mux.HandleFunc("/mode", p.mode)
 	mux.HandleFunc("/session", p.session)
+	mux.HandleFunc("/popup", p.popup)
 	mux.HandleFunc("/stop", p.stop)
 	p.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go p.srv.Serve(ln)
@@ -343,6 +370,7 @@ func (p *phoneServer) update(m *Model) {
 	for _, c := range localCmds {
 		v.Cmds = append(v.Cmds, phoneCmd{Name: c.name, Desc: c.desc})
 	}
+	v.Prompt = phonePopup(&m.pop)
 	for _, b := range m.blocks {
 		if line, ok := phoneBlock(b, m); ok {
 			v.Msgs = append(v.Msgs, line)
@@ -360,6 +388,59 @@ func (p *phoneServer) update(m *Model) {
 	p.mu.Lock()
 	p.view = v
 	p.mu.Unlock()
+}
+
+// phonePopup turns the sub-window the terminal has open into something the
+// phone can draw and answer. The slash and @ lists belong to the composer the
+// page already draws, so those stay in the terminal.
+func phonePopup(p *popup) *phoneAsk {
+	switch p.mode {
+	case popPicker, popPalette, popReview, popSlider, popInput:
+	default:
+		return nil
+	}
+	a := &phoneAsk{Kind: "pick", Title: termSafe(p.title), Hint: termSafe(p.hint), Sel: p.sel}
+	switch p.mode {
+	case popSlider:
+		a.Kind, a.Ends = "slider", p.ends
+	case popInput:
+		a.Kind, a.Masked, a.Query = "input", p.masked, p.query
+	}
+	for i, c := range p.list {
+		a.Opts = append(a.Opts, phoneOpt{Label: termSafe(c.label), Desc: termSafe(c.desc),
+			Key: termSafe(c.key), Now: i == p.sel, Held: p.held(c)})
+	}
+	return a
+}
+
+// answerPhonePopup applies what the phone chose in that sub-window, down the
+// same path the keyboard takes.
+func (m *Model) answerPhonePopup(index int, text string) tea.Cmd {
+	p := &m.pop
+	switch p.mode {
+	case popInput:
+		submit := p.submit
+		m.closePopup(false)
+		if submit != nil {
+			return submit(m, text)
+		}
+	case popSlider, popPicker, popPalette, popReview:
+		if index >= 0 && index < len(p.list) {
+			p.sel = index
+		}
+		c, ok := p.current()
+		if !ok || p.held(c) {
+			return nil
+		}
+		run := c.run
+		m.closePopup(false)
+		if run != nil {
+			return run(m)
+		}
+	}
+	m.layout()
+	m.refresh()
+	return nil
 }
 
 // phoneBlock is one transcript entry as a line the page can style.
@@ -550,6 +631,29 @@ func (p *phoneServer) session(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.send(phoneMsg{session: body.ID})
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (p *phoneServer) popup(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Index *int   `json:"index"` // a pick or slider level
+		Text  string `json:"text"`  // an input box's value
+	}
+	if !p.decode(w, r, &body) {
+		return
+	}
+	p.mu.Lock()
+	open := p.view.Prompt != nil
+	p.mu.Unlock()
+	if !open {
+		http.Error(w, "nothing is open", http.StatusConflict)
+		return
+	}
+	idx := -1
+	if body.Index != nil {
+		idx = *body.Index
+	}
+	p.send(phoneMsg{popup: true, index: idx, text: body.Text})
 	w.WriteHeader(http.StatusNoContent)
 }
 

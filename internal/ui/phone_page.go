@@ -92,9 +92,9 @@ textarea:focus { outline:none; border-color:#2f4a70 }
 #send { flex:none; padding:0 15px; min-height:42px }
 
 /* sheets: modes, sessions, commands */
-#modes, #sessions, #cmds { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.6);
+#modes, #sessions, #cmds, #popsheet { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.6);
   display:flex; align-items:flex-end; padding:10px 10px calc(10px + env(safe-area-inset-bottom)) }
-#modes[hidden], #sessions[hidden], #cmds[hidden] { display:none }
+#modes[hidden], #sessions[hidden], #cmds[hidden], #popsheet[hidden] { display:none }
 .sheet { width:100%; background:#12151c; border:1px solid var(--edge); border-radius:16px;
   padding:6px; max-height:64vh; overflow:auto }
 .sheet button { display:block; width:100%; text-align:left; border:0; background:transparent;
@@ -120,6 +120,13 @@ textarea:focus { outline:none; border-color:#2f4a70 }
     <button id="always" data-a="always" hidden></button></div>
   <div class="note" id="asknote" hidden></div></div>
 
+<div id="popsheet" hidden><div class="sheet">
+  <div class="grouphdr" id="pophead"></div>
+  <div id="poppick"></div>
+  <div id="popinput" hidden><textarea id="poptext" rows="1" placeholder="Type here…"></textarea>
+    <div class="row" style="margin-top:6px"><button class="go" id="popgo">OK</button></div></div>
+</div></div>
+
 <footer>
   <button id="slash" type="button" title="Commands">/</button>
   <textarea id="msg" placeholder="Message…" rows="1"></textarea>
@@ -142,8 +149,11 @@ const asknote = $('asknote'), always = $('always');
 const modebtn = $('modebtn'), modesEl = $('modes'), modeList = $('modelist');
 const sessbtn = $('sessbtn'), sessEl = $('sessions'), sessList = $('sessionlist');
 const cmdsEl = $('cmds'), cmdList = $('cmdlist');
+const popsEl = $('popsheet'), popHead = $('pophead'), popPick = $('poppick');
+const popInput = $('popinput'), popText = $('poptext'), popGo = $('popgo');
 const ta = $('msg'), stop = $('stop'), slashBtn = $('slash');
 let modes = [], tabs = [], cur = 0, cmds = [], known = '';
+let popKey = '';
 
 // Follow the newest message unless the reader scrolled up to read.
 let follow = true;
@@ -193,7 +203,46 @@ function render(v) {
   } else {
     ask.hidden = true; document.body.classList.remove('asking');
   }
+
+  showPopup(v.prompt);
 }
+
+// showPopup draws the sub-window the app has open — /model's list, /effort's
+// slider, an API-key field — because a phone can't reach the terminal's.
+function showPopup(p) {
+  // Rebuilding on every poll would swallow a keystroke in the text field.
+  const key = p ? JSON.stringify(p) : '';
+  if (key === popKey) return;
+  popKey = key;
+  if (!p) { popsEl.hidden = true; return }
+
+  popHead.textContent = (p.title || 'choose') + (p.hint ? ' · ' + p.hint : '');
+  popPick.textContent = '';
+  popInput.hidden = p.kind !== 'input';
+
+  if (p.kind === 'input') {
+    popText.value = p.query || '';
+    popText.type = p.masked ? 'password' : 'text';
+    popsEl.hidden = false;
+    return;
+  }
+
+  (p.opts || []).forEach((o, i) => {
+    const b = document.createElement('button');
+    b.className = i === p.sel ? 'now' : '';
+    b.innerHTML = '<span class="lbl"></span><span class="sub"></span>';
+    b.querySelector('.lbl').textContent =
+      (p.kind === 'slider' ? (i === p.sel ? '● ' : '○ ') : '') + o.label + (i === p.sel && p.kind !== 'slider' ? ' ✓' : '');
+    b.querySelector('.sub').textContent = o.held ? 'wait a moment…'
+      : [o.desc, o.key].filter(Boolean).join(' · ');
+    b.disabled = !!o.held;
+    b.onclick = () => post('/popup', {index: i}).then(poll);
+    popPick.appendChild(b);
+  });
+  popsEl.hidden = false;
+}
+
+popGo.onclick = () => post('/popup', {text: popText.value}).then(poll);
 
 function node(m) {
   const d = document.createElement('div');
@@ -302,7 +351,7 @@ sessbtn.onclick = () => {
   sessEl.hidden = false;
 };
 
-[modesEl, sessEl, cmdsEl].forEach(el => el.onclick = e => {
+[modesEl, sessEl, cmdsEl, popsEl].forEach(el => el.onclick = e => {
   if (e.target === el) el.hidden = true;
 });
 

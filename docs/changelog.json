@@ -1,11 +1,27 @@
 {
-  "latest": "0.20.0",
+  "latest": "0.21.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.20.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.21.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.21.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.20.0...v0.21.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Messages sent from the phone while a turn is still running now wait their turn in view: the page lists them under the composer (\"next: …\", \"then: …\") and sends them in order as soon as the current work finishes, instead of appearing to vanish.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.20.0",

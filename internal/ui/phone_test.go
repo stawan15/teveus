@@ -559,3 +559,34 @@ func TestPhonePopupAnswerNeedsSomethingOpen(t *testing.T) {
 		t.Fatalf("answer with nothing open = %d, want 409", code)
 	}
 }
+
+func TestPhoneShowsQueuedMessages(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.client = &tabBackend{ch: make(chan claude.Event, 8)}
+	m.busy = true
+	m.refresh()
+
+	// Sending while it works queues the message instead of cutting the reply.
+	phonePost(t, p, "/prompt", `{"text":"also update the docs"}`)
+	m.handlePhone((<-msgs).(phoneMsg))
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if len(v.Queue) != 1 || v.Queue[0] != "also update the docs" {
+		t.Fatalf("queue on the page = %v", v.Queue)
+	}
+	if !v.Busy {
+		t.Fatal("the page doesn't say it is still working")
+	}
+
+	// The turn ends: the queued message goes next, and the page says so.
+	m.busy = false
+	m.sendQueued()
+	m.refresh()
+	var after phoneView
+	phoneGet(t, p, "/state", &after)
+	if len(after.Queue) != 0 {
+		t.Fatalf("queue after the turn ended = %v", after.Queue)
+	}
+}

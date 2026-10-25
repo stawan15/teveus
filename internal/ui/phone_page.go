@@ -77,18 +77,25 @@ button:active { transform:scale(.985) }
 .no { background:#2a1a22; border-color:#5d2c39; color:#f0c3cc }
 
 /* composer */
-footer { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; gap:7px;
-  align-items:flex-end; padding:7px 10px calc(9px + env(safe-area-inset-bottom));
+footer { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column;
+  gap:6px; padding:7px 10px calc(9px + env(safe-area-inset-bottom));
   background:rgba(11,13,18,.96); border-top:1px solid var(--edge);
   backdrop-filter:blur(14px) }
+.composer { display:flex; gap:7px; align-items:flex-end }
+/* Messages sent while a turn is running: they go next, in order. */
+#queue:empty { display:none }
+#queue div { font:12px/1.45 var(--mono); color:var(--faint); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; padding-left:2px }
+#queue .qh { color:var(--warn) }
 /* 16px is the threshold: below it iOS zooms the page when the field gets focus. */
 textarea { flex:1; min-height:42px; max-height:36vh; resize:none; font:16px/1.45 inherit;
   padding:11px 12px; border-radius:11px; border:1px solid var(--edge); background:var(--card);
   color:var(--text) }
 textarea:focus { outline:none; border-color:#2f4a70 }
-#slash, #stop { min-width:42px; padding:0; font-size:16px; color:var(--dim); flex:none }
+#slash, #stop, #insert { min-width:42px; padding:0; font-size:16px; color:var(--dim); flex:none }
 #stop { color:var(--bad) }
-#stop[hidden] { display:none }
+#stop[hidden], #insert[hidden] { display:none }
+#insert { color:var(--warn); border-color:#4a3d1c; background:#1d1a10 }
 #send { flex:none; padding:0 15px; min-height:42px }
 
 /* sheets: modes, sessions, commands */
@@ -128,10 +135,14 @@ textarea:focus { outline:none; border-color:#2f4a70 }
 </div></div>
 
 <footer>
-  <button id="slash" type="button" title="Commands">/</button>
-  <textarea id="msg" placeholder="Message…" rows="1"></textarea>
-  <button id="stop" hidden type="button" title="Stop">■</button>
-  <button class="go" id="send" type="button">↑</button>
+  <div id="queue"></div>
+  <div class="composer">
+    <button id="slash" type="button" title="Commands">/</button>
+    <textarea id="msg" placeholder="Message…" rows="1"></textarea>
+    <button id="insert" type="button" title="Say this when the current work ends" hidden>⏎+</button>
+    <button id="stop" hidden type="button" title="Stop">■</button>
+    <button class="go" id="send" type="button">↑</button>
+  </div>
 </footer>
 
 <div id="modes" hidden><div class="sheet" id="modelist"></div></div>
@@ -151,7 +162,8 @@ const sessbtn = $('sessbtn'), sessEl = $('sessions'), sessList = $('sessionlist'
 const cmdsEl = $('cmds'), cmdList = $('cmdlist');
 const popsEl = $('popsheet'), popHead = $('pophead'), popPick = $('poppick');
 const popInput = $('popinput'), popText = $('poptext'), popGo = $('popgo');
-const ta = $('msg'), stop = $('stop'), slashBtn = $('slash');
+const queueEl = $('queue');
+const ta = $('msg'), stop = $('stop'), slashBtn = $('slash'), insertBtn = $('insert');
 let modes = [], tabs = [], cur = 0, cmds = [], known = '';
 let popKey = '';
 
@@ -178,6 +190,11 @@ function render(v) {
     : tabs.some(t => t.state === 'working') ? ' busy' : '');
 
   stop.hidden = !v.busy;
+  // While it works, sending adds the message to the queue rather than
+  // interrupting, so say so on the button.
+  insertBtn.hidden = !v.busy;
+  ta.placeholder = v.busy ? 'Queue a message…' : 'Message…';
+  showQueue(v.queue || []);
 
   // Rebuilding the list on every poll would fight the scroll position, so
   // only touch the DOM when the messages actually changed.
@@ -205,6 +222,25 @@ function render(v) {
   }
 
   showPopup(v.prompt);
+}
+
+// showQueue lists what was sent while a turn was running: it runs when the
+// turn ends, in order, so a message sent mid-work isn't lost.
+function showQueue(q) {
+  const key = JSON.stringify(q);
+  if (queueEl.dataset.key === key) return;
+  queueEl.dataset.key = key;
+  queueEl.textContent = '';
+  q.slice(0, 3).forEach((text, i) => {
+    const d = document.createElement('div');
+    d.textContent = (i === 0 ? 'next: ' : 'then: ') + text.replace(/\s+/g, ' ').slice(0, 90);
+    queueEl.appendChild(d);
+  });
+  if (q.length > 3) {
+    const d = document.createElement('div');
+    d.textContent = '… ' + (q.length - 3) + ' more queued';
+    queueEl.appendChild(d);
+  }
 }
 
 // showPopup draws the sub-window the app has open — /model's list, /effort's
@@ -267,9 +303,12 @@ ask.querySelectorAll('button').forEach(b => b.onclick = async () => {
 async function send() {
   const text = ta.value.trim(); if (!text) return;
   ta.value = ''; ta.style.height = 'auto'; follow = true;
+  // While a turn runs the app queues this and sends it when the turn ends,
+  // so the reply isn't cut off; the queue line below shows it waiting.
   await post('/prompt', {text}); poll();
 }
 $('send').onclick = send;
+insertBtn.onclick = send;
 slashBtn.onclick = () => { ta.value = '/'; ta.focus(); showCmds('') };
 ta.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }

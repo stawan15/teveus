@@ -5,7 +5,7 @@
 #
 # Options (environment variables):
 #   TEVEUS_INSTALL_DIR   where to put the binary      (default: ~/.local/bin)
-#   TEVEUS_VERSION       a release tag, e.g. v0.1.0   (default: latest)
+#   TEVEUS_VERSION       a release tag, e.g. v0.10.0   (default: latest)
 #   TEVEUS_BASE_URL      download location override   (for testing mirrors)
 
 set -eu

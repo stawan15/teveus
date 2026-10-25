@@ -84,7 +84,7 @@ func TestStartersHelpAndSettings(t *testing.T) {
 		t.Log("welcome:\n" + plain(m.View()))
 	}
 	press(m, "2")
-	if m.input.Value() != starters[1] {
+	if m.input.Value() != m.starterList()[1] {
 		t.Fatalf("starter 2 = %q", m.input.Value())
 	}
 	m.input.Reset()

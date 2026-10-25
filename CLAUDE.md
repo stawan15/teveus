@@ -13,7 +13,7 @@ go test ./internal/agent -run TestPlanModeRefusesEdits -v   # single test
 TEVEUS_SMOKE=1 TEVEUS_DIR=$(mktemp -d) go test ./internal/ui -run Smoke -v   # real Claude Code session (haiku)
 LIVE_MODEL=google/gemini-3.5-flash go test ./internal/agent -run Live -v            # real provider, uses keys saved by /login
 SNAP=1 go test ./internal/ui -run TestOnboardingFlow -v   # log rendered screens from UI tests
-docs/record.sh                                  # re-record docs/demo.gif from a real session
+docs/record.sh                                  # re-record docs/demo.gif from a scripted session
 python3 docs/bench/bench.py                     # benchmark against Claude Code and OpenCode (costs real tokens)
 ```
 

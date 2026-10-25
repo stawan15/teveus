@@ -201,9 +201,6 @@ func (m *Model) askUpdate(msg updateMsg) {
 // installed. It returns what to tell the user, and the command (nil when
 // updating has to be done by hand).
 func updateCommand(version string) (string, []string) {
-	if runtime.GOOS == "windows" {
-		return "download it from " + releasesPage, nil
-	}
 	exe, err := os.Executable()
 	if err == nil {
 		exe, _ = filepath.EvalSymlinks(exe)
@@ -212,6 +209,12 @@ func updateCommand(version string) (string, []string) {
 	if isGoBin(dir) {
 		return "go install github.com/stawan15/teveus@v" + version,
 			[]string{"go", "install", "github.com/stawan15/teveus@v" + version}
+	}
+	if runtime.GOOS == "windows" {
+		script := fmt.Sprintf("$env:TEVEUS_VERSION='v%s'; $env:TEVEUS_INSTALL_DIR=%s; irm 'https://raw.githubusercontent.com/stawan15/teveus/v%s/install.ps1' | iex",
+			version, psQuote(dir), version)
+		return "downloads the release to " + shortPath(dir) + " and checks its checksum",
+			[]string{"powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script}
 	}
 	script := fmt.Sprintf("curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/v%s/install.sh | TEVEUS_VERSION=v%s TEVEUS_INSTALL_DIR=%s sh",
 		version, version, shellQuote(dir))
@@ -252,6 +255,8 @@ func isGoBin(dir string) bool {
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
+func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+
 // updateNow is /update: check right away, whatever was skipped.
 func (m *Model) updateNow() tea.Cmd {
 	if !releaseVersion(m.cfg.Version) {
@@ -287,6 +292,8 @@ func (m *Model) handleUpdateDone(msg updateDoneMsg) {
 		run := strings.Join(args, " ")
 		if len(args) == 3 && args[0] == "sh" {
 			run = args[2]
+		} else if len(args) >= 2 && args[0] == "powershell" {
+			run = args[len(args)-1]
 		}
 		m.add(&block{kind: kindError, text: "The update didn't finish: " + msg.err.Error() + "\nYou can run it yourself: " + run})
 		m.refresh()

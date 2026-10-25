@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-25
+
+### Added
+
+- Windows: install with PowerShell, and let teveus update itself with the same verified installer.
+- The welcome screen suggests actions that fit the project it finds, such as running its tests or explaining its code.
+
+### Changed
+
+- The welcome screen uses the teveus block wordmark again instead of spaced-out letters.
+
 ## [0.9.0] - 2026-10-25
 
 ### Changed
@@ -204,7 +215,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/stawan15/teveus/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/stawan15/teveus/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/stawan15/teveus/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/stawan15/teveus/compare/v0.6.7...v0.7.0

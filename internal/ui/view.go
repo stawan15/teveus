@@ -140,16 +140,8 @@ func (m *Model) header() string {
 }
 
 var logo = []string{
-	"t e v e u s",
-}
-
-// starters are example first prompts: new users see what the tool can do and
-// can start with one keypress (1-4).
-var starters = []string{
-	"Explain what this project does and how it's organised",
-	"Find a bug in this code and fix it",
-	"Write tests for the most important function",
-	"Review my uncommitted changes",
+	"▀█▀ █▀▀ █ █ █▀▀ █ █ █▀▀",
+	" █  ██▄ ▀▄▀ ██▄ █▄█ ▄▄█",
 }
 
 func (m *Model) level() string {
@@ -169,6 +161,9 @@ func (m *Model) welcome(width int) string {
 		lines = append(lines, "")
 	}
 	greeting := "What should we build today?"
+	if p := m.project; p.language != "" && p.name != "" && p.name != "." {
+		greeting = "What should we build in " + truncate(p.name, max(width-34, 8)) + " today?"
+	}
 	if m.engine == "api" && m.model != "" {
 		greeting += sFaint.Render("  ·  " + shortModel(m.model))
 	}
@@ -185,7 +180,7 @@ func (m *Model) welcome(width int) string {
 
 	// Starter prompts
 	var rows []string
-	for i, s := range starters {
+	for i, s := range m.starterList() {
 		num := lipgloss.NewStyle().Background(cSel).Foreground(cAccent).Bold(true).Padding(0, 1).Render(fmt.Sprint(i + 1))
 		rows = append(rows, num+"  "+sText.Render(s))
 	}

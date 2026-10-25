@@ -80,6 +80,7 @@ func (m *Model) load() {
 	m.tokIn, m.tokOut = s.tokIn, s.tokOut
 	if s.cwd != "" {
 		m.cwd, m.r.cwd, m.branch, m.files = s.cwd, s.cwd, s.branch, s.files
+		m.setProject(s.cwd)
 	}
 }
 
@@ -262,6 +263,7 @@ func (m *Model) addSession(cwd, branch string, wt *worktree) tea.Cmd {
 	var index tea.Cmd
 	if cwd != m.cwd || wt != nil {
 		m.cwd, m.r.cwd, m.branch, m.files = cwd, cwd, branch, nil
+		m.setProject(cwd)
 		index = indexFiles(cwd)
 	}
 	opts := m.cfg.Claude

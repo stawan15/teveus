@@ -91,6 +91,8 @@ type Model struct {
 	commands  []claude.Command
 	models    []claude.ModelInfo
 	files     []string
+	project   projectInfo
+	starters  []string
 
 	pop           popup
 	warnedCtx     bool
@@ -170,7 +172,7 @@ func New(cfg Config) *Model {
 		model = settings.APIModel
 	}
 	vp := scroller{MouseWheelDelta: 3}
-	return &Model{
+	m := &Model{
 		cfg:        cfg,
 		sessions:   []*session{{follow: true}},
 		settings:   settings,
@@ -188,6 +190,8 @@ func New(cfg Config) *Model {
 		history:    loadHistory(),
 		histIdx:    -1,
 	}
+	m.setProject(cwd)
+	return m
 }
 
 func styleInput(ta *textarea.Model) {
@@ -499,9 +503,9 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	// On the welcome screen, 1-4 fill in a starter prompt to edit or send.
-	if m.input.Value() == "" && len(m.blocks) == 0 && m.level() != "pro" && k.Type == tea.KeyRunes && len(k.Runes) == 1 {
-		if n := int(k.Runes[0] - '1'); n >= 0 && n < len(starters) {
-			m.input.SetValue(starters[n])
+	if prompts := m.starterList(); m.input.Value() == "" && len(m.blocks) == 0 && m.level() != "pro" && k.Type == tea.KeyRunes && len(k.Runes) == 1 {
+		if n := int(k.Runes[0] - '1'); n >= 0 && n < len(prompts) {
+			m.input.SetValue(prompts[n])
 			m.afterInput()
 			return m, nil
 		}
@@ -1054,8 +1058,9 @@ func (m *Model) handleEvent(ev claude.Event) {
 		if e.Model != "" {
 			m.model = e.Model // an engine without a model yet mustn't clear the user's pick
 		}
-		if e.Cwd != "" {
+		if e.Cwd != "" && e.Cwd != m.cwd {
 			m.cwd, m.r.cwd = e.Cwd, e.Cwd
+			m.setProject(e.Cwd)
 		}
 		if e.PermissionMode != "" {
 			m.mode = e.PermissionMode

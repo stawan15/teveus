@@ -33,7 +33,7 @@ func TestCapture(t *testing.T) {
 	}
 	var frames []frame
 	start := time.Now()
-	m := New(Config{Claude: claude.Options{Cwd: project, Model: "haiku"}, Dark: true, Settings: LoadSettings(), Version: "0.1.1"})
+	m := New(Config{Claude: claude.Options{Cwd: project, Model: "haiku"}, Dark: true, Settings: LoadSettings(), Version: "0.10.0"})
 	msgs := make(chan tea.Msg, 1024)
 	var run func(tea.Cmd)
 	run = func(c tea.Cmd) {

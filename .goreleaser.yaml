@@ -50,7 +50,12 @@ release:
     owner: stawan15
     name: teveus
   footer: |
-    **Install or update:**
+    **Install or update (macOS, Linux):**
     ```sh
     curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/main/install.sh | sh
+    ```
+
+    **Windows (PowerShell):**
+    ```powershell
+    irm https://raw.githubusercontent.com/stawan15/teveus/main/install.ps1 | iex
     ```

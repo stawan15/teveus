@@ -25,7 +25,7 @@ func phoneTestModel(t *testing.T) (*Model, *phoneServer, chan tea.Msg) {
 		t.Fatalf("startPhone: %v", err)
 	}
 	t.Cleanup(m.stopPhone)
-	if !strings.Contains(url, "?t=") {
+	if !strings.Contains(url, "/p/") {
 		t.Fatalf("url = %q, want a token", url)
 	}
 	return m, m.phone, msgs
@@ -111,13 +111,22 @@ func TestPhonePageOffUntilTurnedOn(t *testing.T) {
 
 func TestPhonePageNeedsTheToken(t *testing.T) {
 	_, p, _ := phoneTestModel(t)
+	// The page itself only exists under the token's path.
 	resp, err := http.Get(p.baseURL() + "/")
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("bare root = %d, want 404", resp.StatusCode)
+	}
+	resp, err = http.Get(p.baseURL() + "/p/wrong")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("no token = %d, want 401", resp.StatusCode)
+		t.Fatalf("wrong path token = %d, want 401", resp.StatusCode)
 	}
 	resp, err = http.Get(p.baseURL() + "/state?t=wrong")
 	if err != nil {
@@ -129,6 +138,37 @@ func TestPhonePageNeedsTheToken(t *testing.T) {
 	}
 	if code := phoneGet(t, p, "/state", nil); code != http.StatusOK {
 		t.Fatalf("good token = %d", code)
+	}
+	// The link's own form works without a query string.
+	resp, err = http.Get(p.baseURL() + "/p/" + p.token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("token in the path = %d", resp.StatusCode)
+	}
+}
+
+func TestPhoneLinkStaysTheSameBetweenRuns(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	first := New(Config{Dark: true})
+	u1, err := first.startPhone("127.0.0.1:0", func(tea.Msg) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.stopPhone()
+
+	second := New(Config{Dark: true})
+	u2, err := second.startPhone("127.0.0.1:0", func(tea.Msg) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.stopPhone()
+
+	tok := func(u string) string { return u[strings.LastIndex(u, "/")+1:] }
+	if tok(u1) == "" || tok(u1) != tok(u2) {
+		t.Fatalf("tokens differ between runs: %q then %q", u1, u2)
 	}
 }
 
@@ -285,6 +325,50 @@ func TestPhoneApprovalShowsWhatAndWhy(t *testing.T) {
 	}
 	if v.Perm.Note == "" {
 		t.Fatal("the page doesn't say what denying does")
+	}
+}
+
+func TestPhoneSwitchesSession(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	// The session on screen keeps its blocks in the model; the others are parked.
+	m.blocks = []*block{{kind: kindUser, text: "first conversation"}}
+	m.sessions = append(m.sessions, &session{follow: true, blocks: []*block{{kind: kindUser, text: "second one"}}, busy: true})
+	m.cur = 0
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if len(v.Sessions) != 2 || v.Cur != 0 {
+		t.Fatalf("sessions = %+v cur=%d", v.Sessions, v.Cur)
+	}
+	if v.Sessions[0].Title != "first conversation" || !v.Sessions[0].Now || v.Sessions[0].State != "idle" {
+		t.Fatalf("first tab = %+v", v.Sessions[0])
+	}
+	if v.Sessions[1].State != "working" || v.Sessions[1].Now {
+		t.Fatalf("second tab = %+v", v.Sessions[1])
+	}
+
+	if code := phonePost(t, p, "/session", `{"id":5}`); code != http.StatusNotFound {
+		t.Fatalf("missing session = %d, want 404", code)
+	}
+	if code := phonePost(t, p, "/session", `{}`); code != http.StatusBadRequest {
+		t.Fatalf("no id = %d, want 400", code)
+	}
+
+	if code := phonePost(t, p, "/session", `{"id":1}`); code != http.StatusNoContent {
+		t.Fatalf("switch = %d", code)
+	}
+	msg := (<-msgs).(phoneMsg)
+	if msg.session == nil || *msg.session != 1 {
+		t.Fatalf("message = %#v", msg)
+	}
+	m.handlePhone(msg)
+	if m.cur != 1 {
+		t.Fatalf("on session %d after the phone switched", m.cur)
+	}
+	phoneGet(t, p, "/state", &v)
+	if v.Cur != 1 || !v.Sessions[1].Now {
+		t.Fatalf("page still on %d", v.Cur)
 	}
 }
 

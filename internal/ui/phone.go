@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,20 +26,31 @@ type phoneMsg struct {
 	perm      string // "allow", "always" or "deny" for the question on screen
 	request   string // the permission request the answer belongs to
 	mode      string // a permission mode to switch to
+	session   *int   // a session to switch to
 	interrupt bool
 }
 
 // phoneView is what the phone's page shows: the conversation as plain lines,
 // and the question waiting for an answer. The UI fills it in on every frame.
 type phoneView struct {
-	Msgs  []phoneLine `json:"msgs"`
-	Busy  bool        `json:"busy"`
-	Phase string      `json:"phase"`
-	Perm  *phonePerm  `json:"perm"`
-	Where string      `json:"where"` // folder name, for the header
-	Model string      `json:"model"`
-	Mode  string      `json:"mode"` // permission mode, as the sidebar names it
-	Modes []phoneMode `json:"modes"`
+	Msgs     []phoneLine `json:"msgs"`
+	Busy     bool        `json:"busy"`
+	Phase    string      `json:"phase"`
+	Perm     *phonePerm  `json:"perm"`
+	Where    string      `json:"where"` // folder name, for the header
+	Model    string      `json:"model"`
+	Mode     string      `json:"mode"` // permission mode, as the sidebar names it
+	Modes    []phoneMode `json:"modes"`
+	Sessions []phoneTab  `json:"sessions"`
+	Cur      int         `json:"cur"` // the session on screen
+}
+
+// phoneTab is one open session, so the phone can switch between them.
+type phoneTab struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	State string `json:"state"` // "idle", "working" or "approval"
+	Now   bool   `json:"now"`
 }
 
 // phoneMode is one permission mode the page can switch to.
@@ -83,6 +96,19 @@ type phoneServer struct {
 // baseURL is where the page is served, without the token.
 func (p *phoneServer) baseURL() string {
 	return "http://" + p.addr
+} // phoneToken is the token the link carries. It is kept in the config dir, so
+// the link stays the same between runs and can be bookmarked on the phone.
+// Deleting ~/.config/teveus/phone-token gives out a new one, which makes every
+// old link stop working.
+func phoneToken(fresh string) string {
+	path := filepath.Join(configDir(), "phone-token")
+	if b, err := os.ReadFile(path); err == nil {
+		if t := strings.TrimSpace(string(b)); len(t) >= 32 {
+			return t
+		}
+	}
+	writePrivate("phone-token", []byte(fresh+"\n"))
+	return fresh
 }
 
 // phoneAddr is where the page listens once the user turns it on. It has to
@@ -141,7 +167,7 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 		return "", err
 	}
 	_, boundPort, _ := net.SplitHostPort(ln.Addr().String())
-	p := &phoneServer{token: hex.EncodeToString(b[:]), addr: net.JoinHostPort("127.0.0.1", boundPort), send: send}
+	p := &phoneServer{token: phoneToken(hex.EncodeToString(b[:])), addr: net.JoinHostPort("127.0.0.1", boundPort), send: send}
 	// The link has to name an address the page is actually listening on: a
 	// specific host as given, or this machine's own address when it listens
 	// on every interface.
@@ -154,14 +180,15 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 	if _, _, err := net.SplitHostPort(linkHost); err != nil {
 		linkHost = net.JoinHostPort(linkHost, boundPort)
 	}
-	p.url = "http://" + linkHost + "/?t=" + p.token
+	p.url = "http://" + linkHost + "/p/" + p.token
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", p.page)
+	mux.HandleFunc("/p/", p.page)
 	mux.HandleFunc("/state", p.state)
 	mux.HandleFunc("/prompt", p.prompt)
 	mux.HandleFunc("/perm", p.answer)
 	mux.HandleFunc("/mode", p.mode)
+	mux.HandleFunc("/session", p.session)
 	mux.HandleFunc("/stop", p.stop)
 	p.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go p.srv.Serve(ln)
@@ -237,6 +264,18 @@ func (p *phoneServer) snapshot(m *Model) {
 	for _, md := range modes {
 		v.Modes = append(v.Modes, phoneMode{ID: md, Label: modeLabel(md), Help: modeHelp(md, m.engine), Now: md == m.mode})
 	}
+	for i := range m.sessions {
+		title, busy, waiting := m.sessionState(i)
+		state := "idle"
+		switch {
+		case waiting:
+			state = "approval"
+		case busy:
+			state = "working"
+		}
+		v.Sessions = append(v.Sessions, phoneTab{ID: i, Title: title, State: state, Now: i == m.cur})
+	}
+	v.Cur = m.cur
 	for _, b := range m.blocks {
 		if line, ok := phoneBlock(b, m); ok {
 			v.Msgs = append(v.Msgs, line)
@@ -337,6 +376,11 @@ func (p *phoneServer) allowed(r *http.Request) bool {
 	if t == "" {
 		t = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	}
+	if t == "" {
+		// The link carries it in the path, so it can be bookmarked and shared
+		// as one URL.
+		t = strings.TrimPrefix(r.URL.Path, "/p/")
+	}
 	return subtle.ConstantTimeCompare([]byte(t), []byte(p.token)) == 1
 }
 
@@ -419,6 +463,26 @@ func (p *phoneServer) mode(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "unknown mode", http.StatusBadRequest)
 }
 
+func (p *phoneServer) session(w http.ResponseWriter, r *http.Request) {
+	var body struct{ ID *int }
+	if !p.decode(w, r, &body) {
+		return
+	}
+	if body.ID == nil {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+	p.mu.Lock()
+	n := len(p.view.Sessions)
+	p.mu.Unlock()
+	if *body.ID < 0 || *body.ID >= n {
+		http.Error(w, "no such session", http.StatusNotFound)
+		return
+	}
+	p.send(phoneMsg{session: body.ID})
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (p *phoneServer) stop(w http.ResponseWriter, r *http.Request) {
 	if !p.allowed(r) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -462,11 +526,15 @@ header .meta { margin-left:auto; text-align:right; font-size:12px; color:var(--d
 #dot { width:8px; height:8px; border-radius:50%; background:var(--ok); flex:none }
 #dot.busy { background:var(--warn); animation:pulse 1.1s infinite }
 @keyframes pulse { 50% { opacity:.35 } }
-#modebtn { margin-left:4px; min-height:30px; padding:4px 10px; border-radius:999px; font-size:12px;
-  background:#1d2433; border-color:#31405c; color:var(--accent); flex:none }
-#modes { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.55); display:flex;
+#modebtn, #sessbtn { margin-left:4px; min-height:30px; padding:4px 10px; border-radius:999px; font-size:12px;
+  background:#1d2433; border-color:#31405c; color:var(--accent); flex:none; max-width:34vw;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+#sessbtn { color:#c8cede }
+#sessbtn.working { border-color:var(--warn); color:var(--warn) }
+#sessbtn.approval { border-color:var(--warn); background:#2a2416; color:var(--warn) }
+#modes, #sessions { position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.55); display:flex;
   align-items:flex-end; padding:10px }
-#modes[hidden] { display:none }
+#modes[hidden], #sessions[hidden] { display:none }
 .sheet { width:100%; background:#171b23; border:1px solid var(--edge); border-radius:16px; padding:8px }
 .sheet button { display:block; width:100%; text-align:left; margin:0; border:0; background:transparent;
   border-radius:12px; padding:12px }
@@ -512,9 +580,11 @@ textarea:focus { outline:none; border-color:var(--accent) }
 #stop[hidden] { display:none }
 </style></head><body>
 <header><span id="dot"></span><b>teveus</b>
+  <button id="sessbtn" type="button" title="Switch session"></button>
   <button id="modebtn" type="button" title="Change permission mode"></button>
   <span class="meta" id="meta"></span></header>
 <div id="modes" hidden><div class="sheet" id="modelist"></div></div>
+<div id="sessions" hidden><div class="sheet" id="sessionlist"></div></div>
 <main id="chat"><div class="hint" id="hint">Nothing here yet. Type a message below.</div></main>
 <div id="ask" hidden><h2 id="asktitle"></h2><div id="askwhy" hidden></div>
   <pre id="askbody"></pre>
@@ -526,7 +596,7 @@ textarea:focus { outline:none; border-color:var(--accent) }
   <button class="go" id="send" type="button">Send</button>
   <button id="stop" hidden type="button" title="Stop">■</button></footer>
 <script>
-const t = new URLSearchParams(location.search).get('t') || '';
+const t = location.pathname.replace(/^\/p\//, '') || new URLSearchParams(location.search).get('t') || '';
 const q = p => p + '?t=' + encodeURIComponent(t);
 const post = (p, b) => fetch(q(p), {method:'POST', headers:{'Content-Type':'application/json'},
   body: JSON.stringify(b || {})});
@@ -537,8 +607,10 @@ const askbody = document.getElementById('askbody'), always = document.getElement
 const askwhy = document.getElementById('askwhy'), asknote = document.getElementById('asknote');
 const modebtn = document.getElementById('modebtn'), modesEl = document.getElementById('modes');
 const modeList = document.getElementById('modelist');
+const sessbtn = document.getElementById('sessbtn'), sessEl = document.getElementById('sessions');
+const sessList = document.getElementById('sessionlist');
 const ta = document.getElementById('msg'), stop = document.getElementById('stop');
-let modeset = [], modeNow = '';
+let modeset = [], modeNow = '', tabs = [], tabNow = 0;
 let nearBottom = true;
 let first = true;
 addEventListener('scroll', () => {
@@ -555,6 +627,11 @@ function render(v) {
   modeNow = v.mode || '';
   modebtn.textContent = '● ' + (v.mode || 'mode');
   modeset = v.modes || [];
+  tabs = v.sessions || [];
+  tabNow = v.cur || 0;
+  const cur = tabs[tabNow];
+  sessbtn.textContent = '▤ ' + (cur ? cur.title : 'session');
+  sessbtn.className = cur && cur.state !== 'idle' ? cur.state : '';
   const key = JSON.stringify(v.msgs || []);
   if (chat.dataset.key !== key) {
     chat.dataset.key = key;
@@ -619,6 +696,24 @@ modebtn.onclick = () => {
   modesEl.hidden = false;
 };
 modesEl.onclick = e => { if (e.target === modesEl) modesEl.hidden = true };
+
+sessbtn.onclick = () => {
+  sessList.textContent = '';
+  tabs.forEach(tb => {
+    const b = document.createElement('button');
+    b.className = tb.now ? 'now' : '';
+    const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = tb.title;
+    if (tb.now) { const k = document.createElement('span'); k.className = 'tick'; k.textContent = '✓'; lbl.appendChild(k) }
+    const state = document.createElement('div'); state.className = 'help';
+    state.textContent = tb.state === 'approval' ? 'waiting for your approval'
+      : tb.state === 'working' ? 'working…' : 'idle';
+    b.appendChild(lbl); b.appendChild(state);
+    b.onclick = async () => { sessEl.hidden = true; await post('/session', {id: tb.id}); nearBottom = true; poll() };
+    sessList.appendChild(b);
+  });
+  sessEl.hidden = false;
+};
+sessEl.onclick = e => { if (e.target === sessEl) sessEl.hidden = true };
 document.getElementById('send').onclick = send;
 ta.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }

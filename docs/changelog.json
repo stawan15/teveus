@@ -1,11 +1,31 @@
 {
-  "latest": "0.14.0",
+  "latest": "0.15.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.14.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.15.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.15.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.14.0...v0.15.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "The phone page can switch between your open sessions, showing which are idle, working or waiting for approval.",
+              "items": []
+            },
+            {
+              "text": "The phone link no longer changes between runs, so you can save it on your phone's home screen once. Delete `~/.config/teveus/phone-token` to give out a new one.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.14.0",

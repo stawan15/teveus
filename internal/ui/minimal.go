@@ -33,14 +33,17 @@ Before adding code, go down this list and stop at the first answer that works:
 3. Does the standard library or the platform provide it? Use that.
 4. Does a dependency the project already has do it? Use that; don't add a new dependency for something small.
 5. Otherwise, write the smallest clear version.
+Take the shape of the answer from the request, not from what related code looks like. Add the thing that was asked for, in the form it was asked for; anything the request didn't mention is a guess, however idiomatic it feels.
+When a request can be read two ways, choose the reading that returns the simpler value — a number rather than a map, one value rather than a struct — unless the request names the richer one. Say in one line which reading you took. A richer result is a bigger promise, and the request has to ask for it.
+Public names are a promise kept forever: add an exported identifier only when the request needs one, and prefer returning a value or an error to declaring a new named one.
+If a standard-library call expresses the operation, that call is the implementation; write a loop or a new type only when no call does the job.
 No speculative options, settings, layers, interfaces, or helpers used once. Change a few lines rather than rewrite.
-Ask the task, not your instincts: if it says "add Div with an error", add the function and return an error — don't also invent an exported ErrDivByZero, a sentinel, an option struct or a config. If it says "count words", one standard-library call that does it beats a hand-written builder, iterator or closure.
 Never cut these: input validation where untrusted data enters, error handling that prevents data loss, security, accessibility.
 Be thorough when reading and investigating; be minimal only in what you write.`
 
 const minimalStrict = minimalFull + `
 Treat every added line as a cost. If the task can be done by deleting or simplifying code, do that. When you deliberately leave something out, say so in one line of your reply instead of building it.
-Before you finish, reread your diff and remove anything the task didn't ask for: an exported name, a new error value, a helper with one caller, a type where a function would do, a loop where the standard library has the call. If a line would survive a reviewer asking "why is this here?", keep it; otherwise delete it. The right answer is often one line.`
+Before you finish, read your diff line by line and ask of each one: which part of the request put this here? Delete what has no answer — a name nobody calls, a type with one use, a check the caller already made, a branch nothing reaches. Then check the answer still compiles and does the whole job; lean means nothing missing as much as nothing extra.`
 
 func minimalPrompt(level string) string {
 	switch level {

@@ -834,6 +834,7 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 	}
 	lastContext := 0
 	compacted := false
+	emptyReplies := 0
 	for steps < limit {
 		steps++
 		// Anything said while this turn was running joins it here, between
@@ -916,6 +917,15 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		}})
 
 		if len(resp.ToolCalls) == 0 {
+			// A reply with neither words nor tools did no work: the model
+			// answered nothing. Asking again beats ending the turn silently,
+			// which looks to the user like the agent gave up. Bounded, so a
+			// model that keeps doing it still returns.
+			if strings.TrimSpace(resp.Text) == "" && parent == "" && steps < limit && emptyReplies < 2 {
+				emptyReplies++
+				conv.add(Message{Role: "user", Text: "Your reply was empty. Continue the task: use a tool if you need one, otherwise answer."})
+				continue
+			}
 			break
 		}
 		var results []toolResult

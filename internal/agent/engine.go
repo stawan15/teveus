@@ -79,10 +79,12 @@ type Engine struct {
 	stopTurn bool
 	seen     map[string]readSig // files the main conversation read and is still holding
 
-	cur         *checkpoint   // edits of the running turn
-	checkpoints []*checkpoint // one per finished turn, for /undo
-	usageAt     time.Time     // when plan usage was last fetched
-	inject      []Message     // said while a turn runs: added at its next step
+	cur           *checkpoint   // edits of the running turn
+	checkpoints   []*checkpoint // one per finished turn, for /undo
+	usageAt       time.Time     // when plan usage was last fetched
+	inject        []Message     // said while a turn runs: added at its next step
+	effortCap     *effortCaps   // per-model ceiling learned from refusals
+	effortDropped bool          // a level was lowered for this model; say so once
 }
 
 var _ claude.Backend = (*Engine)(nil)
@@ -91,22 +93,23 @@ func Start(opts Options) (*Engine, error) {
 	id := make([]byte, 6)
 	rand.Read(id)
 	e := &Engine{
-		opts:    opts,
-		box:     NewToolbox(opts.Cwd),
-		mcp:     newMCPManager(opts.Cwd, opts.ConfigDir),
-		perm:    newPermissions(opts.ConfigDir, opts.Cwd),
-		hooks:   newHooks(opts.ConfigDir, opts.Cwd),
-		events:  make(chan claude.Event, 512),
-		queue:   make(chan userTurn, 32),
-		ready:   make(chan struct{}),
-		model:   opts.Model,
-		mode:    opts.Mode,
-		perms:   map[string]chan permReply{},
-		always:  map[string]bool{},
-		session: "api-" + hex.EncodeToString(id),
-		creds:   map[string]Credential{},
-		ctxLen:  map[string]int{},
-		seen:    map[string]readSig{},
+		opts:      opts,
+		box:       NewToolbox(opts.Cwd),
+		mcp:       newMCPManager(opts.Cwd, opts.ConfigDir),
+		perm:      newPermissions(opts.ConfigDir, opts.Cwd),
+		hooks:     newHooks(opts.ConfigDir, opts.Cwd),
+		events:    make(chan claude.Event, 512),
+		queue:     make(chan userTurn, 32),
+		ready:     make(chan struct{}),
+		model:     opts.Model,
+		mode:      opts.Mode,
+		perms:     map[string]chan permReply{},
+		always:    map[string]bool{},
+		session:   "api-" + hex.EncodeToString(id),
+		creds:     map[string]Credential{},
+		ctxLen:    map[string]int{},
+		seen:      map[string]readSig{},
+		effortCap: loadEffortCaps(opts.ConfigDir),
 	}
 	if opts.Resume != "" {
 		s, err := LoadSession(opts.SessionDir, opts.Resume)
@@ -695,7 +698,21 @@ func (e *Engine) clientFor(model string) (Client, string, error) {
 	if !has {
 		return nil, "", fmt.Errorf("%s is not connected: use /login", p.Name)
 	}
-	return NewClient(p, cred), mid, nil
+	c := NewClient(p, cred)
+	e.watchEffort(c)
+	return c, mid, nil
+}
+
+// watchEffort lets a client report a model that refused the effort field, so
+// the level is lowered for good instead of retried on every request.
+func (e *Engine) watchEffort(c Client) {
+	refused := func(model, level string, err error) { e.noteEffortRejected(model, level, err) }
+	switch v := c.(type) {
+	case *openaiClient:
+		v.effortRefused = refused
+	case *anthropicClient:
+		v.effortRefused = refused
+	}
 }
 
 // refreshUsage asks the plan behind the current model how much of its
@@ -858,11 +875,15 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 			e.pruneResults(false)
 		}
 		e.mu.Lock()
-		effort := e.opts.Effort
+		subagent := parent != "" && e.opts.Effort != ""
 		e.mu.Unlock()
-		if parent != "" && effort != "" {
+		// The engine clamps to what this model can do, so the clients just
+		// send what they are given and nothing is lowered in secret.
+		effort, effortWhy := e.effortFor(modelID)
+		if subagent {
 			effort = "low" // research subagents do simple, many-step work
 		}
+		e.sayEffortOnce(effortWhy)
 		req := Request{Model: modelID, System: conv.system(), Messages: withoutPruned(conv.messages()),
 			Tools: defsOf(toolset), Effort: effort, SessionID: e.sessionHeaderID()}
 

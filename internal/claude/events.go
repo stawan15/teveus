@@ -41,6 +41,10 @@ type Init struct {
 	Tools          []string
 }
 
+// Notice is something the engine says in the conversation that is neither a
+// reply nor a state change: a setting it had to lower, for example.
+type Notice struct{ Text string }
+
 // Status reports a CLI state change such as a permission mode switch.
 type Status struct {
 	Status         string
@@ -181,6 +185,7 @@ type Unknown struct{ Line string }
 func (Ready) isEvent()              {}
 func (Init) isEvent()               {}
 func (Status) isEvent()             {}
+func (Notice) isEvent()             {}
 func (BlockStart) isEvent()         {}
 func (TextDelta) isEvent()          {}
 func (AssistantMessage) isEvent()   {}

@@ -1,11 +1,31 @@
 {
-  "latest": "0.25.0",
+  "latest": "0.26.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.25.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.26.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.26.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.25.0...v0.26.0",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Effort now means the same thing everywhere. The level you pick is lowered to what the model actually takes — `max` on an OpenAI-style API sends `high` instead of a word it rejects — and the sidebar shows the level in use, with `(max capped)` when your pick had to come down.",
+              "items": []
+            },
+            {
+              "text": "A model that refuses the effort setting is remembered, so the next request doesn't spend a retry on the same refusal. The refusal is paid once ever, and announced once in the conversation instead of failing silently.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.25.0",

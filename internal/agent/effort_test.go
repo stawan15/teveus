@@ -3,7 +3,10 @@ package agent
 import (
 	"fmt"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/stawan15/teveus/internal/claude"
 )
 
 func TestAnthropicEffortAndThinkingBlocks(t *testing.T) {
@@ -83,5 +86,114 @@ func TestReasoningStaysWithItsProvider(t *testing.T) {
 	}
 	if len(anthropicThinking(router)) != 0 || len(anthropicThinking(anth)) != 1 {
 		t.Fatal("anthropicThinking")
+	}
+}
+
+func TestEffortIsLoweredToWhatTheProtocolTakes(t *testing.T) {
+	// OpenAI-style APIs stop at high. Choosing more must mean "the most this
+	// model offers", not "send a word it doesn't know".
+	cases := []struct {
+		model, want, got string
+		capped           bool
+	}{
+		{"openai/gpt-5", "max", "high", true},
+		{"openai/gpt-5", "xhigh", "high", true},
+		{"openai/gpt-5", "high", "high", false},
+		{"openai/gpt-5", "low", "low", false},
+		{"anthropic/claude-x", "max", "max", false},
+		{"anthropic/claude-x", "xhigh", "xhigh", false},
+	}
+	for _, c := range cases {
+		got, capped := ClampEffort(c.want, c.model)
+		if got != c.got || capped != c.capped {
+			t.Errorf("%s %s: got %q capped=%v, want %q capped=%v", c.model, c.want, got, capped, c.got, c.capped)
+		}
+	}
+}
+
+func TestEffortCappedSaysSoOnce(t *testing.T) {
+	s := &script{replies: []string{oaiText("ok"), oaiText("again")}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	store := NewStore(t.TempDir())
+	store.Save("custom", Credential{BaseURL: srv.URL})
+	e, _ := Start(Options{Cwd: t.TempDir(), Model: "custom/m", Mode: "default",
+		Store: store, Effort: "max", ConfigDir: t.TempDir()})
+	t.Cleanup(e.Close)
+
+	r := &run{t: t, e: e}
+	e.Send("one")
+	r.until(true)
+	// The highest level OpenAI-style takes is what actually went out.
+	if got := fmt.Sprint(s.requests[0]["reasoning_effort"]); got != "high" {
+		t.Fatalf("reasoning_effort = %s, want high", got)
+	}
+
+	notices := 0
+	for _, ev := range r.events {
+		if n, ok := ev.(claude.Notice); ok && strings.Contains(n.Text, "Effort lowered") {
+			notices++
+		}
+	}
+	if notices != 1 {
+		t.Fatalf("%d notices, want exactly one", notices)
+	}
+
+	e.Send("two")
+	r.until(true)
+	notices = 0
+	for _, ev := range r.events {
+		if n, ok := ev.(claude.Notice); ok && strings.Contains(n.Text, "Effort lowered") {
+			notices++
+		}
+	}
+	if notices != 1 {
+		t.Fatalf("the notice repeated: %d in total", notices)
+	}
+}
+
+func TestRefusedEffortIsRemembered(t *testing.T) {
+	// The first request is refused and retried without the field; the second
+	// must not ask again, which is one wasted round trip saved per request.
+	s := &script{replies: []string{
+		"HTTP400 reasoning_effort: this model does not support it",
+		oaiText("ok"),
+		oaiText("second"),
+	}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	dir := t.TempDir()
+	store := NewStore(t.TempDir())
+	store.Save("custom", Credential{BaseURL: srv.URL})
+	e, _ := Start(Options{Cwd: t.TempDir(), Model: "custom/m", Mode: "default",
+		Store: store, Effort: "high", ConfigDir: dir})
+	t.Cleanup(e.Close)
+
+	r := &run{t: t, e: e}
+	e.Send("one")
+	r.until(true)
+	if len(s.requests) != 2 {
+		t.Fatalf("first turn sent %d requests, want a refusal then a retry", len(s.requests))
+	}
+	if s.requests[0]["reasoning_effort"] == nil {
+		t.Fatal("the first request didn't try the effort")
+	}
+
+	e.Send("two")
+	r.until(true)
+	if len(s.requests) != 3 {
+		t.Fatalf("second turn sent %d requests, want one without the retry", len(s.requests)-2)
+	}
+	if s.requests[2]["reasoning_effort"] != nil {
+		t.Fatalf("the second request asked again: %v", s.requests[2]["reasoning_effort"])
+	}
+
+	// And the refusal survives a restart, so it is paid once ever.
+	e2, _ := Start(Options{Cwd: t.TempDir(), Model: "custom/m", Mode: "default",
+		Store: store, Effort: "high", ConfigDir: dir})
+	t.Cleanup(e2.Close)
+	// The model refused the field itself, so nothing is asked for next time.
+	if lvl, why := e2.effortFor("m"); lvl != "" || why == "" {
+		t.Fatalf("after a restart: level=%q why=%q, want no effort and a reason", lvl, why)
 	}
 }

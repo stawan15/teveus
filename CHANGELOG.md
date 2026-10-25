@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-25
+
+### Fixed
+
+- Effort now means the same thing everywhere. The level you pick is lowered to what the model actually takes — `max` on an OpenAI-style API sends `high` instead of a word it rejects — and the sidebar shows the level in use, with `(max capped)` when your pick had to come down.
+- A model that refuses the effort setting is remembered, so the next request doesn't spend a retry on the same refusal. The refusal is paid once ever, and announced once in the conversation instead of failing silently.
+
 ## [0.25.0] - 2026-10-25
 
 ### Changed
@@ -323,7 +330,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/stawan15/teveus/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/stawan15/teveus/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/stawan15/teveus/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/stawan15/teveus/compare/v0.22.0...v0.23.0

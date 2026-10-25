@@ -21,7 +21,7 @@ What does leave your computer goes to services **you** choose, under **their** t
 
 Nothing else is sent. Your clipboard is only read when you press `ctrl+v`, and only written when you copy.
 
-The phone page (`/settings` → Phone page, off by default) is a web server on your own computer: your phone talks to it over your network, and nothing goes anywhere else. The link's token is kept in `~/.config/teveus/phone-token` (readable only by you) so the link stays the same between runs; delete that file to give out a new one. The page holds no keys and no stored history, and it stops when you turn it off or quit teveus.
+The phone page (`/settings` → Phone page, off by default) is a web server on your own computer: your phone talks to it over your network, and nothing goes anywhere else. Which reasoning effort each model accepted is kept in `~/.config/teveus/effort.json` (readable only by you) so a refusal is paid once rather than every request. The link's token is kept in `~/.config/teveus/phone-token` (readable only by you) so the link stays the same between runs; delete that file to give out a new one. The page holds no keys and no stored history, and it stops when you turn it off or quit teveus.
 Each window that serves a page writes a small handle to `~/.config/teveus/phone/` (its port, title, project and token) so another window's page can list it; the file is removed when the window stops or the page is turned off. A handle with no running process behind it is deleted on sight.
 
 ## What is stored on your computer

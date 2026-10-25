@@ -97,7 +97,6 @@ type phoneServer struct {
 	srv         *http.Server
 	send        func(tea.Msg)
 	handle      string // this window's entry in the config dir, when serving
-	handleAt    time.Time
 	handleTitle string
 
 	mu     sync.Mutex

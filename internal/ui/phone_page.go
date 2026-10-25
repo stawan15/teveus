@@ -44,6 +44,27 @@ main { padding:14px 14px 6px; display:flex; flex-direction:column; gap:6px }
 .m.you { align-self:flex-end; background:#18243a; border-radius:14px 14px 4px 14px;
   padding:8px 12px; max-width:88% }
 .m.ai { padding:2px 1px; line-height:1.6 }
+/* Markdown rendered in a reply: tight, phone-sized, no browser defaults. */
+.m.ai p { margin:0 0 .55em }
+.m.ai > div > :last-child { margin-bottom:0 }
+.m.ai h3, .m.ai h4, .m.ai h5, .m.ai h6 { margin:.8em 0 .35em; font-size:1em; font-weight:650;
+  color:#f2f4f9; letter-spacing:.005em }
+.m.ai h3 { font-size:1.06em }
+.m.ai ul, .m.ai ol { margin:0 0 .55em; padding-left:1.25em }
+.m.ai li { margin:.15em 0 }
+.m.ai li::marker { color:var(--faint) }
+.m.ai code { font:13px/1.45 var(--mono); background:#1b2029; border:1px solid #262d3a;
+  border-radius:5px; padding:1px 4px; word-break:break-word }
+.m.ai pre { margin:.5em 0 .6em; padding:10px 11px; background:#12161d; border:1px solid var(--edge);
+  border-radius:9px; overflow-x:auto }
+.m.ai pre code { background:none; border:0; padding:0; font-size:12.5px; line-height:1.5;
+  white-space:pre }
+.m.ai blockquote { margin:.4em 0; padding:2px 0 2px 10px; border-left:2px solid #2c3444;
+  color:var(--dim) }
+.m.ai blockquote p { margin:0 }
+.m.ai a { color:var(--accent); text-decoration:none; border-bottom:1px solid #2f4a70 }
+.m.ai strong { font-weight:650; color:#f2f4f9 }
+.m.ai hr { border:0; border-top:1px solid var(--edge); margin:.7em 0 }
 .m.tool { font:12px/1.5 var(--mono); color:var(--faint); border-left:1px solid var(--edge);
   padding:1px 0 1px 9px; overflow:hidden }
 .m.tool.done { border-left-color:#2b3f33 }
@@ -286,8 +307,142 @@ function node(m) {
   const d = document.createElement('div');
   d.className = 'm ' + m.role + (m.state ? ' ' + m.state : '');
   const mark = m.role !== 'tool' ? '' : m.state === 'failed' ? '✗ ' : m.state === 'running' ? '… ' : '✓ ';
-  d.textContent = mark + m.text;
+  // Replies arrive as Markdown; render it rather than showing ** and ## at the
+  // reader. Everything else is plain text.
+  if (m.role === 'ai' && !m.state) d.appendChild(md(m.text));
+  else d.textContent = mark + m.text;
   return d;
+}
+
+// md turns the Markdown a model writes into DOM. It never assigns innerHTML,
+// and every string it places is set as text, so a reply cannot inject markup.
+// It covers the constructs a coding answer uses, and leaves the rest alone.
+function md(src) {
+  const root = document.createElement('div');
+  const lines = String(src).split('\n');
+  let i = 0;
+
+  const inline = (text, into) => {
+    // Code spans come first: nothing inside backticks gets formatted.
+    text.split(/(\x60[^\x60\n]+\x60)/).forEach(part => {
+      const code = part.match(/^\x60([^\x60\n]+)\x60$/);
+      if (code) {
+        const c = document.createElement('code');
+        c.textContent = code[1];
+        into.appendChild(c);
+        return;
+      }
+      const re = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~]+~~|\[[^\]]+\]\([^)\s]+\))/;
+      let rest = part;
+      while (rest) {
+        const hit = rest.match(re);
+        if (!hit) { into.appendChild(document.createTextNode(rest)); break }
+        if (hit.index > 0) into.appendChild(document.createTextNode(rest.slice(0, hit.index)));
+        const tok = hit[0];
+        let el;
+        if (tok.startsWith('**') || tok.startsWith('__')) {
+          el = document.createElement('strong');
+          el.textContent = tok.slice(2, -2);
+        } else if (tok.startsWith('~~')) {
+          el = document.createElement('s');
+          el.textContent = tok.slice(2, -2);
+        } else if (tok.startsWith('[')) {
+          const link = tok.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+          el = document.createElement('a');
+          el.textContent = link[1];
+          // Only http(s): a javascript: link has no business in a reply, so it
+          // keeps its text but gets no href.
+          if (/^https?:\/\//i.test(link[2])) {
+            el.href = link[2];
+            el.rel = 'noreferrer';
+            el.target = '_blank';
+          }
+        } else {
+          el = document.createElement('em');
+          el.textContent = tok.slice(1, -1);
+        }
+        into.appendChild(el);
+        rest = rest.slice(hit.index + tok.length);
+      }
+    });
+    return into;
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Fenced code keeps its spacing exactly.
+    const fence = line.match(/^\s*\x60\x60\x60\s*([\w+-]*)\s*$/);
+    if (fence) {
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      const body = [];
+      i++;
+      while (i < lines.length && !/^\s*\x60\x60\x60\s*$/.test(lines[i])) {
+        body.push(lines[i]);
+        i++;
+      }
+      i++; // closing fence
+      code.textContent = body.join('\n');
+      if (fence[1]) code.dataset.lang = fence[1];
+      pre.appendChild(code);
+      root.appendChild(pre);
+      continue;
+    }
+
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) {
+      const el = document.createElement('h' + Math.min(h[1].length + 2, 6));
+      root.appendChild(inline(h[2], el));
+      i++;
+      continue;
+    }
+
+    // A run of list items becomes one list.
+    const isBullet = s => /^\s*[-*+]\s+/.test(s);
+    const isNumber = s => /^\s*\d+[.)]\s+/.test(s);
+    if (isBullet(line) || isNumber(line)) {
+      const list = document.createElement(isNumber(line) ? 'ol' : 'ul');
+      while (i < lines.length && (isBullet(lines[i]) || isNumber(lines[i]))) {
+        const item = lines[i].replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '');
+        const li = document.createElement('li');
+        list.appendChild(inline(item, li));
+        i++;
+      }
+      root.appendChild(list);
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const quote = document.createElement('blockquote');
+      const body = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        body.push(lines[i].replace(/^\s*>\s?/, ''));
+        i++;
+      }
+      quote.appendChild(inline(body.join(' '), document.createElement('p')));
+      root.appendChild(quote);
+      continue;
+    }
+
+    if (!line.trim()) { i++; continue }
+
+    const para = [];
+    while (i < lines.length && lines[i].trim() &&
+      !/^\s*(\x60\x60\x60|#{1,6}\s|[-*+]\s|\d+[.)]\s|>)/.test(lines[i])) {
+      para.push(lines[i]);
+      i++;
+    }
+    const p = document.createElement('p');
+    // A newline inside a paragraph is a line break, which is what a model
+    // writing a short list without bullets means.
+    para.forEach((l, k) => {
+      if (k) p.appendChild(document.createElement('br'));
+      inline(l, p);
+    });
+    root.appendChild(p);
+  }
+  return root;
 }
 
 async function poll() {

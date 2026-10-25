@@ -28,8 +28,8 @@ type Theme struct {
 }
 
 var themes = []Theme{
-	{Name: "claude", Dark: true, Accent: "#E07A5F", Accent2: "#B48EFF", Text: "#ECE6DF", Dim: "#8C857E", Faint: "#46403B", Surface: "#2E2A27",
-		Green: "#7FD1A0", Red: "#F2857A", Yellow: "#F2C66D", Blue: "#8AB4F8", DiffAdd: "#16301F", DiffDel: "#3A1B19", OnAccent: "#1A1614"},
+	{Name: "claude", Dark: true, Accent: "#5EEAD4", Accent2: "#A78BFA", Text: "#E8EEF5", Dim: "#9AA7B5", Faint: "#586474", Surface: "#202832",
+		Green: "#7EE787", Red: "#FF8B8B", Yellow: "#E8C06A", Blue: "#7CC7FF", DiffAdd: "#143026", DiffDel: "#3A1D24", OnAccent: "#07110F"},
 	{Name: "tokyo-night", Dark: true, Accent: "#7AA2F7", Accent2: "#BB9AF7", Text: "#C0CAF5", Dim: "#6B7394", Faint: "#3B4261", Surface: "#292E42",
 		Green: "#9ECE6A", Red: "#F7768E", Yellow: "#E0AF68", Blue: "#7DCFFF", DiffAdd: "#1F3326", DiffDel: "#3B2230", OnAccent: "#16161E"},
 	{Name: "catppuccin", Dark: true, Accent: "#CBA6F7", Accent2: "#F5C2E7", Text: "#CDD6F4", Dim: "#7F849C", Faint: "#45475A", Surface: "#313244",
@@ -56,8 +56,8 @@ func themeByName(name string) (Theme, bool) {
 var (
 	theme Theme
 
-	cAccent, cAccent2, cText, cDim, cFaint, cSurface lipgloss.Color
-	cGreen, cRed, cYellow, cBlue, cOnAccent          lipgloss.Color
+	cAccent, cAccent2, cText, cDim, cFaint, cSurface, cSel lipgloss.Color
+	cGreen, cRed, cYellow, cBlue, cOnAccent                lipgloss.Color
 
 	sText, sDim, sFaint, sAccent, sAccent2, sBold lipgloss.Style
 	sGreen, sRed, sYellow, sTool                  lipgloss.Style
@@ -69,6 +69,7 @@ func applyTheme(t Theme) {
 	c := func(s string) lipgloss.Color { return lipgloss.Color(s) }
 	cAccent, cAccent2, cText, cDim, cFaint, cSurface = c(t.Accent), c(t.Accent2), c(t.Text), c(t.Dim), c(t.Faint), c(t.Surface)
 	cGreen, cRed, cYellow, cBlue, cOnAccent = c(t.Green), c(t.Red), c(t.Yellow), c(t.Blue), c(t.OnAccent)
+	cSel = mix(cSurface, cAccent, 0.18)
 
 	fg := func(col lipgloss.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(col) }
 	sText, sDim, sFaint = fg(cText), fg(cDim), fg(cFaint)
@@ -77,13 +78,14 @@ func applyTheme(t Theme) {
 	sGreen, sRed, sYellow = fg(cGreen), fg(cRed), fg(cYellow)
 	sTool = fg(cBlue).Bold(true)
 	sUser = lipgloss.NewStyle().
-		Border(lipgloss.ThickBorder(), false, false, false, true).
+		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(cAccent).
-		PaddingLeft(1).
+		Background(cSurface).
+		Padding(0, 1).
 		Foreground(cText)
 	sDiffAdd = lipgloss.NewStyle().Background(c(t.DiffAdd)).Foreground(cGreen)
 	sDiffDel = lipgloss.NewStyle().Background(c(t.DiffDel)).Foreground(cRed)
-	sKey = lipgloss.NewStyle().Background(cSurface).Foreground(cText).Padding(0, 1)
+	sKey = lipgloss.NewStyle().Background(cSel).Foreground(cText).Bold(true).Padding(0, 1)
 }
 
 func init() { applyTheme(themes[0]) }
@@ -151,7 +153,7 @@ func hints(pairs ...string) string {
 	for i := 0; i+1 < len(pairs); i += 2 {
 		parts = append(parts, sText.Render(pairs[i])+" "+sDim.Render(pairs[i+1]))
 	}
-	return strings.Join(parts, sFaint.Render("  ·  "))
+	return strings.Join(parts, sFaint.Render("   "))
 }
 
 // gradient colours each rune of s along a line from one hex colour to another.

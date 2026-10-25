@@ -64,7 +64,7 @@ func (m *Model) sliderView() string {
 		colors = spectrum(n)
 	}
 	cur := colors[p.sel]
-	lines := []string{gradient(p.title, cAccent, cAccent2, true)}
+	lines := []string{sBold.Render(p.title)}
 	if p.hint != "" {
 		lines = append(lines, sDim.Render(truncate(p.hint, inner)))
 	}

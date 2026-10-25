@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/glamour"
+	glamansi "github.com/charmbracelet/glamour/ansi"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -68,12 +70,9 @@ type renderer struct {
 
 func (r *renderer) markdown(s string, width int) string {
 	if r.md == nil || r.mdW != width {
-		style := "dark"
-		if !theme.Dark {
-			style = "light"
-		}
+		st := markdownStyle()
 		md, err := glamour.NewTermRenderer(
-			glamour.WithStandardStyle(style),
+			glamour.WithStyles(st),
 			glamour.WithWordWrap(width-2),
 			glamour.WithEmoji(),
 		)
@@ -88,6 +87,56 @@ func (r *renderer) markdown(s string, width int) string {
 	}
 	return strings.Trim(out, "\n")
 }
+
+// markdownStyle keeps replies in the same palette as the rest of the UI.
+func markdownStyle() glamansi.StyleConfig {
+	st := styles.DarkStyleConfig
+	if !theme.Dark {
+		st = styles.LightStyleConfig
+	}
+	str := func(s string) *string { return &s }
+	st.Document.Color = str(theme.Text)
+	st.Heading.Color = str(theme.Accent2)
+	st.H1.Color = str(theme.OnAccent)
+	st.H1.BackgroundColor = str(theme.Accent)
+	st.Link.Color = str(theme.Accent2)
+	st.LinkText.Color = str(theme.Accent)
+	st.Code.Color = str(theme.Accent)
+	st.Code.BackgroundColor = str(theme.Surface)
+	st.CodeBlock.Color = str(theme.Text)
+	st.HorizontalRule.Color = str(theme.Faint)
+	st.CodeBlock.Chroma = &glamansi.Chroma{
+		Text:                glamansi.StylePrimitive{Color: str(theme.Text)},
+		Error:               glamansi.StylePrimitive{Color: str(theme.OnAccent), BackgroundColor: str(theme.Red)},
+		Comment:             glamansi.StylePrimitive{Color: str(theme.Dim)},
+		CommentPreproc:      glamansi.StylePrimitive{Color: str(theme.Yellow)},
+		Keyword:             glamansi.StylePrimitive{Color: str(theme.Blue)},
+		KeywordReserved:     glamansi.StylePrimitive{Color: str(theme.Accent2)},
+		KeywordNamespace:    glamansi.StylePrimitive{Color: str(theme.Accent2)},
+		KeywordType:         glamansi.StylePrimitive{Color: str(theme.Accent)},
+		Operator:            glamansi.StylePrimitive{Color: str(theme.Dim)},
+		Punctuation:         glamansi.StylePrimitive{Color: str(theme.Dim)},
+		Name:                glamansi.StylePrimitive{Color: str(theme.Text)},
+		NameBuiltin:         glamansi.StylePrimitive{Color: str(theme.Accent)},
+		NameTag:             glamansi.StylePrimitive{Color: str(theme.Blue)},
+		NameAttribute:       glamansi.StylePrimitive{Color: str(theme.Yellow)},
+		NameClass:           glamansi.StylePrimitive{Color: str(theme.Text), Bold: boolPtr(true), Underline: boolPtr(true)},
+		NameDecorator:       glamansi.StylePrimitive{Color: str(theme.Yellow)},
+		NameFunction:        glamansi.StylePrimitive{Color: str(theme.Accent)},
+		LiteralNumber:       glamansi.StylePrimitive{Color: str(theme.Yellow)},
+		LiteralString:       glamansi.StylePrimitive{Color: str(theme.Green)},
+		LiteralStringEscape: glamansi.StylePrimitive{Color: str(theme.Accent)},
+		GenericDeleted:      glamansi.StylePrimitive{Color: str(theme.Red)},
+		GenericEmph:         glamansi.StylePrimitive{Italic: boolPtr(true)},
+		GenericInserted:     glamansi.StylePrimitive{Color: str(theme.Green)},
+		GenericStrong:       glamansi.StylePrimitive{Bold: boolPtr(true)},
+		GenericSubheading:   glamansi.StylePrimitive{Color: str(theme.Dim)},
+		Background:          glamansi.StylePrimitive{BackgroundColor: str(theme.Surface)},
+	}
+	return st
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 func (r *renderer) render(b *block, width int) string {
 	if !b.dirty && b.cacheW == width && b.cache != "" {
@@ -142,7 +191,7 @@ func (r *renderer) tool(b *block, width int) string {
 	case toolDone:
 		icon = sGreen.Render("●")
 	case toolFailed:
-		icon = sRed.Render("●")
+		icon = sRed.Render("✗")
 	}
 
 	head := icon + " " + sTool.Render(displayName(b.name))
@@ -157,12 +206,8 @@ func (r *renderer) tool(b *block, width int) string {
 
 	lines := []string{indent + head}
 	body := r.toolBody(b, width-len(indent)-4)
-	for i, l := range body {
-		gutter := "   "
-		if i == 0 {
-			gutter = " ⎿ "
-		}
-		lines = append(lines, indent+sFaint.Render(gutter)+l)
+	for _, l := range body {
+		lines = append(lines, indent+sFaint.Render("  │ ")+l)
 	}
 	return strings.Join(lines, "\n")
 }

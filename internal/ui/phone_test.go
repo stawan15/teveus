@@ -644,3 +644,31 @@ func TestPhoneMessageQueuesWhenTheBackendCannotInject(t *testing.T) {
 		t.Fatalf("queue = %v", m.queue)
 	}
 }
+
+func TestPhoneSendsRepliesAsMarkdownForThePage(t *testing.T) {
+	// The page renders markdown into elements; it needs the source intact, not
+	// flattened to plain text on the way out.
+	m, p, _ := phoneTestModel(t)
+	m.blocks = []*block{
+		{kind: kindAssistant, text: "## Result\n\nUse `go test` and **bold**.\n\n- one\n- two"},
+		{kind: kindTool, name: "Bash", input: map[string]any{"command": "ls"}},
+	}
+	p.update(m)
+
+	if len(p.view.Msgs) < 2 {
+		t.Fatalf("messages = %+v", p.view.Msgs)
+	}
+	ai := p.view.Msgs[0]
+	if ai.Role != "ai" {
+		t.Fatalf("first message = %+v", ai)
+	}
+	for _, want := range []string{"## Result", "`go test`", "**bold**", "- one"} {
+		if !strings.Contains(ai.Text, want) {
+			t.Fatalf("markdown lost on the way to the page: %q missing from %q", want, ai.Text)
+		}
+	}
+	// Tools are not markdown: their text keeps the state marker instead.
+	if tool := p.view.Msgs[1]; tool.Role != "tool" || strings.Contains(tool.Text, "##") {
+		t.Fatalf("tool message = %+v", tool)
+	}
+}

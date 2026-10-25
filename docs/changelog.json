@@ -1,11 +1,27 @@
 {
-  "latest": "0.26.0",
+  "latest": "0.27.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.26.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.27.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.27.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Replies on the phone page are formatted instead of shown as raw Markdown: headings, bold and italics, inline code, code blocks, lists, quotes and links, sized for a phone screen. The renderer builds the page's elements directly and only links to http(s), so a reply can't put its own HTML or a script link on the page.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.26.0",

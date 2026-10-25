@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-25
+
+### Changed
+
+- Replies on the phone page are formatted instead of shown as raw Markdown: headings, bold and italics, inline code, code blocks, lists, quotes and links, sized for a phone screen. The renderer builds the page's elements directly and only links to http(s), so a reply can't put its own HTML or a script link on the page.
+
 ## [0.26.0] - 2026-10-25
 
 ### Fixed
@@ -330,7 +336,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/stawan15/teveus/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/stawan15/teveus/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/stawan15/teveus/compare/v0.23.0...v0.24.0

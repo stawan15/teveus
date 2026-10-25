@@ -88,6 +88,7 @@ type Model struct {
 	context   int
 	fiveHour  *claude.Window
 	sevenDay  *claude.Window
+	monthly   *claude.Window
 	commands  []claude.Command
 	models    []claude.ModelInfo
 	files     []string
@@ -948,6 +949,11 @@ func (m *Model) setModel(name string) {
 	if m.client != nil {
 		m.client.SetModel(name)
 	}
+	if m.engine == "api" {
+		// Another provider may have no allowance to report; the engine sends
+		// new windows when it has them.
+		m.fiveHour, m.sevenDay, m.monthly = nil, nil, nil
+	}
 	m.note("model → "+name, true)
 }
 
@@ -1191,6 +1197,9 @@ func (m *Model) handleEvent(ev claude.Event) {
 		}
 		if e.SevenDay != nil {
 			m.sevenDay = e.SevenDay
+		}
+		if e.Monthly != nil {
+			m.monthly = e.Monthly
 		}
 
 	case claude.Result:

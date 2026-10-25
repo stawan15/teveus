@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- With OpenCode Go, the sidebar shows how much of your rolling, weekly and monthly allowances you've used, with reset times.
+
 ## [0.11.0] - 2026-10-25
 
 ### Added

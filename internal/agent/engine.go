@@ -81,6 +81,7 @@ type Engine struct {
 
 	cur         *checkpoint   // edits of the running turn
 	checkpoints []*checkpoint // one per finished turn, for /undo
+	usageAt     time.Time     // when plan usage was last fetched
 }
 
 var _ claude.Backend = (*Engine)(nil)
@@ -510,6 +511,7 @@ func (e *Engine) loadProviders() {
 		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd))...),
 	})
 	e.emit(claude.Init{SessionID: e.session, Model: model, Cwd: e.opts.Cwd, PermissionMode: mode})
+	go e.refreshUsage(true)
 }
 
 // userTurn is a queued user message.
@@ -562,6 +564,7 @@ func (e *Engine) SetModel(model string) error {
 	e.mu.Lock()
 	e.model = model
 	e.mu.Unlock()
+	go e.refreshUsage(true)
 	return nil
 }
 
@@ -627,6 +630,19 @@ func (e *Engine) client() (Client, string, error) {
 	return e.clientFor(model)
 }
 
+// credentialFor is the saved credential for a provider, from this session or
+// from the store.
+func (e *Engine) credentialFor(pid string, p Provider) (Credential, bool) {
+	e.mu.Lock()
+	cred, has := e.creds[pid]
+	e.mu.Unlock()
+	if has {
+		return cred, true
+	}
+	c, src, _ := e.opts.Store.Lookup(p)
+	return c, src != FromNone
+}
+
 func (e *Engine) clientFor(model string) (Client, string, error) {
 	if model == "" {
 		return nil, "", errors.New("no model selected: pick one with /model (connect a provider with /login)")
@@ -636,17 +652,46 @@ func (e *Engine) clientFor(model string) (Client, string, error) {
 	if !ok || !known {
 		return nil, "", fmt.Errorf("unknown model %q: use provider/model, e.g. openai/gpt-5.4-mini", model)
 	}
-	e.mu.Lock()
-	cred, has := e.creds[pid]
-	e.mu.Unlock()
+	cred, has := e.credentialFor(pid, p)
 	if !has {
-		c, src, _ := e.opts.Store.Lookup(p)
-		if src == FromNone {
-			return nil, "", fmt.Errorf("%s is not connected: use /login", p.Name)
-		}
-		cred = c
+		return nil, "", fmt.Errorf("%s is not connected: use /login", p.Name)
 	}
 	return NewClient(p, cred), mid, nil
+}
+
+// refreshUsage asks the plan behind the current model how much of its
+// allowance is used, for providers that report it (OpenCode Go). force skips
+// the throttle; otherwise it asks at most once a minute.
+func (e *Engine) refreshUsage(force bool) {
+	e.mu.Lock()
+	model, last := e.model, e.usageAt
+	e.mu.Unlock()
+	if !force && time.Since(last) < time.Minute {
+		return
+	}
+	pid, _, _ := strings.Cut(model, "/")
+	p, ok := ProviderByID(pid)
+	if !ok || p.ID != "opencode" {
+		return
+	}
+	cred, has := e.credentialFor(pid, p)
+	if !has {
+		return
+	}
+	e.mu.Lock()
+	e.usageAt = time.Now()
+	e.mu.Unlock()
+	base := p.BaseURL
+	if cred.BaseURL != "" {
+		base = cred.BaseURL
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	rl, err := openCodeUsage(ctx, base, cred.Key)
+	if err != nil || rl == nil {
+		return
+	}
+	e.emit(*rl)
 }
 
 func (e *Engine) turn(text string, images []claude.Image) {
@@ -707,6 +752,7 @@ func (e *Engine) turn(text string, images []claude.Image) {
 		res.Subtype, res.IsError, res.Text = "error", true, err.Error()
 	}
 	e.emit(res)
+	go e.refreshUsage(false)
 }
 
 // conversation is the history a loop reads and extends: the main one, or a

@@ -143,6 +143,7 @@ type RateLimit struct {
 	Status   string
 	FiveHour *Window
 	SevenDay *Window
+	Monthly  *Window // the API engine's OpenCode Go plan reports a monthly window too
 }
 
 // Result ends a turn.

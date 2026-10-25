@@ -1,6 +1,6 @@
 // Package agent is teveus's own coding agent: it calls provider APIs
 // directly (Anthropic, or any OpenAI-compatible API such as OpenAI, Gemini,
-// OpenRouter, Groq, DeepSeek, xAI, Mistral, Ollama, LM Studio), runs the
+// OpenRouter, Groq, DeepSeek, xAI, Mistral, OpenCode, Ollama, LM Studio), runs the
 // tools itself, and speaks the same claude.Event protocol as the Claude Code
 // engine so the UI treats both alike.
 package agent
@@ -30,6 +30,16 @@ type Provider struct {
 	NoKey    bool     // local servers that need no key
 	Browser  bool     // supports browser login (OpenRouter PKCE)
 	Custom   bool     // base URL supplied by the user
+
+	// OpenAI-compatible providers usually serve /models and
+	// /chat/completions under BaseURL. These override those paths for
+	// gateways that keep the two on different roots.
+	ChatPath   string
+	ModelsPath string
+
+	// SessionHeader carries the conversation's stable ID, for providers that
+	// use it to route requests and reuse prompt caches.
+	SessionHeader string
 }
 
 var Providers = []Provider{
@@ -49,6 +59,10 @@ var Providers = []Provider{
 		EnvKeys: []string{"XAI_API_KEY"}, KeyURL: "https://console.x.ai"},
 	{ID: "mistral", Name: "Mistral", Protocol: OpenAI, BaseURL: "https://api.mistral.ai/v1",
 		EnvKeys: []string{"MISTRAL_API_KEY"}, KeyURL: "https://console.mistral.ai/api-keys"},
+	// The Go plan uses the same paths under /go; /login saves that base URL.
+	{ID: "opencode", Name: "OpenCode", Protocol: OpenAI, BaseURL: "https://opencode.ai/inference",
+		EnvKeys: []string{"OPENCODE_API_KEY"}, KeyURL: "https://opencode.ai/console",
+		ChatPath: "/openai/v1/chat/completions", ModelsPath: "/v1/models", SessionHeader: "x-opencode-session"},
 	{ID: "ollama", Name: "Ollama (local)", Protocol: OpenAI, BaseURL: "http://localhost:11434/v1", NoKey: true},
 	{ID: "lmstudio", Name: "LM Studio (local)", Protocol: OpenAI, BaseURL: "http://localhost:1234/v1", NoKey: true},
 	{ID: "custom", Name: "Custom (OpenAI-compatible)", Protocol: OpenAI, Custom: true},
@@ -97,6 +111,10 @@ type Request struct {
 	Messages []Message
 	Tools    []ToolDef
 	Effort   string // low, medium, high, xhigh, max; "" leaves the model's default
+
+	// SessionID is a stable conversation identifier for providers that route
+	// requests by session (OpenCode). Other providers ignore it.
+	SessionID string
 }
 
 // Chunk is one streamed piece of a model response.
@@ -144,5 +162,5 @@ func NewClient(p Provider, cred Credential) Client {
 	if p.Protocol == Anthropic {
 		return &anthropicClient{base: base, key: cred.Key}
 	}
-	return &openaiClient{base: base, key: cred.Key, provider: p.ID}
+	return newOpenAIClient(p, base, cred.Key)
 }

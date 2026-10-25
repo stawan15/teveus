@@ -53,7 +53,7 @@ func mockProvider(t *testing.T) *httptest.Server {
 
 func TestAPIEngineLoginAndTurn(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
-	for _, v := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"} {
+	for _, v := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY", "OPENCODE_API_KEY"} {
 		t.Setenv(v, "")
 	}
 	srv := mockProvider(t)

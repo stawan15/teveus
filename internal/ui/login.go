@@ -93,11 +93,17 @@ func hasAPICredentials() bool {
 func (m *Model) store() *agent.Store { return agent.NewStore(configDir()) }
 
 func providerStatus(s *agent.Store, p agent.Provider) (string, bool) {
-	_, src, env := s.Lookup(p)
+	cred, src, env := s.Lookup(p)
 	switch src {
 	case agent.FromStore:
+		if p.ID == "opencode" {
+			return "✓ OpenCode " + openCodePlanName(cred.BaseURL), true
+		}
 		return "✓ connected", true
 	case agent.FromEnv:
+		if p.ID == "opencode" {
+			return "✓ from $" + env + " · Console", true
+		}
 		return "✓ from $" + env, true
 	case agent.FromLocal:
 		return "local server, no key needed", false
@@ -107,8 +113,18 @@ func providerStatus(s *agent.Store, p agent.Provider) (string, bool) {
 		return "browser login or API key", false
 	case p.Custom:
 		return "any OpenAI-compatible endpoint", false
+	case p.ID == "opencode":
+		return "Console or Go · API key", false
 	}
 	return "API key", false
+}
+
+// openCodePlanName reads the plan from the base URL saved at login.
+func openCodePlanName(base string) string {
+	if strings.HasSuffix(strings.TrimRight(base, "/"), "/go") {
+		return "Go"
+	}
+	return "Console"
 }
 
 // openLogin lists providers with their status; "/login openai" jumps
@@ -184,6 +200,18 @@ func (m *Model) loginProvider(p agent.Provider) tea.Cmd {
 				run: func(m *Model) tea.Cmd { m.keyInput(p); return nil }},
 		}, 0)
 		return nil
+	case p.ID == "opencode":
+		m.openPicker("OpenCode plan", []choice{
+			{label: "OpenCode Go", desc: "$10 or $40/month · included usage",
+				run: func(m *Model) tea.Cmd {
+					return m.openCodeKey(p, "Go", "https://opencode.ai/inference/go")
+				}},
+			{label: "OpenCode Console", desc: "pay-as-you-go credits · free models need OpenCode",
+				run: func(m *Model) tea.Cmd {
+					return m.openCodeKey(p, "Console", "https://opencode.ai/inference")
+				}},
+		}, 0)
+		return nil
 	}
 	m.keyInput(p)
 	return nil
@@ -202,6 +230,27 @@ func (m *Model) keyInput(p agent.Provider) {
 		m.note("checking key…", true)
 		return verify(p, agent.Credential{Key: key}, true)
 	})
+}
+
+// openCodeKey asks for an OpenCode API key and remembers which plan it is
+// for, since Console and Go use different base URLs.
+func (m *Model) openCodeKey(p agent.Provider, plan, base string) tea.Cmd {
+	pp := p
+	pp.Name = p.Name + " " + plan
+	hint := "Create one at " + p.KeyURL + " · stored in ~/.config/teveus/auth.json, readable only by you."
+	m.openInput(pp.Name+" API key", hint, true, func(m *Model, key string) tea.Cmd {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return nil
+		}
+		m.note("checking "+pp.Name+"…", true)
+		cred := agent.Credential{Key: key, BaseURL: base}
+		return func() tea.Msg {
+			n, err := agent.Verify(context.Background(), pp, cred)
+			return loginResultMsg{p: pp, cred: cred, n: n, err: err, save: true}
+		}
+	})
+	return nil
 }
 
 func (m *Model) browserLogin(p agent.Provider) tea.Cmd {

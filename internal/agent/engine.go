@@ -607,6 +607,18 @@ func (e *Engine) Close() {
 	}()
 }
 
+// sessionHeaderID is the stable conversation ID sent to providers that route
+// by session. OpenCode's docs show IDs with a "ses_" prefix.
+func (e *Engine) sessionHeaderID() string {
+	if e.session == "" {
+		return ""
+	}
+	if strings.HasPrefix(e.session, "ses_") {
+		return e.session
+	}
+	return "ses_" + strings.TrimPrefix(e.session, "api-")
+}
+
 // client resolves the conversation's "provider/model" to an API client and the model ID.
 func (e *Engine) client() (Client, string, error) {
 	e.mu.Lock()
@@ -760,7 +772,8 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		if parent != "" && effort != "" {
 			effort = "low" // research subagents do simple, many-step work
 		}
-		req := Request{Model: modelID, System: conv.system(), Messages: withoutPruned(conv.messages()), Tools: defsOf(toolset), Effort: effort}
+		req := Request{Model: modelID, System: conv.system(), Messages: withoutPruned(conv.messages()),
+			Tools: defsOf(toolset), Effort: effort, SessionID: e.sessionHeaderID()}
 
 		streaming := false
 		stream := func(c Chunk) {
@@ -1049,7 +1062,8 @@ func (e *Engine) compactHistory(ctx context.Context, client Client, modelID stri
 		hist, kept = hist[:n-1], append([]Message(nil), hist[n-1])
 	}
 	hist = append(hist, Message{Role: "user", Text: "Summarise this conversation so work can continue from the summary alone: the goal, key decisions, files changed or inspected, current state, and next steps. Be concise and specific."})
-	resp, err := client.Stream(ctx, Request{Model: modelID, System: "You write precise handover summaries of coding sessions.", Messages: hist}, func(Chunk) {})
+	resp, err := client.Stream(ctx, Request{Model: modelID, System: "You write precise handover summaries of coding sessions.",
+		Messages: hist, SessionID: e.sessionHeaderID()}, func(Chunk) {})
 	if err != nil {
 		return "", err
 	}

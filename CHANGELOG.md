@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- Connect OpenCode Go or OpenCode Console with `/login`. Go requests carry the session ID OpenCode asks for, so long conversations keep their routing and prompt cache.
+
 ## [0.10.0] - 2026-10-25
 
 ### Added

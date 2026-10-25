@@ -14,12 +14,29 @@ import (
 )
 
 // openaiClient speaks the Chat Completions API, which OpenAI, Gemini,
-// OpenRouter, Groq, DeepSeek, xAI, Mistral, Ollama and LM Studio all serve.
+// OpenRouter, Groq, DeepSeek, xAI, Mistral, OpenCode, Ollama and LM Studio
+// all serve.
 type openaiClient struct {
-	base, key, provider string
+	base, key, provider  string
+	chatPath, modelsPath string
+	sessionHeader        string
 }
 
-func (c *openaiClient) do(ctx context.Context, method, path string, body any) (*http.Response, error) {
+func newOpenAIClient(p Provider, base, key string) *openaiClient {
+	c := &openaiClient{
+		base: base, key: key, provider: p.ID,
+		chatPath: p.ChatPath, modelsPath: p.ModelsPath, sessionHeader: p.SessionHeader,
+	}
+	if c.chatPath == "" {
+		c.chatPath = "/chat/completions"
+	}
+	if c.modelsPath == "" {
+		c.modelsPath = "/models"
+	}
+	return c
+}
+
+func (c *openaiClient) do(ctx context.Context, method, path string, body any, session string) (*http.Response, error) {
 	var b []byte
 	if body != nil {
 		b, _ = json.Marshal(body)
@@ -32,11 +49,17 @@ func (c *openaiClient) do(ctx context.Context, method, path string, body any) (*
 		if c.provider == "openrouter" {
 			h.Set("X-Title", "teveus")
 		}
+		if c.provider == "opencode" {
+			h.Set("User-Agent", userAgent)
+		}
+		if c.sessionHeader != "" && session != "" {
+			h.Set(c.sessionHeader, session)
+		}
 	})
 }
 
 func (c *openaiClient) Models(ctx context.Context) ([]Model, error) {
-	resp, err := c.do(ctx, "GET", "/models", nil)
+	resp, err := c.do(ctx, "GET", c.modelsPath, nil, "")
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +135,12 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 			body["reasoning_effort"] = lvl
 		}
 	}
-	resp, err := c.do(ctx, "POST", "/chat/completions", body)
+	resp, err := c.do(ctx, "POST", c.chatPath, body, req.SessionID)
 	if err != nil && req.Effort != "" && rejectsParam(err, "reasoning") {
 		// Not a reasoning model: run it without the setting.
 		delete(body, "reasoning")
 		delete(body, "reasoning_effort")
-		resp, err = c.do(ctx, "POST", "/chat/completions", body)
+		resp, err = c.do(ctx, "POST", c.chatPath, body, req.SessionID)
 	}
 	if err != nil {
 		return nil, err

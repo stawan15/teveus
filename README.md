@@ -55,7 +55,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 |---|---|
 | 💬 **Ask in plain words** | Explain code, fix bugs, write tests, review changes |
 | ✅ **Stay in control** | See each change as a coloured diff and approve it first |
-| 🔌 **Use any AI** | Claude Code (with your own Claude account), OpenAI, the Anthropic API, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, or local models (Ollama, LM Studio) |
+| 🔌 **Use any AI** | Claude Code (with your own Claude account), OpenAI, the Anthropic API, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, OpenCode (Go or Console), or local models (Ollama, LM Studio) |
 | 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
 | 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
@@ -115,7 +115,7 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 Run `/login` inside teveus and pick one:
 
 - **OpenRouter**: log in with your browser, no key to copy. Hundreds of models; type `free` in `/model` to find free ones.
-- **OpenAI, Anthropic, Gemini, Groq, DeepSeek, xAI, Mistral**: paste an API key. It's checked before saving and stored only on your computer.
+- **OpenAI, Anthropic, Gemini, Groq, DeepSeek, xAI, Mistral, OpenCode**: paste an API key. It's checked before saving and stored only on your computer. For OpenCode, choose Go (subscription) or Console (pay-as-you-go).
 - **Ollama or LM Studio**: runs on your own machine; nothing to set up if it's running.
 
 ## Use it from scripts

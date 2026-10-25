@@ -285,7 +285,12 @@ func (m *Model) runUpdate(version string) tea.Cmd {
 	return tea.ExecProcess(cmd, func(err error) tea.Msg { return updateDoneMsg{version: version, err: err} })
 }
 
-func (m *Model) handleUpdateDone(msg updateDoneMsg) {
+// handleUpdateDone reports how the installer went. A successful install ends
+// the program: the binary on disk has changed under the running process, and
+// the terminal has been handed to another program and back, so carrying on in
+// the old process can leave keys unread (ctrl+c stops working) until the
+// window is closed. Quitting returns a clean shell, and main says what to do.
+func (m *Model) handleUpdateDone(msg updateDoneMsg) tea.Cmd {
 	m.setKittyKeys(true) // the installer had the terminal
 	if msg.err != nil {
 		_, args := updateCommand(msg.version)
@@ -297,8 +302,15 @@ func (m *Model) handleUpdateDone(msg updateDoneMsg) {
 		}
 		m.add(&block{kind: kindError, text: "The update didn't finish: " + msg.err.Error() + "\nYou can run it yourself: " + run})
 		m.refresh()
-		return
+		return nil
 	}
-	m.add(&block{kind: kindInfo, text: "✓ teveus " + msg.version + " is installed. Quit and start teveus again to use it."})
-	m.refresh()
+	m.updated = msg.version
+	m.closeAllSessions()
+	m.stopPhone()
+	m.setKittyKeys(false)
+	return tea.Quit
 }
+
+// Updated is the version just installed, or "" if no update ran. main prints
+// the next step once the program has handed the terminal back.
+func (m *Model) Updated() string { return m.updated }

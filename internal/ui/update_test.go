@@ -155,3 +155,40 @@ func TestUpdateUsesTheWayItWasInstalled(t *testing.T) {
 		t.Fatalf("installer copy: %q %v", how, args)
 	}
 }
+
+func TestSuccessfulUpdateQuits(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	// The terminal the installer had is taken back, and the program stops
+	// rather than carrying on with input it may never read again.
+	_, cmd := m.Update(updateDoneMsg{version: "9.9.9"})
+	if cmd == nil {
+		t.Fatal("a finished update left the app running; ctrl+c may not be read")
+	}
+	if got := m.Updated(); got != "9.9.9" {
+		t.Fatalf("Updated() = %q, want the version just installed", got)
+	}
+	if m.phone != nil {
+		t.Fatal("the phone server is still up after quitting")
+	}
+}
+
+func TestFailedUpdateKeepsRunning(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+
+	_, cmd := m.Update(updateDoneMsg{version: "9.9.9", err: fmt.Errorf("network down")})
+	if cmd != nil {
+		t.Fatal("a failed update quit the app; the error can't be read")
+	}
+	if m.Updated() != "" {
+		t.Fatalf("Updated() = %q after a failure", m.Updated())
+	}
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "didn't finish") {
+		t.Fatalf("the failure isn't shown:\n%s", view)
+	}
+}

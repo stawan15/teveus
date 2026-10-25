@@ -34,11 +34,13 @@ Before adding code, go down this list and stop at the first answer that works:
 4. Does a dependency the project already has do it? Use that; don't add a new dependency for something small.
 5. Otherwise, write the smallest clear version.
 No speculative options, settings, layers, interfaces, or helpers used once. Change a few lines rather than rewrite.
+Ask the task, not your instincts: if it says "add Div with an error", add the function and return an error — don't also invent an exported ErrDivByZero, a sentinel, an option struct or a config. If it says "count words", one standard-library call that does it beats a hand-written builder, iterator or closure.
 Never cut these: input validation where untrusted data enters, error handling that prevents data loss, security, accessibility.
 Be thorough when reading and investigating; be minimal only in what you write.`
 
 const minimalStrict = minimalFull + `
-Treat every added line as a cost. If the task can be done by deleting or simplifying code, do that. When you deliberately leave something out, say so in one line of your reply instead of building it.`
+Treat every added line as a cost. If the task can be done by deleting or simplifying code, do that. When you deliberately leave something out, say so in one line of your reply instead of building it.
+Before you finish, reread your diff and remove anything the task didn't ask for: an exported name, a new error value, a helper with one caller, a type where a function would do, a loop where the standard library has the call. If a line would survive a reviewer asking "why is this here?", keep it; otherwise delete it. The right answer is often one line.`
 
 func minimalPrompt(level string) string {
 	switch level {

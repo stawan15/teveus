@@ -111,3 +111,52 @@ func TestOpenCodePlansUseDocumentedPathsAndSessionHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenCodeGoPlanReportsListPriceAsCost(t *testing.T) {
+	// On a Go plan the charge is 0 because it bills by subscription, but the
+	// tokens still have a list price: that is the number worth showing.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			io.WriteString(w, `{"data":[{"id":"mock-1"}]}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, `data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],`+
+			`"usage":{"prompt_tokens":100,"completion_tokens":20,"cost":0,`+
+			`"opencode":{"billing_source":"go","list_cost":0.0123,"cost":0}}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	r, _ := startEngine(t, "opencode", Credential{Key: "k", BaseURL: srv.URL}, "opencode/mock-1", "default")
+	r.e.Send("hi")
+	res := r.until(true)
+	if res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+	if res.CostUSD < 0.0122 || res.CostUSD > 0.0124 {
+		t.Fatalf("cost = %v, want the list price 0.0123", res.CostUSD)
+	}
+}
+
+func TestOpenCodeConsolePlanKeepsTheChargedCost(t *testing.T) {
+	// A Console key is charged per token, and that is what it reports.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			io.WriteString(w, `{"data":[{"id":"mock-1"}]}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, `data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],`+
+			`"usage":{"prompt_tokens":100,"completion_tokens":20,"cost":0.0042}}`+"\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	r, _ := startEngine(t, "opencode", Credential{Key: "k", BaseURL: srv.URL}, "opencode/mock-1", "default")
+	r.e.Send("hi")
+	res := r.until(true)
+	if res.CostUSD < 0.0041 || res.CostUSD > 0.0043 {
+		t.Fatalf("cost = %v, want the charged 0.0042", res.CostUSD)
+	}
+}

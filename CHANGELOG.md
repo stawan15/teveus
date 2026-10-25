@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-25
+
+### Changed
+
+- Minimal code now names the over-engineering it used to let through: an exported sentinel error nobody asked for, a builder or iterator where one standard-library call does the job. It also says to reread the diff before finishing and delete what the task didn't ask for.
+- On an OpenCode Go plan, the cost you see is the list price of the tokens instead of $0, so the sidebar and the turn footer show what the work would have cost.
+
 ## [0.23.0] - 2026-10-25
 
 ### Added
@@ -315,7 +322,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/stawan15/teveus/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/stawan15/teveus/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/stawan15/teveus/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/stawan15/teveus/compare/v0.20.0...v0.21.0

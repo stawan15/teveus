@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-25
+
+### Added
+
+- The phone page shows the sub-windows the terminal opens — `/model`'s list, `/effort`'s slider, an API-key field, the "do you trust this folder?" question — and you can answer them from the phone. Before, those commands ran but their window only appeared in the terminal.
+
 ## [0.19.1] - 2026-10-25
 
 ### Changed
@@ -291,7 +297,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/stawan15/teveus/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/stawan15/teveus/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/stawan15/teveus/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/stawan15/teveus/compare/v0.17.0...v0.18.0

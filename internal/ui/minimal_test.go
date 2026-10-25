@@ -109,3 +109,31 @@ func TestAttributionIsOffByDefault(t *testing.T) {
 		t.Fatal("turning it on didn't stick")
 	}
 }
+
+func TestMinimalPromptNamesTheOverEngineeringTraps(t *testing.T) {
+	// The benchmark showed the model inventing an exported sentinel error and
+	// a Builder for a one-line job. Both are named so the prompt heads them off.
+	for _, level := range []string{"full", "strict"} {
+		p := minimalPrompt(level)
+		for _, want := range []string{"ErrDivByZero", "builder", "standard-library"} {
+			if !strings.Contains(strings.ToLower(p), strings.ToLower(want)) {
+				t.Fatalf("%s prompt doesn't mention %q", level, want)
+			}
+		}
+	}
+	// strict adds the reread-the-diff rule; full doesn't need it.
+	if !strings.Contains(minimalPrompt("strict"), "reread your diff") {
+		t.Fatal("strict doesn't ask for the final pass over the diff")
+	}
+	if strings.Contains(minimalPrompt("full"), "reread your diff") {
+		t.Fatal("full carries the strict-only rule")
+	}
+	// Neither level may trade away the things that must never be cut.
+	for _, level := range []string{"full", "strict"} {
+		for _, keep := range []string{"validation", "security", "accessibility"} {
+			if !strings.Contains(minimalPrompt(level), keep) {
+				t.Fatalf("%s dropped %q", level, keep)
+			}
+		}
+	}
+}

@@ -188,6 +188,13 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 					CacheWrite int `json:"cache_write_tokens"`
 				} `json:"prompt_tokens_details"`
 				CacheHit int `json:"prompt_cache_hit_tokens"` // DeepSeek
+				// OpenCode reports what the tokens would cost at list price
+				// beside the cost it charges: on a Go plan that is 0, but the
+				// list price is what the work is worth.
+				OpenCode *struct {
+					ListCost float64 `json:"list_cost"`
+					Cost     float64 `json:"cost"`
+				} `json:"opencode"`
 			} `json:"usage"`
 			Error *struct {
 				Message string `json:"message"`
@@ -206,6 +213,16 @@ func (c *openaiClient) Stream(ctx context.Context, req Request, emit func(Chunk)
 			out.Usage.CacheWrite = ev.Usage.Details.CacheWrite
 			out.Usage.Output = ev.Usage.Completion
 			out.Usage.Cost = ev.Usage.Cost
+			if ev.Usage.OpenCode != nil {
+				// A Go plan bills by subscription, so cost is 0; the list price
+				// is what these tokens would have cost, which is the number
+				// worth showing.
+				if c := ev.Usage.OpenCode.Cost; c > 0 {
+					out.Usage.Cost = c
+				} else if c := ev.Usage.OpenCode.ListCost; c > 0 {
+					out.Usage.Cost = c
+				}
+			}
 		}
 		for _, ch := range ev.Choices {
 			d := ch.Delta

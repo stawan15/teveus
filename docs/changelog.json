@@ -1,11 +1,31 @@
 {
-  "latest": "0.23.0",
+  "latest": "0.24.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.23.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.24.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.24.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.23.0...v0.24.0",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Minimal code now names the over-engineering it used to let through: an exported sentinel error nobody asked for, a builder or iterator where one standard-library call does the job. It also says to reread the diff before finishing and delete what the task didn't ask for.",
+              "items": []
+            },
+            {
+              "text": "On an OpenCode Go plan, the cost you see is the list price of the tokens instead of $0, so the sidebar and the turn footer show what the work would have cost.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.23.0",

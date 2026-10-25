@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-25
+
+### Added
+
+- The phone page can switch between your open sessions, showing which are idle, working or waiting for approval.
+- The phone link no longer changes between runs, so you can save it on your phone's home screen once. Delete `~/.config/teveus/phone-token` to give out a new one.
+
 ## [0.14.0] - 2026-10-25
 
 ### Added
@@ -245,7 +252,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/stawan15/teveus/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/stawan15/teveus/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/stawan15/teveus/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/stawan15/teveus/compare/v0.11.0...v0.12.0

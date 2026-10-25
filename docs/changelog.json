@@ -1,11 +1,26 @@
 {
-  "latest": "0.8.0",
+  "latest": "0.9.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.8.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.9.0...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.9.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.8.0...v0.9.0",
       "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "A cleaner, easier-to-read look: a teal-and-violet dark theme, brighter text, calmer section labels, card-style messages, simpler tool output, and a redesigned welcome screen, input box and approval prompt.",
+              "items": []
+            }
+          ]
+        },
         {
           "title": "Fixed",
           "items": [

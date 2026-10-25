@@ -1,11 +1,27 @@
 {
-  "latest": "0.27.0",
+  "latest": "0.28.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.27.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.28.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.28.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "`ctrl+z` suspends cleanly and `fg` brings teveus back. Before, the terminal stopped the process while the app was still in its alternate screen, so the shell came back printing into a screen that was never restored — stray `64;29;18M` text, and the window had to be closed. A signal that doesn't come from `ctrl+z` now restores the terminal before it stops the process.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.27.0",

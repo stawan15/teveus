@@ -74,7 +74,11 @@ func main() {
 	model := ui.New(cfg)
 	p := tea.NewProgram(model, progOpts...)
 	send = p.Send
+	// A SIGTSTP that didn't come from ctrl+z would stop the process with the
+	// terminal still in the alternate screen; release it first.
+	stopSuspend := ui.SuspendGuard(func() { p.ReleaseTerminal() })
 	_, err := p.Run()
+	stopSuspend()
 	fmt.Print("\x1b[=0;1u") // key protocol back to legacy, however the app exited
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

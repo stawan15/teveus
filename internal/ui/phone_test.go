@@ -2,10 +2,16 @@ package ui
 
 import (
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -369,6 +375,68 @@ func TestPhoneSwitchesSession(t *testing.T) {
 	phoneGet(t, p, "/state", &v)
 	if v.Cur != 1 || !v.Sessions[1].Now {
 		t.Fatalf("page still on %d", v.Cur)
+	}
+}
+
+func TestPhoneListsOtherWindows(t *testing.T) {
+	// This test plays one window; a real server stands in for another, and a
+	// handle file tells this one where that is.
+	m, p, _ := phoneTestModel(t)
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("t") != "other-token" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		io.WriteString(w, `{"busy":true,"tab":"deploy to prod","where":"~/elsewhere"}`)
+	}))
+	defer other.Close()
+
+	otherAddr := strings.TrimPrefix(other.URL, "http://")
+	dir := handleDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := json.Marshal(phoneHandle{PID: os.Getppid(), Addr: otherAddr, Token: "other-token",
+		Title: "deploy to prod", Folder: "~/elsewhere", At: time.Now().Unix()})
+	path := filepath.Join(dir, strconv.Itoa(os.Getppid())+".json")
+	if err := os.WriteFile(path, h, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(path) })
+
+	p.pollWindows()
+	var v phoneView
+	p.snapshot(m)
+	phoneGet(t, p, "/state", &v)
+
+	var found *phoneTab
+	for i := range v.Sessions {
+		if v.Sessions[i].Win == otherAddr {
+			found = &v.Sessions[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("the other window isn't listed: %+v", v.Sessions)
+	}
+	if found.Title != "deploy to prod · elsewhere" || found.State != "working" {
+		t.Fatalf("other window = %+v", found)
+	}
+	if !strings.HasSuffix(found.URL, "/p/other-token") {
+		t.Fatalf("url = %q", found.URL)
+	}
+	if found.Now {
+		t.Fatal("another window's session is marked as the one on screen")
+	}
+
+	// A handle whose process is gone is dropped, not listed.
+	deadPath := filepath.Join(dir, "424243.json")
+	dead, _ := json.Marshal(phoneHandle{PID: 999999, Addr: otherAddr, Token: "x", At: time.Now().Unix()})
+	if err := os.WriteFile(deadPath, dead, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p.pollWindows()
+	if _, err := os.Stat(deadPath); !os.IsNotExist(err) {
+		t.Fatal("a handle for a dead process was kept")
 	}
 }
 

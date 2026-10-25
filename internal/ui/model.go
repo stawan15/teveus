@@ -323,6 +323,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.refresh()
+		} else if m.phone != nil {
+			// A page open on the phone reads what the last refresh copied, so
+			// an idle window has to keep that copy current too.
+			m.phone.update(m)
 		}
 		// Nothing animates while idle, so wake up less often (saves CPU on slow machines).
 		if !m.busy && !m.sel.dragging {

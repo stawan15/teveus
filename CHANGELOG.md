@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-25
+
+### Added
+
+- The phone page lists your other teveus windows too, not just the sessions in one: run teveus in several terminal tabs and all of them show up with what each is doing. Tapping one opens that window's page.
+- Every window shares one link, so saving it once on your phone reaches all of them.
+
+### Fixed
+
+- A window that was idle served nothing to the phone page; it now keeps its state current.
+
 ## [0.15.0] - 2026-10-25
 
 ### Added
@@ -252,7 +263,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/stawan15/teveus/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/stawan15/teveus/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/stawan15/teveus/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/stawan15/teveus/compare/v0.12.0...v0.13.0

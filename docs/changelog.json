@@ -1,11 +1,40 @@
 {
-  "latest": "0.15.0",
+  "latest": "0.16.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.15.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.16.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.16.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.15.0...v0.16.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "The phone page lists your other teveus windows too, not just the sessions in one: run teveus in several terminal tabs and all of them show up with what each is doing. Tapping one opens that window's page.",
+              "items": []
+            },
+            {
+              "text": "Every window shares one link, so saving it once on your phone reaches all of them.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "A window that was idle served nothing to the phone page; it now keeps its state current.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.15.0",

@@ -43,14 +43,21 @@ type phoneView struct {
 	Modes    []phoneMode `json:"modes"`
 	Sessions []phoneTab  `json:"sessions"`
 	Cur      int         `json:"cur"` // the session on screen
+	Tab      string      `json:"tab"` // this window's session, for other windows to show
 }
 
-// phoneTab is one open session, so the phone can switch between them.
+// phoneTab is one open session, so the phone can switch between them. A
+// session in this window has an ID; one in another window has the address and
+// token of that window's page instead.
 type phoneTab struct {
 	ID    int    `json:"id"`
 	Title string `json:"title"`
 	State string `json:"state"` // "idle", "working" or "approval"
 	Now   bool   `json:"now"`
+	Win   string `json:"win,omitempty"`   // another window: its host:port
+	Tok   string `json:"tok,omitempty"`   // another window: its page token
+	URL   string `json:"url,omitempty"`   // another window: its page
+	Where string `json:"where,omitempty"` // another window: its folder
 }
 
 // phoneMode is one permission mode the page can switch to.
@@ -83,32 +90,62 @@ type phonePerm struct {
 
 // phoneServer serves the phone page and the endpoints the page calls.
 type phoneServer struct {
-	token string
-	addr  string
-	url   string
-	srv   *http.Server
-	send  func(tea.Msg)
+	token       string
+	addr        string
+	publicAddr  string // how a phone reaches this window, for other windows to use
+	url         string
+	srv         *http.Server
+	send        func(tea.Msg)
+	handle      string // this window's entry in the config dir, when serving
+	handleAt    time.Time
+	handleTitle string
 
-	mu   sync.Mutex
-	view phoneView
+	mu     sync.Mutex
+	view   phoneView
+	others []phoneTab // other windows, as of the last poll
 }
 
 // baseURL is where the page is served, without the token.
 func (p *phoneServer) baseURL() string {
 	return "http://" + p.addr
-} // phoneToken is the token the link carries. It is kept in the config dir, so
+}
+
+// phoneToken is the token the link carries. It is kept in the config dir, so
 // the link stays the same between runs and can be bookmarked on the phone.
 // Deleting ~/.config/teveus/phone-token gives out a new one, which makes every
 // old link stop working.
 func phoneToken(fresh string) string {
 	path := filepath.Join(configDir(), "phone-token")
-	if b, err := os.ReadFile(path); err == nil {
-		if t := strings.TrimSpace(string(b)); len(t) >= 32 {
-			return t
-		}
+	if t, ok := readToken(path); ok {
+		return t
 	}
-	writePrivate("phone-token", []byte(fresh+"\n"))
+	// Two windows can start at the same moment. Whoever creates the file
+	// first wins; the other waits for the winner's token, so both pages are
+	// reachable with the one link.
+	os.MkdirAll(configDir(), 0o700)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		for i := 0; i < 40; i++ { // the winner may not have finished writing yet
+			if t, ok := readToken(path); ok {
+				return t
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return fresh
+	}
+	f.WriteString(fresh + "\n")
+	f.Close()
+	os.Chmod(path, 0o600)
 	return fresh
+}
+
+func readToken(path string) (string, bool) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	t := strings.TrimSpace(string(b))
+	return t, len(t) >= 32
 }
 
 // phoneAddr is where the page listens once the user turns it on. It has to
@@ -180,6 +217,7 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 	if _, _, err := net.SplitHostPort(linkHost); err != nil {
 		linkHost = net.JoinHostPort(linkHost, boundPort)
 	}
+	p.publicAddr = linkHost
 	p.url = "http://" + linkHost + "/p/" + p.token
 
 	mux := http.NewServeMux()
@@ -193,13 +231,24 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 	p.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go p.srv.Serve(ln)
 	m.phone = p
+	p.writeHandle(m)
+	go p.pollLoop()
 	return p.url, nil
+}
+
+// pollLoop keeps asking the other windows what they are doing, so the page
+// can list them without waiting on another process while it draws.
+func (p *phoneServer) pollLoop() {
+	for range time.Tick(3 * time.Second) {
+		p.pollWindows()
+	}
 }
 
 func (m *Model) stopPhone() {
 	if m.phone == nil {
 		return
 	}
+	m.phone.removeHandle()
 	m.phone.srv.Close()
 	m.phone = nil
 }
@@ -258,7 +307,10 @@ func (m *Model) togglePhone() tea.Cmd {
 
 // snapshot copies what the page shows. It runs on the UI's own goroutine, so
 // it can read the model; the page reads the copy under a lock.
-func (p *phoneServer) snapshot(m *Model) {
+func (p *phoneServer) snapshot(m *Model) { p.update(m) }
+
+// update copies the model's state for the page to read.
+func (p *phoneServer) update(m *Model) {
 	v := phoneView{Busy: m.busy, Phase: m.phase, Where: shortPath(m.cwd), Model: shortModel(m.model),
 		Mode: modeLabel(m.mode)}
 	for _, md := range modes {
@@ -276,10 +328,18 @@ func (p *phoneServer) snapshot(m *Model) {
 		v.Sessions = append(v.Sessions, phoneTab{ID: i, Title: title, State: state, Now: i == m.cur})
 	}
 	v.Cur = m.cur
+	p.mu.Lock()
+	others := p.others
+	p.mu.Unlock()
+	v.Sessions = append(v.Sessions, others...)
+	v.Tab = sessionTitle(m.blocks)
 	for _, b := range m.blocks {
 		if line, ok := phoneBlock(b, m); ok {
 			v.Msgs = append(v.Msgs, line)
 		}
+	}
+	if m.phone != nil {
+		m.phone.refreshHandle(m)
 	}
 	if len(m.perms) > 0 {
 		req := m.perms[0]
@@ -632,6 +692,9 @@ function render(v) {
   const cur = tabs[tabNow];
   sessbtn.textContent = '▤ ' + (cur ? cur.title : 'session');
   sessbtn.className = cur && cur.state !== 'idle' ? cur.state : '';
+  // Any other window may be waiting for an approval, even while this one is idle.
+  const anyApproval = tabs.some(tb => tb.win && tb.state === 'approval');
+  if (anyApproval && sessbtn.className === '') sessbtn.className = 'approval';
   const key = JSON.stringify(v.msgs || []);
   if (chat.dataset.key !== key) {
     chat.dataset.key = key;
@@ -705,10 +768,15 @@ sessbtn.onclick = () => {
     const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = tb.title;
     if (tb.now) { const k = document.createElement('span'); k.className = 'tick'; k.textContent = '✓'; lbl.appendChild(k) }
     const state = document.createElement('div'); state.className = 'help';
-    state.textContent = tb.state === 'approval' ? 'waiting for your approval'
-      : tb.state === 'working' ? 'working…' : 'idle';
+    state.textContent = (tb.state === 'approval' ? 'waiting for your approval'
+      : tb.state === 'working' ? 'working…' : 'idle') + (tb.win ? ' · another window' : '');
     b.appendChild(lbl); b.appendChild(state);
-    b.onclick = async () => { sessEl.hidden = true; await post('/session', {id: tb.id}); nearBottom = true; poll() };
+    if (tb.win) {
+      // Another window: its own page is the only way to act on it.
+      b.onclick = () => { location.href = tb.url };
+    } else {
+      b.onclick = async () => { sessEl.hidden = true; await post('/session', {id: tb.id}); nearBottom = true; poll() };
+    }
     sessList.appendChild(b);
   });
   sessEl.hidden = false;

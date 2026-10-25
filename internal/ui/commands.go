@@ -57,6 +57,7 @@ func init() {
 		{"rewind", "Review and restore files and conversation to an earlier turn (Direct API)", "", func(m *Model, _ string) tea.Cmd { return m.rewind() }},
 		{"init", "Write AGENTS.md / CLAUDE.md describing this project", "", func(m *Model, _ string) tea.Cmd { return m.initProject() }},
 		{"diff", "Show what changed in the working tree (git)", "", func(m *Model, _ string) tea.Cmd { return m.gitDiff() }},
+		{"commit", "Let the AI write the message and commit this work (/commit <words> steers it)", "", func(m *Model, arg string) tea.Cmd { return m.commit(arg) }},
 		{"update", "Check for a new version of teveus and install it", "", func(m *Model, _ string) tea.Cmd { return m.updateNow() }},
 		{"purge", "Delete teveus's saved conversations and prompt history", "", func(m *Model, _ string) tea.Cmd { m.openPurge(); return nil }},
 		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},

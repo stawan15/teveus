@@ -114,6 +114,8 @@ type Model struct {
 	noticeOK      bool
 	noticeAt      time.Time
 	updated       string // a version just installed; lets the caller restart cleanly
+	commitArg     string // the /commit argument, carried to the message it sends
+	sendShown     string // what to put in the transcript instead of the text sent
 }
 
 type eventMsg struct {
@@ -364,6 +366,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.add(&block{kind: kindCmdOut, text: string(msg)})
 		m.refresh()
 		return m, nil
+
+	case commitStartMsg:
+		return m, m.startCommit()
 
 	case updateMsg:
 		return m, m.handleUpdate(msg)
@@ -981,6 +986,9 @@ func (m *Model) send(text string) tea.Cmd {
 	shown := text
 	if m.pasteShown != "" {
 		shown, m.pasteShown = m.pasteShown, ""
+	}
+	if m.sendShown != "" {
+		shown, m.sendShown = m.sendShown, ""
 	}
 	m.add(&block{kind: kindUser, text: shown})
 	m.vp.GotoBottom()

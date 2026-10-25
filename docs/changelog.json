@@ -5,7 +5,34 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.13.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`/phone` turns the phone page on or off and prints its link again.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The phone page reads like a chat: your messages on the right, replies as cards, tools as quiet lines, and it opens on the newest message.",
+              "items": []
+            },
+            {
+              "text": "The phone page can switch permission mode from a button in its header, and its approval card shows why a tool asked, the command or file it would touch, and what denying does.",
+              "items": []
+            },
+            {
+              "text": "The phone page moves to the next free port when 8787 is taken, and a failure to start is now said in the transcript instead of a note that disappears.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.13.0",

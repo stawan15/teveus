@@ -229,10 +229,13 @@ func (m *Model) startPhoneServer() tea.Cmd {
 	}
 	url, err := m.startPhone(addr, m.cfg.Send)
 	if err != nil {
-		m.add(&block{kind: kindError, text: "phone page: " + err.Error()})
+		m.add(&block{kind: kindError, text: "Phone page couldn't start on " + addr + ": " + err.Error()})
 		return nil
 	}
-	m.add(&block{kind: kindInfo, text: "Phone: open " + url + " on a device that can reach this machine. Anyone with the link can prompt and approve, so keep it to yourself."})
+	m.settings.PhonePage = true
+	saveSettings(m.settings)
+	m.add(&block{kind: kindInfo, text: "Phone: open this on a device on the same network —\n" + url +
+		"\nAnyone with this link can prompt and approve. Turn it off with /phone off."})
 	return nil
 }
 
@@ -833,6 +836,9 @@ func (m *Model) handlePhone(msg phoneMsg) tea.Cmd {
 			m.client.Interrupt()
 			m.note("interrupting…", false)
 		}
+	case msg.mode != "":
+		m.setMode(msg.mode)
+		m.refresh()
 	case msg.perm != "":
 		if m.client == nil {
 			m.note("no session is running", false)

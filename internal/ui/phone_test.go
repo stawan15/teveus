@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -53,6 +54,30 @@ func phonePost(t *testing.T, p *phoneServer, path, body string) int {
 	}
 	defer resp.Body.Close()
 	return resp.StatusCode
+}
+
+func TestPhoneMovesOnWhenThePortIsTaken(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	// An older teveus may still hold the default port.
+	taken, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer taken.Close()
+	_, freePort, _ := net.SplitHostPort(taken.Addr().String())
+
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	url, err := m.startPhone("127.0.0.1:"+freePort, func(tea.Msg) {})
+	if err != nil {
+		t.Fatalf("startPhone on a taken port: %v", err)
+	}
+	t.Cleanup(m.stopPhone)
+	got := strings.TrimPrefix(strings.Split(url, "/?t=")[0], "http://")
+	_, want, _ := net.SplitHostPort(got)
+	if want == freePort {
+		t.Fatalf("kept the taken port %s", freePort)
+	}
 }
 
 func TestPhonePageOffUntilTurnedOn(t *testing.T) {
@@ -115,8 +140,14 @@ func TestPhoneShowsTranscriptAndTakesAPrompt(t *testing.T) {
 
 	var v phoneView
 	phoneGet(t, p, "/state", &v)
-	if !strings.Contains(v.Transcript, "list the tests") || !strings.Contains(v.Transcript, "There are three.") {
-		t.Fatalf("transcript = %q", v.Transcript)
+	if len(v.Msgs) != 2 {
+		t.Fatalf("messages = %+v", v.Msgs)
+	}
+	if v.Msgs[0].Role != "you" || v.Msgs[0].Text != "list the tests" {
+		t.Fatalf("first message = %+v", v.Msgs[0])
+	}
+	if v.Msgs[1].Role != "ai" || !strings.Contains(v.Msgs[1].Text, "There are three.") {
+		t.Fatalf("second message = %+v", v.Msgs[1])
 	}
 	if v.Perm != nil {
 		t.Fatal("nothing is waiting for an answer, yet the page shows a prompt")
@@ -186,6 +217,74 @@ func TestPhoneApprovesTheQuestionOnScreen(t *testing.T) {
 	phoneGet(t, p, "/state", &v)
 	if v.Perm != nil {
 		t.Fatalf("the page still asks: %+v", v.Perm)
+	}
+}
+
+func TestPhoneSwitchesPermissionMode(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.mode = "default"
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if v.Mode != "ask first" {
+		t.Fatalf("mode = %q", v.Mode)
+	}
+	if len(v.Modes) != len(modes) {
+		t.Fatalf("%d modes, want %d", len(v.Modes), len(modes))
+	}
+	for _, md := range v.Modes {
+		if md.ID == "plan" && (!md.Now == false || md.Label != "plan only" || md.Help == "") {
+			t.Fatalf("plan row = %+v", md)
+		}
+	}
+
+	if code := phonePost(t, p, "/mode", `{"mode":"nonsense"}`); code != http.StatusBadRequest {
+		t.Fatalf("unknown mode = %d, want 400", code)
+	}
+	select {
+	case msg := <-msgs:
+		t.Fatalf("an unknown mode was sent on: %#v", msg)
+	default:
+	}
+
+	if code := phonePost(t, p, "/mode", `{"mode":"plan"}`); code != http.StatusNoContent {
+		t.Fatalf("plan = %d", code)
+	}
+	msg := (<-msgs).(phoneMsg)
+	if msg.mode != "plan" {
+		t.Fatalf("message = %#v", msg)
+	}
+	m.handlePhone(msg)
+	if m.mode != "plan" {
+		t.Fatalf("mode = %q after the phone picked plan", m.mode)
+	}
+	phoneGet(t, p, "/state", &v)
+	if v.Mode != "plan only" {
+		t.Fatalf("page still shows %q", v.Mode)
+	}
+}
+
+func TestPhoneApprovalShowsWhatAndWhy(t *testing.T) {
+	m, p, _ := phoneTestModel(t)
+	m.perms = append(m.perms, &claude.PermissionRequest{RequestID: "w1", ToolName: "Write",
+		Description: "outside the project, so it always asks",
+		Input:       json.RawMessage(`{"file_path":"/tmp/notes.md","content":"hello"}`)})
+	m.refresh()
+
+	var v phoneView
+	phoneGet(t, p, "/state", &v)
+	if v.Perm == nil {
+		t.Fatal("no prompt on the page")
+	}
+	if v.Perm.Reason != "outside the project, so it always asks" {
+		t.Fatalf("reason = %q", v.Perm.Reason)
+	}
+	if !strings.Contains(v.Perm.Detail, "/tmp/notes.md") || !strings.Contains(v.Perm.Detail, "hello") {
+		t.Fatalf("detail = %q", v.Perm.Detail)
+	}
+	if v.Perm.Note == "" {
+		t.Fatal("the page doesn't say what denying does")
 	}
 }
 

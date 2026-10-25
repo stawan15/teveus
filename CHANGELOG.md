@@ -5,15 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-25
+
 ### Added
 
 - `/phone` turns the phone page on or off and prints its link again.
+- Switch permission mode from the phone page's header, and see why a tool asked, the command or file it would touch, and what denying does.
 
-### Changed
+### Fixed
 
-- The phone page reads like a chat: your messages on the right, replies as cards, tools as quiet lines, and it opens on the newest message.
-- The phone page can switch permission mode from a button in its header, and its approval card shows why a tool asked, the command or file it would touch, and what denying does.
-- The phone page moves to the next free port when 8787 is taken, and a failure to start is now said in the transcript instead of a note that disappears.
+- The phone page's link now opens: it names an address the page really listens on, and the page moves to the next free port when 8787 is taken instead of failing quietly.
+- The phone page reads like a chat, with your messages on the right, replies as cards and tools as quiet lines, and it opens on the newest message.
 
 ## [0.13.0] - 2026-10-25
 
@@ -243,7 +245,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/stawan15/teveus/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/stawan15/teveus/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/stawan15/teveus/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/stawan15/teveus/compare/v0.10.0...v0.11.0

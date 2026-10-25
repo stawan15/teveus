@@ -1,10 +1,16 @@
 {
-  "latest": "0.13.0",
+  "latest": "0.14.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.13.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.14.0...HEAD",
+      "sections": []
+    },
+    {
+      "version": "0.14.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.13.0...v0.14.0",
       "sections": [
         {
           "title": "Added",
@@ -12,22 +18,22 @@
             {
               "text": "`/phone` turns the phone page on or off and prints its link again.",
               "items": []
+            },
+            {
+              "text": "Switch permission mode from the phone page's header, and see why a tool asked, the command or file it would touch, and what denying does.",
+              "items": []
             }
           ]
         },
         {
-          "title": "Changed",
+          "title": "Fixed",
           "items": [
             {
-              "text": "The phone page reads like a chat: your messages on the right, replies as cards, tools as quiet lines, and it opens on the newest message.",
+              "text": "The phone page's link now opens: it names an address the page really listens on, and the page moves to the next free port when 8787 is taken instead of failing quietly.",
               "items": []
             },
             {
-              "text": "The phone page can switch permission mode from a button in its header, and its approval card shows why a tool asked, the command or file it would touch, and what denying does.",
-              "items": []
-            },
-            {
-              "text": "The phone page moves to the next free port when 8787 is taken, and a failure to start is now said in the transcript instead of a note that disappears.",
+              "text": "The phone page reads like a chat, with your messages on the right, replies as cards and tools as quiet lines, and it opens on the newest message.",
               "items": []
             }
           ]

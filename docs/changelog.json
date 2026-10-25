@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.10.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Connect OpenCode Go or OpenCode Console with `/login`. Go requests carry the session ID OpenCode asks for, so long conversations keep their routing and prompt cache.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.10.0",

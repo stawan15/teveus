@@ -4,7 +4,7 @@ package ui
 const phonePage = `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0d12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,6 +14,9 @@ const phonePage = `<!doctype html>
   --dim:#7f8798; --faint:#5a6376; --accent:#8ab4ff; --ok:#3fbf7f; --warn:#e0b341; --bad:#e0647a;
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace }
 * { box-sizing:border-box; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent }
+/* iOS zooms on a double tap and pinches even with user-scalable=no, and zooms
+   into a field whose text is under 16px, so the page holds one scale. */
+html { touch-action:pan-x pan-y }
 body { margin:0; background:var(--bg); color:var(--text);
   font:15px/1.5 -apple-system,system-ui,sans-serif; padding-bottom:calc(84px + env(safe-area-inset-bottom)) }
 
@@ -78,7 +81,8 @@ footer { position:fixed; left:0; right:0; bottom:0; z-index:10; display:flex; ga
   align-items:flex-end; padding:7px 10px calc(9px + env(safe-area-inset-bottom));
   background:rgba(11,13,18,.96); border-top:1px solid var(--edge);
   backdrop-filter:blur(14px) }
-textarea { flex:1; min-height:42px; max-height:36vh; resize:none; font:15px/1.45 inherit;
+/* 16px is the threshold: below it iOS zooms the page when the field gets focus. */
+textarea { flex:1; min-height:42px; max-height:36vh; resize:none; font:16px/1.45 inherit;
   padding:11px 12px; border-radius:11px; border:1px solid var(--edge); background:var(--card);
   color:var(--text) }
 textarea:focus { outline:none; border-color:#2f4a70 }
@@ -301,6 +305,20 @@ sessbtn.onclick = () => {
 [modesEl, sessEl, cmdsEl].forEach(el => el.onclick = e => {
   if (e.target === el) el.hidden = true;
 });
+
+/* One fixed scale. iOS ignores user-scalable=no for pinch, and zooms on a
+   double tap, so both are refused here; scrolling and tapping still work. */
+addEventListener('gesturestart', e => e.preventDefault());
+addEventListener('gesturechange', e => e.preventDefault());
+addEventListener('gestureend', e => e.preventDefault());
+let lastTap = 0;
+addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 320) e.preventDefault();
+  lastTap = now;
+}, {passive:false});
+addEventListener('dblclick', e => e.preventDefault());
+
 addEventListener('resize', poll);
 poll(); setInterval(poll, 1200);
 </script></body></html>

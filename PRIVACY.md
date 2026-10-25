@@ -11,6 +11,7 @@ What does leave your computer goes to services **you** choose, under **their** t
 | You use the **Claude Code** engine | Your messages, and whatever Claude Code reads or runs for them | Anthropic, by your installed Claude Code, under [Anthropic's terms and privacy policy](https://www.anthropic.com/legal/privacy). teveus only starts the `claude` program; it never sees or stores your Claude login. |
 | You use the **Direct API** engine | Your messages, images you attach, the contents of files and command output the model reads while working, and (for OpenCode) a stable session ID | The AI provider whose model you picked (OpenAI, Anthropic, Google, OpenRouter, OpenCode, …), under that provider's terms. Local models (Ollama, LM Studio) stay on your machine. If you pick a separate model for research subagents (`/subagent`), what those subagents read goes to that model's provider instead. |
 | teveus starts on the Direct API engine | A request for the list of models | Each provider you've connected |
+| You use the **OpenCode Go** plan | A request for your plan's usage, to draw the sidebar bars (no conversation content) | opencode.ai |
 | The model uses **WebFetch** (you approve it) | A request for that web address | That website |
 | The model uses **WebSearch** (you approve it) | The search words | Brave Search or Tavily, whichever key you connected |
 | The model uses an **MCP** tool | Whatever that tool is given | The MCP server you configured (a program on your computer, or the address you set) |

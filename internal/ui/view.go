@@ -286,13 +286,16 @@ func (m *Model) sidebar(height int) string {
 		}
 	}
 
-	if m.fiveHour != nil || m.sevenDay != nil {
+	if m.fiveHour != nil || m.sevenDay != nil || m.monthly != nil {
 		section("USAGE", "")
 		if m.fiveHour != nil {
 			s = append(s, usageLine("5h", m.fiveHour, w)...)
 		}
 		if m.sevenDay != nil {
 			s = append(s, usageLine("7d", m.sevenDay, w)...)
+		}
+		if m.monthly != nil {
+			s = append(s, usageLine("30d", m.monthly, w)...)
 		}
 	}
 

@@ -169,12 +169,13 @@ func (m *Model) openSettingsAt(sel int) {
 			m.startOnboarding()
 			return nil
 		}},
+		{"Phone", "Phone page (prompt, approve, watch)", onOff(m.phoneOn()), func(m *Model) tea.Cmd { return m.togglePhone() }},
 	}
 	var cs []choice
 	for i, it := range items {
 		run := it.run
 		switch it.label {
-		case "Reduce motion", "Sidebar", "Tool output expanded", "Mouse (scroll, select, click)", "Concise answers", "Lean tools (Claude Code)", "Check for updates", "Credit AI in commits (Co-Authored-By)":
+		case "Reduce motion", "Sidebar", "Tool output expanded", "Mouse (scroll, select, click)", "Concise answers", "Lean tools (Claude Code)", "Check for updates", "Credit AI in commits (Co-Authored-By)", "Phone page (prompt, approve, watch)":
 			run = toggle(i, run) // on/off rows stay in the list so you can see the change
 		}
 		c := choice{group: it.group, label: it.label, key: it.value, run: run}

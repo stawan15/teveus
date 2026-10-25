@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- Prompt and approve from a phone. `/settings` → Phone page turns on a small local web page whose link you open on your phone: you can type a message, watch the replies, and allow or deny tools. It's off by default; anyone with the link can prompt and approve while it's on.
+
 ## [0.12.0] - 2026-10-25
 
 ### Added

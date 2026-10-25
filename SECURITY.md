@@ -20,6 +20,7 @@ An AI agent reads untrusted text (web pages, files, command output) and can act 
 - **Project MCP servers need approval.** A repository's `.mcp.json` can start programs, so its servers stay off until you approve that exact file with `/mcp`; editing the file withdraws the approval.
 - **Hooks stay out of repositories.** Hooks run commands on your computer, so they are read only from teveus's own settings folder (`hooks.json`), which the file tools can't touch. A repository can add slash commands and skills, but those are prompts, like `CLAUDE.md`: they run nothing themselves and the model's tool calls still ask as usual.
 - **Private files.** Keys, prompt history, conversations and rules are stored readable only by your user account.
+- **The phone page is off by default, and token-only.** Turning on `/settings → Phone page` (or passing `-phone`) starts a small web server on port 8787 that lets a phone prompt and approve. It answers nothing without the random token in the link teveus prints, accepts answers only as POSTs, and never holds keys or opens conversations: it asks the running session through the UI, so a page can't reach anything the keyboard couldn't.
 - **Verified installs and updates.** `install.sh` and `install.ps1` check the download against the release's SHA-256 checksums, and an update from inside teveus runs the same installer, pinned to the exact version it offered. teveus never updates without asking.
 
 ## Limits
@@ -27,4 +28,5 @@ An AI agent reads untrusted text (web pages, files, command output) and can act 
 - Commands you approve run with your permissions, and autopilot approves everything except your deny rules. Use it in projects you trust.
 - Hooks and background commands run with your permissions. A background command you approved keeps running until it ends, you stop it, or its session closes.
 - A shell command can read anything your account can; the credential guard covers teveus's file tools, not commands you approve.
+- Anyone who has the phone link can prompt and approve while the page is on, and the page is plain HTTP. Use it on a network you trust (home Wi-Fi, or a Tailscale address) and turn it off when you're done.
 - On the Claude Code engine, Claude Code's own permission system applies instead of the above.

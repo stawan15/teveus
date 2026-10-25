@@ -1,11 +1,27 @@
 {
-  "latest": "0.19.0",
+  "latest": "0.19.1",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.19.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.19.1...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.19.1",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.19.0...v0.19.1",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The README now covers the phone page: what it does, how to keep it off a network you don't trust, and how to revoke its link.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.19.0",

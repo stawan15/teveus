@@ -5,7 +5,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
-## [0.24.0] - 2026-10-25
+## [0.25.0] - 2026-10-25
 
 ### Changed
 
@@ -323,7 +323,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/stawan15/teveus/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/stawan15/teveus/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/stawan15/teveus/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/stawan15/teveus/compare/v0.21.0...v0.22.0

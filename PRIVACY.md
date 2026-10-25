@@ -16,7 +16,7 @@ What does leave your computer goes to services **you** choose, under **their** t
 | The model uses an **MCP** tool | Whatever that tool is given | The MCP server you configured (a program on your computer, or the address you set) |
 | You log in to **OpenRouter** in the browser | A one-time login exchange | openrouter.ai |
 | teveus starts (at most once a day) | A request for the latest version number, with the app name and version as the user agent | GitHub (api.github.com). Turn it off in `/settings` → Check for updates, or with `"noUpdateCheck": true`. Builds from source never check. |
-| You choose **Update now**, or install with `install.sh` | A download request | GitHub |
+| You choose **Update now**, or run an installer (`install.sh` / `install.ps1`) | A download request | GitHub |
 
 Nothing else is sent. Your clipboard is only read when you press `ctrl+v`, and only written when you copy.
 

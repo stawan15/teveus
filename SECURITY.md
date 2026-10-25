@@ -20,7 +20,7 @@ An AI agent reads untrusted text (web pages, files, command output) and can act 
 - **Project MCP servers need approval.** A repository's `.mcp.json` can start programs, so its servers stay off until you approve that exact file with `/mcp`; editing the file withdraws the approval.
 - **Hooks stay out of repositories.** Hooks run commands on your computer, so they are read only from teveus's own settings folder (`hooks.json`), which the file tools can't touch. A repository can add slash commands and skills, but those are prompts, like `CLAUDE.md`: they run nothing themselves and the model's tool calls still ask as usual.
 - **Private files.** Keys, prompt history, conversations and rules are stored readable only by your user account.
-- **Verified installs and updates.** `install.sh` checks the download against the release's SHA-256 checksums, and an update from inside teveus runs that same installer, pinned to the exact version it offered. teveus never updates without asking.
+- **Verified installs and updates.** `install.sh` and `install.ps1` check the download against the release's SHA-256 checksums, and an update from inside teveus runs the same installer, pinned to the exact version it offered. teveus never updates without asking.
 
 ## Limits
 

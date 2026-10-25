@@ -44,9 +44,9 @@ type cell struct {
 }
 
 var (
-	defFG  = rgb(0xEC, 0xE6, 0xDF)
-	defBG  = rgb(0x1E, 0x1C, 0x22)
-	pageBG = rgb(0x14, 0x13, 0x17)
+	defFG  = rgb(0xE8, 0xEE, 0xF5)
+	defBG  = rgb(0x0E, 0x14, 0x1B)
+	pageBG = rgb(0x08, 0x0C, 0x11)
 )
 
 func rgb(r, g, b uint8) color.RGBA { return color.RGBA{r, g, b, 255} }
@@ -338,7 +338,7 @@ func (rd *renderer) render(grid [][]cell) *image.RGBA {
 	}
 	d := &font.Drawer{Dst: img, Face: rd.fs.regular[0].face}
 	tw := d.MeasureString(rd.title).Round()
-	d.Src = image.NewUniform(rgb(0x8C, 0x85, 0x7E))
+	d.Src = image.NewUniform(rgb(0x8A, 0x98, 0xA8))
 	d.Dot = fixed.P(win.Min.X+(win.Dx()-tw)/2, win.Min.Y+rd.bar/2+rd.fs.asc/2)
 	d.DrawString(rd.title)
 

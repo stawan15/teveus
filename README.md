@@ -13,11 +13,19 @@ Run Claude Code, or any AI provider with your own key, in one fast, good-looking
 
 ## Install
 
+**macOS and Linux**
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/main/install.sh | sh
 ```
 
-Works on macOS and Linux. Run the same line again to update.
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/stawan15/teveus/main/install.ps1 | iex
+```
+
+Works on macOS, Linux and 64-bit Windows. Run the same installer again to update.
 
 > **Want Claude models on your Claude plan?** Install [Claude Code](https://claude.com/claude-code) from Anthropic and sign in to it.
 > teveus runs your installed Claude Code as it is. You sign in through Anthropic's own login, and teveus never sees your Claude credentials.
@@ -147,24 +155,33 @@ In `~/.config/teveus/`. Keys are in `auth.json`, readable only by you.
 <details>
 <summary><b>How do I uninstall?</b></summary>
 
+**macOS and Linux**
+
 ```sh
 rm ~/.local/bin/teveus
 rm -rf ~/.config/teveus   # also removes settings and saved keys
+```
+
+**Windows (PowerShell)**
+
+```powershell
+Remove-Item -Recurse "$env:LOCALAPPDATA\Programs\teveus"
+Remove-Item -Recurse "$env:APPDATA\teveus"   # also removes settings and saved keys
 ```
 </details>
 
 ## More ways to install
 
 - **Go:** `go install github.com/stawan15/teveus@latest`
-- **Windows or manual download:** grab an archive from [Releases](https://github.com/stawan15/teveus/releases)
-- **Installer options:** `TEVEUS_INSTALL_DIR=/usr/local/bin` or `TEVEUS_VERSION=v0.1.1` before `sh`
+- **Manual download:** grab an archive from [Releases](https://github.com/stawan15/teveus/releases)
+- **Installer options:** set `TEVEUS_INSTALL_DIR` or `TEVEUS_VERSION=v0.10.0` before running the installer
 
 ## Development
 
 ```sh
 go build -o teveus . && ./teveus   # run from source
 go test ./...                       # tests
-docs/record.sh                      # re-record the demo GIF from a real session
+docs/record.sh                      # re-record the demo GIF and screenshots
 ```
 
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss) and [Glamour](https://github.com/charmbracelet/glamour).

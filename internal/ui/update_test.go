@@ -132,13 +132,6 @@ func TestUpToDateAndBusyStayOutOfTheWay(t *testing.T) {
 }
 
 func TestUpdateUsesTheWayItWasInstalled(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		how, args := updateCommand("0.3.2")
-		if len(args) != 0 || !strings.Contains(how, releasesPage) {
-			t.Fatalf("windows copy: %q %v", how, args)
-		}
-		return
-	}
 	exe, _ := os.Executable()
 	exe, _ = filepath.EvalSymlinks(exe)
 	dir := filepath.Dir(exe)
@@ -149,6 +142,14 @@ func TestUpdateUsesTheWayItWasInstalled(t *testing.T) {
 	t.Setenv("GOBIN", "")
 	t.Setenv("GOPATH", t.TempDir())
 	how, args := updateCommand("0.3.2")
+	if runtime.GOOS == "windows" {
+		if len(args) != 6 || args[0] != "powershell" || !strings.Contains(args[5], "teveus/v0.3.2/install.ps1") ||
+			!strings.Contains(args[5], "TEVEUS_VERSION='v0.3.2'") ||
+			!strings.Contains(args[5], "TEVEUS_INSTALL_DIR="+psQuote(dir)) || !strings.Contains(how, "checksum") {
+			t.Fatalf("installer copy: %q %v", how, args)
+		}
+		return
+	}
 	if len(args) != 3 || !strings.Contains(args[2], "teveus/v0.3.2/install.sh") || !strings.Contains(args[2], "TEVEUS_VERSION=v0.3.2") ||
 		!strings.Contains(args[2], "TEVEUS_INSTALL_DIR="+shellQuote(dir)) || !strings.Contains(how, "checksum") {
 		t.Fatalf("installer copy: %q %v", how, args)

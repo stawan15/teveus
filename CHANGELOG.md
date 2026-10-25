@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-25
+
+### Added
+
+- Type while the agent is working and it now reads you at its next step instead of waiting for the whole turn to finish: the message joins the running conversation between tool calls, and appears in the transcript where it landed. On the API engine the box says "Say it now"; Claude Code has no way to take a message mid-turn, so there it still queues for the end of the turn.
+
 ## [0.21.0] - 2026-10-25
 
 ### Added
@@ -303,7 +309,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/stawan15/teveus/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/stawan15/teveus/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/stawan15/teveus/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/stawan15/teveus/compare/v0.19.0...v0.19.1

@@ -133,6 +133,10 @@ type Window struct {
 	ResetsAt    int64   `json:"resetsAt"`
 }
 
+// UserMessage is something the user said that entered a turn already running.
+// The UI shows it in the transcript where it landed, not at the end of the turn.
+type UserMessage struct{ Text string }
+
 // Compacted says the conversation was replaced by a summary to free context.
 type Compacted struct {
 	Auto      bool // the engine did it because the context was nearly full
@@ -183,6 +187,7 @@ func (AssistantMessage) isEvent()   {}
 func (ToolResults) isEvent()        {}
 func (*PermissionRequest) isEvent() {}
 func (RateLimit) isEvent()          {}
+func (UserMessage) isEvent()        {}
 func (Compacted) isEvent()          {}
 func (Result) isEvent()             {}
 func (ControlResult) isEvent()      {}

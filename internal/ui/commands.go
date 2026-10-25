@@ -75,6 +75,7 @@ func init() {
 		{"mouse", "Mouse capture on/off (off = select text)", "", func(m *Model, _ string) tea.Cmd { return m.toggleMouse() }},
 		{"help", "Keyboard shortcuts and commands (or press ?)", "?", func(m *Model, _ string) tea.Cmd { m.openHelp(); return nil }},
 		{"settings", "All preferences in one place", "", func(m *Model, _ string) tea.Cmd { m.openSettings(); return nil }},
+		{"phone", "Prompt and approve from a phone: /phone on, off, or the link again", "", func(m *Model, arg string) tea.Cmd { return m.showPhone(arg) }},
 		{"setup", "Run the first-time setup again", "", func(m *Model, _ string) tea.Cmd { m.startOnboarding(); return nil }},
 		{"exit", "Quit", "ctrl+c ×2", func(m *Model, _ string) tea.Cmd { return m.quit() }},
 	}

@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- `/phone` turns the phone page on or off and prints its link again.
+
+### Changed
+
+- The phone page reads like a chat: your messages on the right, replies as cards, tools as quiet lines, and it opens on the newest message.
+- The phone page can switch permission mode from a button in its header, and its approval card shows why a tool asked, the command or file it would touch, and what denying does.
+- The phone page moves to the next free port when 8787 is taken, and a failure to start is now said in the transcript instead of a note that disappears.
+
 ## [0.13.0] - 2026-10-25
 
 ### Added

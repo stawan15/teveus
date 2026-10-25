@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-25
+
+### Added
+
+- The phone page runs your slash commands: type `/` or tap the `/` key to get a searchable list of everything the app takes, and picking one runs it as if you had typed it.
+
+### Changed
+
+- The phone page is quieter and denser: one status line, replies as plain text rather than cards, and tool calls as slim indented lines, so more of the conversation fits on a phone screen.
+
 ## [0.16.0] - 2026-10-25
 
 ### Added
@@ -263,7 +273,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/stawan15/teveus/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/stawan15/teveus/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/stawan15/teveus/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/stawan15/teveus/compare/v0.13.0...v0.14.0

@@ -1,11 +1,36 @@
 {
-  "latest": "0.16.0",
+  "latest": "0.17.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.16.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.17.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.17.0",
+      "date": "2026-10-25",
+      "url": "https://github.com/stawan15/teveus/compare/v0.16.0...v0.17.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "The phone page runs your slash commands: type `/` or tap the `/` key to get a searchable list of everything the app takes, and picking one runs it as if you had typed it.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The phone page is quieter and denser: one status line, replies as plain text rather than cards, and tool calls as slim indented lines, so more of the conversation fits on a phone screen.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.16.0",

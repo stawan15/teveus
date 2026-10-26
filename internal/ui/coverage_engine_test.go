@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -19,19 +20,23 @@ import (
 // its local state matters here.
 func engineModel(t *testing.T, cwd string) (*Model, *agent.Engine) {
 	t.Helper()
+	// TEVEUS_CONFIG has to be set before New reads it, or the model picks up
+	// whatever the real config dir holds (an approved .mcp.json, say) and the
+	// test stops being hermetic.
+	cfg := t.TempDir()
+	t.Setenv("TEVEUS_CONFIG", cfg)
 	dir := t.TempDir()
 	store := agent.NewStore(dir)
 	store.Save("custom", agent.Credential{BaseURL: "http://127.0.0.1:1"})
 	eng, err := agent.Start(agent.Options{
 		Cwd: cwd, Model: "custom/m", Mode: "default", Store: store,
-		SessionDir: t.TempDir(), ConfigDir: t.TempDir(),
+		SessionDir: t.TempDir(), ConfigDir: cfg,
 	})
 	if err != nil {
 		t.Fatalf("engine: %v", err)
 	}
 	t.Cleanup(eng.Close)
 
-	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.engine, m.client, m.cwd = "api", eng, cwd
@@ -76,10 +81,20 @@ func TestShowMCPOffersToStartAProjectsServers(t *testing.T) {
 	cwd := t.TempDir()
 	os.WriteFile(filepath.Join(cwd, ".mcp.json"), []byte(`{"mcpServers":{"notes":{"command":"echo","args":["hi"]}}}`), 0o644)
 
-	m, _ := engineModel(t, cwd)
+	m, eng := engineModel(t, cwd)
+	// The engine scans for MCP servers in the background as it starts; the
+	// picker only appears once it has seen this project's file.
+	waitUntil(t, func() bool {
+		for _, s := range eng.MCPStatus() {
+			if s.State == "needs approval" {
+				return true
+			}
+		}
+		return false
+	})
 	m.showMCP()
 	if m.pop.mode != popPicker {
-		t.Fatalf("no approval picker: %v", m.pop.mode)
+		t.Fatalf("no approval picker: %v (status %+v)", m.pop.mode, eng.MCPStatus())
 	}
 	if len(m.pop.list) < 2 {
 		t.Fatalf("picker = %+v", m.pop.list)
@@ -314,4 +329,18 @@ func TestRenderersHandleEveryBlockKind(t *testing.T) {
 	if !strings.Contains(frame, "sample text") {
 		t.Fatalf("the blocks didn't reach the frame:\n%s", frame)
 	}
+}
+
+// waitUntil polls cond for a few seconds, for work the engine does in the
+// background.
+func waitUntil(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting for the engine")
 }

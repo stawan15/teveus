@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -26,13 +27,16 @@ func TestStoreSavesReadsAndDeletes(t *testing.T) {
 		t.Fatalf("lookup = %+v %v", c, src)
 	}
 
-	// The file has to stay private: it holds a key.
-	fi, err := os.Stat(filepath.Join(filepath.Dir(s.path), "auth.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if perm := fi.Mode().Perm(); perm != 0o600 {
-		t.Errorf("auth.json is %o, want 600", perm)
+	// The file has to stay private: it holds a key. Windows has no Unix mode
+	// bits, so the check only means something elsewhere.
+	if runtime.GOOS != "windows" {
+		fi, err := os.Stat(filepath.Join(filepath.Dir(s.path), "auth.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if perm := fi.Mode().Perm(); perm != 0o600 {
+			t.Errorf("auth.json is %o, want 600", perm)
+		}
 	}
 
 	if err := s.Delete("openai"); err != nil {

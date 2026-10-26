@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -283,6 +284,9 @@ func TestTightenConfigFixesPermissions(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, n), []byte("{}"), 0o644)
 	}
 	tightenConfig()
+	if runtime.GOOS == "windows" {
+		return // Windows has no Unix mode bits to check
+	}
 	for _, n := range []string{"settings.json", "history.json"} {
 		fi, err := os.Stat(filepath.Join(dir, n))
 		if err != nil {

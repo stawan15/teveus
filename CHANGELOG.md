@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Changed
+
+- The test suite covers much more of the app: the Claude Code client is now exercised against a stand-in for the CLI, the store and search providers are verified, and every slash command, palette entry and event type is run at least once. Coverage went from 44% to 91% in the CLI package, 72% to 82% in the UI, and 77% to 78% in the engine.
+
 ## [0.28.0] - 2026-10-25
 
 ### Fixed

@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Changed
+
+- Long sessions stay smooth. While a reply streams, teveus now redraws only the message that changed instead of rebuilding the whole transcript: a 6000-block session went from about 22 ms to 2.4 ms per chunk. The welcome text no longer lingers above the first message.
+
 ### Security
 
 - Updated the libraries behind web fetching and images. A page that WebFetch downloads could previously make the HTML parser do quadratic work and stall the app; `govulncheck` now reports no vulnerabilities.

@@ -139,7 +139,7 @@ func markdownStyle() glamansi.StyleConfig {
 func boolPtr(b bool) *bool { return &b }
 
 func (r *renderer) render(b *block, width int) string {
-	if !b.dirty && b.cacheW == width && b.cache != "" {
+	if !b.needsPaint(width) {
 		return b.cache
 	}
 	b.text, b.result = termSafe(b.text), termSafe(b.result)
@@ -177,6 +177,11 @@ func (r *renderer) render(b *block, width int) string {
 	}
 	b.cache, b.cacheW, b.dirty = out, width, false
 	return out
+}
+
+// needsPaint reports whether render would do any work for this block.
+func (b *block) needsPaint(width int) bool {
+	return b.dirty || b.cacheW != width || b.cache == ""
 }
 
 func (r *renderer) tool(b *block, width int) string {

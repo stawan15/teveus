@@ -66,6 +66,7 @@ type Model struct {
 	frame        int
 	blockStart   []int    // first transcript line of each block, for mouse clicks
 	lines        []string // rendered transcript lines, for selection
+	tc           prefixCache
 	sel          selection
 
 	blocks   []*block

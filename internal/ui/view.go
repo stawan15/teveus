@@ -33,52 +33,76 @@ func (m *Model) layout() {
 }
 
 // refresh re-renders the transcript into the viewport, following the
-// bottom unless the user has scrolled up.
+// bottom unless the user has scrolled up. Every block but the last is kept
+// from the previous refresh, so a streamed chunk draws one block instead of
+// rebuilding the whole session.
 func (m *Model) refresh() {
 	if m.w == 0 {
 		return
 	}
 	follow := m.vp.AtBottom() || m.vp.TotalLineCount() <= m.vp.Height
 	width := min(m.chatW-3, 120) // long lines are hard to read; cap the measure
-	var sb strings.Builder
-	line := 0
-	write := func(s string) {
-		sb.WriteString(s)
-		line += strings.Count(s, "\n")
+	// Keep the prefix only while the blocks in it are still the ones it was
+	// drawn from and still say the same thing. A cache with no blocks holds
+	// only the head (the welcome text), which the first block replaces.
+	c := m.tc
+	keep := c.width == width && c.level == m.level() && len(c.blocks) <= len(m.blocks) &&
+		(len(c.blocks) > 0 || len(m.blocks) == 0)
+	for i := 0; keep && i < len(c.blocks); i++ {
+		keep = c.blocks[i] == m.blocks[i] && !c.blocks[i].needsPaint(width)
 	}
-	if len(m.blocks) == 0 {
-		write(m.welcome(m.chatW - 3))
+	var lines []string
+	var starts []int
+	base, rest := 0, ""
+	if keep {
+		base, rest = len(c.blocks), c.rest
+		lines, starts = m.lines[:c.nLines], m.blockStart[:c.nStarts]
+	} else {
+		lines, starts = m.lines[:0], m.blockStart[:0]
+		head := "\n"
+		if len(m.blocks) == 0 {
+			head = m.welcome(m.chatW - 3)
+		}
+		lines, rest = appendText(lines, "", head)
 	}
-	m.blockStart = m.blockStart[:0]
-	if len(m.blocks) > 0 {
-		write("\n")
-	}
-	for i, b := range m.blocks {
+	// The last block is left out of the cache: it is the one a streamed chunk
+	// changes, so the prefix would be stale by the next refresh.
+	cut := max(len(m.blocks)-1, 0)
+	saved := false
+	var next prefixCache
+	for i := base; i < len(m.blocks); i++ {
+		if i == cut {
+			saved = true
+			next = prefixCache{nLines: len(lines), nStarts: len(starts), rest: rest,
+				width: width, level: m.level()}
+		}
 		if i > 0 {
 			// Proximity: consecutive tool calls sit together, turns breathe.
-			prev := m.blocks[i-1]
 			// Pro is compact: blank lines only between turns.
+			sep := "\n\n"
 			switch {
-			case b.kind == kindUser:
+			case m.blocks[i].kind == kindUser:
 				// A short rule opens each turn; the user block carries the
 				// rest of the visual break.
-				write("\n\n" + sFaint.Render(strings.Repeat("─", min(width, 28))) + "\n\n")
-			case (prev.kind == kindTool && b.kind == kindTool) || m.level() == "pro":
-				write("\n")
-			default:
-				write("\n\n")
+				sep = "\n\n" + sFaint.Render(strings.Repeat("─", min(width, 28))) + "\n\n"
+			case (m.blocks[i-1].kind == kindTool && m.blocks[i].kind == kindTool) || m.level() == "pro":
+				sep = "\n"
 			}
+			lines, rest = appendText(lines, rest, sep)
 		}
-		m.blockStart = append(m.blockStart, line)
-		write(m.r.render(b, width))
+		starts = append(starts, len(lines))
+		lines, rest = appendText(lines, rest, m.r.render(m.blocks[i], width))
 	}
-	write("\n")
-	// A one-cell margin, added by hand: lipgloss would measure and pad every
-	// line of the whole transcript on each streamed chunk.
-	m.lines = strings.Split(sb.String(), "\n")
-	for i, l := range m.lines {
-		m.lines[i] = " " + strings.ReplaceAll(l, "\t", "    ") // terminals' tab stops would skew widths
+	if !saved {
+		next = prefixCache{nLines: len(lines), nStarts: len(starts), rest: rest,
+			width: width, level: m.level()}
 	}
+	next.blocks = append(m.tc.blocks[:base], m.blocks[base:cut]...)
+	// The unterminated line and the blank line the transcript ends with are
+	// only for display: the cache keeps the text they came from, so the next
+	// block continues that line instead of starting a second copy of it.
+	lines, _ = appendText(lines, rest, "\n")
+	m.lines, m.blockStart, m.tc = lines, starts, next
 	m.vp.SetLines(m.lines)
 	if follow {
 		m.vp.GotoBottom()
@@ -86,6 +110,30 @@ func (m *Model) refresh() {
 	if m.phone != nil {
 		m.phone.snapshot(m)
 	}
+}
+
+// prefixCache is the transcript drawn up to the last block: how many lines it
+// took, the blocks they came from, and the line still unterminated.
+type prefixCache struct {
+	blocks  []*block
+	nLines  int
+	nStarts int
+	rest    string
+	width   int
+	level   string
+}
+
+// appendText splits text into transcript lines, continuing any unterminated
+// line it started, and returns the unterminated remainder.
+func appendText(lines []string, rest, text string) ([]string, string) {
+	parts := strings.Split(rest+text, "\n")
+	// A one-cell margin, added by hand: lipgloss would measure and pad every
+	// line of the whole transcript on each streamed chunk. Tabs are replaced
+	// because the terminal's tab stops would skew widths.
+	for _, p := range parts[:len(parts)-1] {
+		lines = append(lines, " "+strings.ReplaceAll(p, "\t", "    "))
+	}
+	return lines, parts[len(parts)-1]
 }
 
 func (m *Model) View() string {

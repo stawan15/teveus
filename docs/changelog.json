@@ -2,6 +2,22 @@
   "latest": "0.29.0",
   "versions": [
     {
+      "version": "Unreleased",
+      "date": null,
+      "url": "https://github.com/stawan15/teveus/compare/v0.29.0...HEAD",
+      "sections": [
+        {
+          "title": "Security",
+          "items": [
+            {
+              "text": "Updated the libraries behind web fetching and images. A page that WebFetch downloads could previously make the HTML parser do quadratic work and stall the app; `govulncheck` now reports no vulnerabilities.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.29.0",
       "date": "2026-10-26",
       "url": "https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0",

@@ -3,6 +3,12 @@
 What changed in each version of teveus. The newest version is at the top.
 The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Security
+
+- Updated the libraries behind web fetching and images. A page that WebFetch downloads could previously make the HTML parser do quadratic work and stall the app; `govulncheck` now reports no vulnerabilities.
+
 ## [0.29.0] - 2026-10-26
 
 ### Changed

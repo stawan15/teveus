@@ -2,3 +2,4 @@
 /dist/
 /docs/bench/results*.jsonl
 __pycache__/
+.DS_Store

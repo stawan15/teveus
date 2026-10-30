@@ -175,8 +175,10 @@ func (r *renderer) render(b *block, width int) string {
 	if !b.streaming {
 		out = linkify(out, b.text+"\n"+b.result)
 	}
-	b.cache, b.cacheW, b.dirty = out, width, false
-	return out
+	// Last line of defence: nothing may draw past its column, or the sidebar
+	// beside it is pushed sideways.
+	b.cache, b.cacheW, b.dirty = fitWidth(out, width), width, false
+	return b.cache
 }
 
 // needsPaint reports whether render would do any work for this block.
@@ -485,6 +487,25 @@ func truncate(s string, w int) string {
 		return s
 	}
 	return ansi.Truncate(s, w, "…")
+}
+
+// fitWidth hard-wraps any line of s wider than w, so text with no spaces to
+// break on (Thai, Chinese, URLs) cannot draw past its column. lipgloss only
+// wraps at word boundaries, and its Width is a minimum, not a clamp.
+func fitWidth(s string, w int) string {
+	if w < 1 {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	out := lines[:0]
+	for _, l := range lines {
+		if ansi.StringWidth(l) <= w {
+			out = append(out, l)
+			continue
+		}
+		out = append(out, strings.Split(ansi.Hardwrap(l, w, false), "\n")...)
+	}
+	return strings.Join(out, "\n")
 }
 
 // amSplitter rewrites Thai and Lao SARA AM as its compatibility decomposition

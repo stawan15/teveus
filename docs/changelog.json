@@ -7,6 +7,15 @@
       "url": "https://github.com/stawan15/teveus/compare/v0.29.0...HEAD",
       "sections": [
         {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Long unbroken text no longer spills out of the chat column. Thai and Chinese are usually written without spaces, and a URL has none either, so a reply could draw straight over the sidebar. Such lines now wrap inside their own column, and the sidebar keeps its place on every row.",
+              "items": []
+            }
+          ]
+        },
+        {
           "title": "Changed",
           "items": [
             {

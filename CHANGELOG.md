@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- Long unbroken text no longer spills out of the chat column. Thai and Chinese are usually written without spaces, and a URL has none either, so a reply could draw straight over the sidebar. Such lines now wrap inside their own column, and the sidebar keeps its place on every row.
+
 ### Changed
 
 - Built with Go 1.27, whose runtime and standard library bring the fixes and speedups of that release. Releases are still built for the same platforms.

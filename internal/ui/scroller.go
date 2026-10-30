@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // scroller is the transcript's viewport. Unlike bubbles' viewport it doesn't
@@ -62,6 +63,14 @@ func (s *scroller) visible() []string {
 }
 
 func (s *scroller) View() string {
+	// Clamp before padding: lipgloss treats Width as a minimum, so a line
+	// wider than the viewport (text with no spaces to wrap on) would draw over
+	// whatever sits beside it instead of being cut.
+	lines := s.visible()
+	fitted := make([]string, len(lines))
+	for i, l := range lines {
+		fitted[i] = ansi.Truncate(l, s.Width, "")
+	}
 	return lipgloss.NewStyle().Width(s.Width).Height(s.Height).MaxHeight(s.Height).MaxWidth(s.Width).
-		Render(strings.Join(s.visible(), "\n"))
+		Render(strings.Join(fitted, "\n"))
 }

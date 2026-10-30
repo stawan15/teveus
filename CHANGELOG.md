@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ### Changed
 
+- Built with Go 1.27, whose runtime and standard library bring the fixes and speedups of that release. Releases are still built for the same platforms.
 - Long sessions stay smooth. While a reply streams, teveus now redraws only the message that changed instead of rebuilding the whole transcript: a 6000-block session went from about 22 ms to 2.4 ms per chunk. The welcome text no longer lingers above the first message.
 
 ### Security

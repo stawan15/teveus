@@ -3,7 +3,7 @@
 What changed in each version of teveus. The newest version is at the top.
 The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.30.0] - 2026-11-01
 
 ### Fixed
 
@@ -366,7 +366,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0

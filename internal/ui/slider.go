@@ -158,9 +158,11 @@ func (m *Model) sliderView() string {
 		lines = append(lines, "", dot+sText.Width(inner-2).Render(termSafe(c.desc)))
 	}
 	// The frame takes the chosen level's colour, so the whole box answers
-	// each key press.
+	// each key press. Fit the rows inside the frame first: the title is drawn
+	// without passing through termSafe, and Thai or Lao SARA AM in it measures a
+	// cell short, so the row would draw past the border and wrap.
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cur).
-		Padding(0, 1).Width(width).Render(strings.Join(lines, "\n"))
+		Padding(0, 1).Width(width).Render(fitWidth(strings.Join(lines, "\n"), inner))
 }
 
 // spectrum gives n level colours from the theme, cool to hot:

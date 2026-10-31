@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/stawan15/teveus/internal/claude"
 )
@@ -145,14 +146,49 @@ func (m *Model) View() string {
 	m.layout()
 	main := m.chatView()
 	if m.sideW > 0 {
+		// lipgloss treats Width as a minimum, so a single chat line wider than
+		// the column would shift the sidebar right on that row and draw the row
+		// past the window, which the terminal then wraps — the border walks
+		// sideways and the frame grows a row. Fit the text to the column first.
 		main = lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(m.chatW).Render(main), m.sidebar(m.vp.Height))
+			lipgloss.NewStyle().Width(m.chatW).Render(fitWidth(main, m.chatW)), m.sidebar(m.vp.Height))
 	}
 	rows := []string{m.header()}
 	if t := m.tabStrip(); t != "" {
 		rows = append(rows, t)
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, append(rows, main, m.bottomFitted(), m.statusBar())...)
+	return m.clampFrame(lipgloss.JoinVertical(lipgloss.Left,
+		append(rows, main, m.bottomFitted(), m.statusBar())...))
+}
+
+// clampFrame makes the frame exactly as tall as the window with every row
+// exactly as wide. A row the terminal draws wider than the layout believes
+// wraps, which shifts every row under it sideways and leaves the frame before
+// it showing through; a frame taller than the window scrolls the terminal, so
+// the next frame lands a row off and the old status bar stays on screen. The
+// views are each fitted already — this is the backstop that keeps one mistake
+// in any of them from wrecking the whole display.
+func (m *Model) clampFrame(s string) string {
+	// Decompose Thai and Lao SARA AM first: the width functions count it as one
+	// cell, terminals draw two, so measuring the folded form under-reports.
+	s = termSafe(s)
+	lines := strings.Split(s, "\n")
+	pad := strings.Repeat(" ", m.w)
+	for i, l := range lines {
+		switch w := ansi.StringWidth(l); {
+		case w > m.w:
+			lines[i] = ansi.Truncate(l, m.w, "")
+		case w < m.w:
+			lines[i] = l + pad[w:]
+		}
+	}
+	if len(lines) > m.h {
+		lines = lines[:m.h]
+	}
+	for len(lines) < m.h {
+		lines = append(lines, pad)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // bottomFitted is the bottom area cut to leave room for the header, the
@@ -160,9 +196,11 @@ func (m *Model) View() string {
 // the terminal scroll, and every later frame lands in the wrong place.
 func (m *Model) bottomFitted() string {
 	b := m.bottomView()
-	room := max(m.h-3-m.tabsHeight(), 1)
-	if lines := strings.Split(b, "\n"); len(lines) > room {
-		b = strings.Join(lines[len(lines)-room:], "\n") // keep the end: the keys to answer
+	if lines := strings.Split(b, "\n"); len(lines) > m.bottomRoom() {
+		// bottomView keeps the input box whole, so this only fires when the box
+		// itself is taller than the room there is. Take whole rows off the top
+		// rather than keeping the end, which would leave half a border behind.
+		b = strings.Join(lines[len(lines)-m.bottomRoom():], "\n")
 	}
 	return b
 }
@@ -391,12 +429,17 @@ func (m *Model) sidebar(height int) string {
 		}
 	}
 
+	// The sidebar builds its lines itself, so fitWidth never sees them. Terminals
+	// draw Thai and Lao SARA AM as two cells while the width libraries count one,
+	// and a line that wraps on screen pushes the border in a row and everything
+	// below it down. Fit the joined rows to the inner width first; wrapping
+	// can add rows, so MaxHeight still decides the final height.
 	return lipgloss.NewStyle().
 		Width(m.sideW-1).Height(height).MaxHeight(height).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(cFaint).
 		PaddingLeft(1).
-		Render(strings.Join(s, "\n"))
+		Render(fitWidth(strings.Join(s, "\n"), w))
 }
 
 func todoTasks(input map[string]any) []task {
@@ -425,19 +468,41 @@ func (m *Model) bottomView() string {
 		// The review needs the room the input would take.
 		return m.popupView()
 	}
-	var parts []string
-	if m.pop.open() {
-		parts = append(parts, m.popupView())
-	}
+	// The box the user types in is the part that must survive: it carries the
+	// permission mode and the keys to answer, and half of it is worse than none.
+	// Everything above it (the popup, the queue) is what gives way when the
+	// window is short, so a tall popup can never cut the input in two.
+	var below []string
 	if len(m.perms) > 0 {
-		parts = append(parts, m.permView())
+		below = append(below, m.permView())
 	} else {
 		if q := m.queueView(); q != "" {
-			parts = append(parts, q)
+			below = append(below, q)
 		}
-		parts = append(parts, m.inputView())
+		below = append(below, m.inputView())
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	keep := strings.Join(below, "\n")
+	room := m.bottomRoom() - lipgloss.Height(keep)
+	if !m.pop.open() || room < 1 {
+		return keep
+	}
+	var above []string
+	if p := m.popupView(); room > 0 {
+		if lines := strings.Split(p, "\n"); len(lines) > room {
+			p = strings.Join(lines[:room], "\n")
+		}
+		above = append(above, p)
+	}
+	if len(above) == 0 {
+		return keep
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, append(above, keep)...)
+}
+
+// bottomRoom is the height the bottom area may take: everything but the
+// header, the tab strip, the status bar and a line of transcript.
+func (m *Model) bottomRoom() int {
+	return max(m.h-3-m.tabsHeight(), 1)
 }
 
 // queueView lists messages waiting for the current turn, faint and just
@@ -476,7 +541,11 @@ func (m *Model) inputView() string {
 		BorderForeground(cFaint).
 		Padding(0, 1).
 		Width(w).
-		Render(m.input.View())
+		// The textarea measures Thai and Lao SARA AM a cell short, so a line of
+		// them can draw past the right border and wrap, which pushes the box
+		// taller than the space layout gave it and shoves the hints and status
+		// bar off the bottom of the screen.
+		Render(fitWidth(m.input.View(), max(w-2, 1)))
 	return top + "\n" + body + "\n" + bottom
 }
 
@@ -588,7 +657,10 @@ func (m *Model) statusBar() string {
 		// Narrow window: keep what's happening, drop the hints.
 		return truncate(left, m.w)
 	}
-	return left + strings.Repeat(" ", gap) + right
+	// Clamp: lipgloss under-measures Thai and Lao SARA AM by a cell each, so a
+	// notice full of them can still come out wider than the window and wrap,
+	// pushing the input box and the hints off the bottom of the screen.
+	return truncate(left+strings.Repeat(" ", gap)+right, m.w)
 }
 
 // spendLine is this session's use, and every session's when there are several.

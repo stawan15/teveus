@@ -19,10 +19,27 @@ func TestScreenNeverOverflows(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	mixed := "ดูหน้าตาเว็บเขาทำง่ายๆเอง น้ำ กำลัง · 中文字符和全角标点，测试 · emoji 🎉👩‍💻🇹🇭 · é combining · ພາສາລາວຳ"
 	long := "https://example.com/" + strings.Repeat("a-very-long-path-segment/", 20)
+	// Thai and Chinese as people type them: no spaces, so a renderer that only
+	// breaks at word boundaries has nowhere to break and draws past its column.
+	unbroken := strings.Repeat("เช็คให้แล้วครับสามรายการนี้เป็นของคนละrepoกับteveusควรmergeไหม", 3)
 	table := "| name | description | notes |\n|---|---|---|\n| " + strings.Repeat("wide cell ", 20) + " | ทำ | 中文 |\n"
 	for _, size := range [][2]int{{40, 12}, {80, 24}, {100, 30}, {160, 40}} {
 		w, h := size[0], size[1]
 		m := New(Config{Dark: true})
+		m.Update(tea.WindowSizeMsg{Width: w, Height: h})
+		m.add(&block{kind: kindUser, text: unbroken})
+		m.add(&block{kind: kindAssistant, text: unbroken})
+		m.add(&block{kind: kindAssistant, text: "## " + unbroken})
+		m.add(&block{kind: kindAssistant, text: unbroken, streaming: true})
+		m.add(&block{kind: kindInfo, text: unbroken})
+		m.add(&block{kind: kindError, text: unbroken})
+		m.refresh()
+		for _, l := range m.lines {
+			if got := ansi.StringWidth(l); got > m.chatW {
+				t.Fatalf("%dx%d: a transcript line is %d wide, chat column is %d", w, h, got, m.chatW)
+			}
+		}
+		m.blocks, m.lines, m.blockStart, m.tc = nil, nil, nil, prefixCache{}
 		m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 		m.add(&block{kind: kindUser, text: mixed + "\n" + long})
 		m.add(&block{kind: kindAssistant, text: "## " + mixed + "\n\n" + table + "\n```go\n\tfunc x() { // " + mixed + "\n```\n" + long})
@@ -94,5 +111,24 @@ func TestScreenNeverOverflows(t *testing.T) {
 		m.vp.GotoTop()
 		m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{3, 10}
 		check("selection")
+	}
+}
+
+// TestFitWidthKeepsEveryLine guards the wrapper itself: a line that gets broken
+// in two must not push the lines after it out of the result. Reusing the
+// split slice's array for the output did exactly that, because one wrapped line
+// appends more entries than it consumes.
+func TestFitWidthKeepsEveryLine(t *testing.T) {
+	long := strings.Repeat("A", 30)
+	out := fitWidth("head\n"+long+"\nkeep me\nkeep me too", 10)
+	for _, want := range []string{"head", "keep me", "keep me to", "o"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("fitWidth dropped %q:\n%s", want, out)
+		}
+	}
+	for i, l := range strings.Split(out, "\n") {
+		if got := ansi.StringWidth(l); got > 10 {
+			t.Fatalf("line %d is %d wide: %q", i, got, l)
+		}
 	}
 }

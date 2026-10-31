@@ -395,10 +395,13 @@ func (m *Model) popupView() string {
 	if p.accent != "" {
 		frame = p.accent
 	}
+	// Fit the rows inside the frame: lipgloss counts Thai and Lao SARA AM as
+	// one cell and terminals draw two, so a row can draw past the border and
+	// wrap, which splits the box in two.
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(frame).
 		Padding(0, 1).
 		Width(width).
-		Render(strings.Join(lines, "\n"))
+		Render(fitWidth(strings.Join(lines, "\n"), inner))
 }

@@ -1,11 +1,40 @@
 {
-  "latest": "0.29.0",
+  "latest": "0.30.0",
   "versions": [
     {
-      "version": "Unreleased",
-      "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.29.0...HEAD",
+      "version": "0.30.0",
+      "date": "2026-11-01",
+      "url": "https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0",
       "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Long unbroken text no longer spills out of the chat column. Thai and Chinese are usually written without spaces, and a URL has none either, so a reply could draw straight over the sidebar. Such lines now wrap inside their own column, and the sidebar keeps its place on every row.",
+              "items": []
+            },
+            {
+              "text": "A wrapped line no longer swallows the rest of its message. The wrapper reused the split slice's array for its output, and breaking one line appends more entries than it consumes, so the lines after it were overwritten and vanished — a long command in a `Bash` result could cut the reply short.",
+              "items": []
+            },
+            {
+              "text": "Being stopped by the terminal no longer wrecks the screen. `ctrl+z` was handled, but the kernel can also stop the process on its own — `kill -TSTP`, a closing window, or a background process group reading the terminal (`SIGTTIN`, which the shell reports as `suspended (tty input)`). Those went unhandled, so the process stopped with the alternate screen, the key protocol and mouse capture still on, and the shell echoed every mouse report as text. They now restore the terminal before stopping and take it back on `fg`.",
+              "items": []
+            },
+            {
+              "text": "The mouse keeps working after `fg`. Releasing the terminal turns mouse capture off, and restoring it doesn't turn it back on, so the wheel stopped scrolling after the first suspend until the app was restarted.",
+              "items": []
+            },
+            {
+              "text": "Thai and Lao text no longer pushes the right-hand border inwards. The width libraries count SARA AM (`ำ`) as one cell while terminals draw two, so a line holding it measured a bit narrower than it drew, wrapped, and shifted everything below it — the sidebar edge wandered a row at a time. Tool output, the todo list, the sidebar's own sections, the status bar, the input box and the popups each build their text in a different place, and now each one measures it the way the terminal does.",
+              "items": []
+            },
+            {
+              "text": "The frame is now forced to the window's size before it is drawn. A row that wraps, or a bottom area a line taller than measured, used to leave the previous frame showing through — a missing input border with the old status bar still on screen. Any such mistake is now clipped and padded instead of breaking the display.",
+              "items": []
+            }
+          ]
+        },
         {
           "title": "Changed",
           "items": [

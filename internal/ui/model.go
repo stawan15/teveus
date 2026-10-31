@@ -318,7 +318,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.ResumeMsg:
-		// Back from ctrl+z: the shell drew over the screen while teveus was
+		// Back from a stop: the shell drew over the screen while teveus was
 		// stopped, and Bubble Tea's renderer still believes its last frame is
 		// on screen, so nothing would be drawn. Ask for a clear, which also
 		// resets that belief, and put the key protocol back.
@@ -328,6 +328,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.layout()
 		m.refresh()
+		// ReleaseTerminal turns mouse capture off, and RestoreTerminal doesn't
+		// turn it back on, so without this the wheel stops scrolling after the
+		// first stop until the app is restarted.
+		if !m.settings.NoMouse {
+			return m, tea.Batch(tea.EnableMouseCellMotion, func() tea.Msg { return repaintMsg{} })
+		}
 		return m, func() tea.Msg { return repaintMsg{} }
 
 	case repaintMsg:

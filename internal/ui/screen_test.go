@@ -113,3 +113,22 @@ func TestScreenNeverOverflows(t *testing.T) {
 		check("selection")
 	}
 }
+
+// TestFitWidthKeepsEveryLine guards the wrapper itself: a line that gets broken
+// in two must not push the lines after it out of the result. Reusing the
+// split slice's array for the output did exactly that, because one wrapped line
+// appends more entries than it consumes.
+func TestFitWidthKeepsEveryLine(t *testing.T) {
+	long := strings.Repeat("A", 30)
+	out := fitWidth("head\n"+long+"\nkeep me\nkeep me too", 10)
+	for _, want := range []string{"head", "keep me", "keep me to", "o"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("fitWidth dropped %q:\n%s", want, out)
+		}
+	}
+	for i, l := range strings.Split(out, "\n") {
+		if got := ansi.StringWidth(l); got > 10 {
+			t.Fatalf("line %d is %d wide: %q", i, got, l)
+		}
+	}
+}

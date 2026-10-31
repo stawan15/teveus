@@ -492,12 +492,22 @@ func truncate(s string, w int) string {
 // fitWidth hard-wraps any line of s wider than w, so text with no spaces to
 // break on (Thai, Chinese, URLs) cannot draw past its column. lipgloss only
 // wraps at word boundaries, and its Width is a minimum, not a clamp.
+//
+// Text that never passed through termSafe is decomposed here first: the width
+// libraries count Thai and Lao SARA AM as one cell while terminals draw two, so
+// a line they call narrow can still wrap on screen and shift everything below
+// it. Every rendered line ends up going through this function, which makes it
+// the one place that has to remember.
 func fitWidth(s string, w int) string {
 	if w < 1 {
 		return s
 	}
+	s = termSafe(s)
 	lines := strings.Split(s, "\n")
-	out := lines[:0]
+	// Not lines[:0]: wrapping one line appends more entries than it consumes,
+	// and reusing the array would overwrite lines that haven't been read yet,
+	// dropping them from the result.
+	out := make([]string, 0, len(lines))
 	for _, l := range lines {
 		if ansi.StringWidth(l) <= w {
 			out = append(out, l)

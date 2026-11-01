@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -189,6 +190,11 @@ func TestScrubSessionsCleansOldFiles(t *testing.T) {
 }
 
 func TestCheckpointKeepsFileMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// Chmod on Windows only carries the read-only bit, and Stat reports 0666
+		// for an ordinary file, so there is no Unix mode to preserve.
+		t.Skip("Windows has no Unix permission bits")
+	}
 	dir := t.TempDir()
 	p := filepath.Join(dir, "secret.txt")
 	if err := os.WriteFile(p, []byte("original"), 0o600); err != nil {

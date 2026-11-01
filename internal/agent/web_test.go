@@ -32,6 +32,10 @@ line 2</pre><script>alert(1)</script></body></html>`)
 }
 
 func TestWebFetch(t *testing.T) {
+	// httptest serves on 127.0.0.1, which is exactly what the guard refuses.
+	// The opt-in is what a user turns on to fetch from a local dev server.
+	SetWebFetchLocal(true)
+	t.Cleanup(func() { SetWebFetchLocal(false) })
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.UserAgent(), "teveus/") {
 			t.Errorf("user agent %q", r.UserAgent())

@@ -30,7 +30,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	prompt := flag.String("p", "", "run one prompt without the UI and print the reply (tools needing approval are denied unless -mode allows them)")
 	asJSON := flag.Bool("json", false, "with -p: print the reply, cost and token counts as JSON")
-	phoneAddr := flag.String("phone", "", "also serve a page a phone can prompt and approve from, e.g. -phone 0.0.0.0:8787 (off by default)")
+	phoneAddr := flag.String("phone", "", "also serve a page a phone can prompt and approve from, e.g. -phone 127.0.0.1:8787 (off by default; use a tunnel to reach it from a phone)")
 	flag.Parse()
 	if version == "dev" {
 		// go install …@v0.1.0 records the module version in the binary.

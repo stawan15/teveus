@@ -355,13 +355,13 @@ func (m *Model) exportTranscript() tea.Cmd {
 	for _, b := range m.blocks {
 		switch b.kind {
 		case kindUser:
-			fmt.Fprintf(&sb, "## You\n\n%s\n\n", b.text)
+			fmt.Fprintf(&sb, "## You\n\n%s\n\n", agent.Redact(b.text))
 		case kindAssistant:
-			fmt.Fprintf(&sb, "%s\n\n", b.text)
+			fmt.Fprintf(&sb, "%s\n\n", agent.Redact(b.text))
 		case kindTool:
-			fmt.Fprintf(&sb, "- **%s** %s\n", b.name, m.r.summary(b.name, b.input))
+			fmt.Fprintf(&sb, "- **%s** %s\n", b.name, agent.Redact(m.r.summary(b.name, b.input)))
 		case kindCmdOut:
-			fmt.Fprintf(&sb, "%s\n\n", b.text)
+			fmt.Fprintf(&sb, "%s\n\n", agent.Redact(b.text))
 		}
 	}
 	name := "teveus-" + time.Now().Format("20060102-150405") + ".md"

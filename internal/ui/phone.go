@@ -16,6 +16,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/stawan15/teveus/internal/agent"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -64,6 +65,11 @@ type phoneAsk struct {
 	Masked bool       `json:"masked,omitempty"`
 	Query  string     `json:"query,omitempty"`
 	Ends   [2]string  `json:"ends,omitempty"` // slider: what the low and high ends mean
+
+	// Local is set for a question that has to be answered in the terminal
+	// (trusting a folder, agreeing to run Claude Code). The page shows why it
+	// can't answer, and /popup refuses it.
+	Local bool `json:"local,omitempty"`
 }
 
 // phoneOpt is one row of a picker or one level of a slider.
@@ -83,17 +89,23 @@ type phoneCmd struct {
 }
 
 // phoneTab is one open session, so the phone can switch between them. A
-// session in this window has an ID; one in another window has the address and
-// token of that window's page instead.
+// session in this window has an ID; one in another window has the host and
+// port of that window's page.
+//
+// The token is never part of the JSON the page reads: every window of this
+// installation shares one token, so a page that learned another window's link
+// could also act as it. Opening another window goes through /open, which
+// builds the link on the server.
 type phoneTab struct {
 	ID    int    `json:"id"`
 	Title string `json:"title"`
 	State string `json:"state"` // "idle", "working" or "approval"
 	Now   bool   `json:"now"`
 	Win   string `json:"win,omitempty"`   // another window: its host:port
-	Tok   string `json:"tok,omitempty"`   // another window: its page token
-	URL   string `json:"url,omitempty"`   // another window: its page
 	Where string `json:"where,omitempty"` // another window: its folder
+
+	Tok string `json:"-"` // another window: its page token
+	URL string `json:"-"` // another window: its page
 }
 
 // phoneMode is one permission mode the page can switch to.
@@ -127,6 +139,7 @@ type phonePerm struct {
 // phoneServer serves the phone page and the endpoints the page calls.
 type phoneServer struct {
 	token       string
+	nonce       string // CSP nonce for the page's inline <style> and <script>
 	addr        string
 	publicAddr  string // how a phone reaches this window, for other windows to use
 	url         string
@@ -183,10 +196,27 @@ func readToken(path string) (string, bool) {
 	return t, len(t) >= 32
 }
 
-// phoneAddr is where the page listens once the user turns it on. It has to
-// answer the phone, not just this machine, so it listens on every interface;
-// the token in the link is what keeps other people out.
-const phoneAddr = ":8787"
+// phoneAddr is the default place for the page. It is loopback only: a phone
+// can reach it through a tunnel (Tailscale, ssh -L, ngrok) the user sets up
+// deliberately, and nothing else on the café Wi-Fi can. Listening on every
+// interface still works with -phone 0.0.0.0:8787, which now prints a warning.
+const phoneAddr = "127.0.0.1:8787"
+
+// phoneIsPublicAddr reports whether addr listens beyond this machine.
+func phoneIsPublicAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return true
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		return true
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		return !ip.IsLoopback()
+	}
+	return !strings.EqualFold(host, "localhost")
+}
 
 // phoneHost is the address to put in the link: the machine's own address on
 // the local network, or the loopback when there isn't one.
@@ -238,8 +268,14 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 		ln.Close()
 		return "", err
 	}
+	var nb [16]byte
+	if _, err := rand.Read(nb[:]); err != nil {
+		ln.Close()
+		return "", err
+	}
 	_, boundPort, _ := net.SplitHostPort(ln.Addr().String())
-	p := &phoneServer{token: phoneToken(hex.EncodeToString(b[:])), addr: net.JoinHostPort("127.0.0.1", boundPort), send: send}
+	p := &phoneServer{token: phoneToken(hex.EncodeToString(b[:])), nonce: hex.EncodeToString(nb[:]),
+		addr: net.JoinHostPort("127.0.0.1", boundPort), send: send}
 	// The link has to name an address the page is actually listening on: a
 	// specific host as given, or this machine's own address when it listens
 	// on every interface.
@@ -257,6 +293,7 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/p/", p.page)
+	mux.HandleFunc("/", p.page) // after the cookie exchange, the page lives here
 	mux.HandleFunc("/state", p.state)
 	mux.HandleFunc("/prompt", p.prompt)
 	mux.HandleFunc("/perm", p.answer)
@@ -264,7 +301,17 @@ func (m *Model) startPhone(addr string, send func(tea.Msg)) (string, error) {
 	mux.HandleFunc("/session", p.session)
 	mux.HandleFunc("/popup", p.popup)
 	mux.HandleFunc("/stop", p.stop)
-	p.srv = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	mux.HandleFunc("/open", p.openWindow)
+	p.srv = &http.Server{
+		Handler: p.headers(mux),
+		// A phone on a flaky connection must not be able to hold a connection
+		// open forever, and a reply must not queue behind an idle client.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       20 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+	}
 	go p.srv.Serve(ln)
 	m.phone = p
 	p.writeHandle(m)
@@ -361,19 +408,22 @@ func (p *phoneServer) update(m *Model) {
 		case busy:
 			state = "working"
 		}
-		v.Sessions = append(v.Sessions, phoneTab{ID: i, Title: title, State: state, Now: i == m.cur})
+		v.Sessions = append(v.Sessions, phoneTab{ID: i, Title: agent.Redact(title), State: state, Now: i == m.cur})
 	}
 	v.Cur = m.cur
 	p.mu.Lock()
 	others := p.others
 	p.mu.Unlock()
 	v.Sessions = append(v.Sessions, others...)
-	v.Tab = sessionTitle(m.blocks)
+	v.Tab = agent.Redact(sessionTitle(m.blocks))
 	for _, c := range localCmds {
 		v.Cmds = append(v.Cmds, phoneCmd{Name: c.name, Desc: c.desc})
 	}
 	v.Prompt = phonePopup(&m.pop)
-	v.Queue = append([]string(nil), m.queue...)
+	v.Queue = make([]string, 0, len(m.queue))
+	for _, q := range m.queue {
+		v.Queue = append(v.Queue, agent.Redact(q))
+	}
 	_, v.Inline = m.client.(claude.Injector)
 	for _, b := range m.blocks {
 		if line, ok := phoneBlock(b, m); ok {
@@ -403,12 +453,23 @@ func phonePopup(p *popup) *phoneAsk {
 	default:
 		return nil
 	}
+	if p.localOnly {
+		// Trusting a folder and agreeing to run Claude Code change what the app
+		// may do, and both are written down for good. The page says what's
+		// waiting and points at the terminal instead of answering for it.
+		return &phoneAsk{Kind: "local", Title: termSafe(p.title), Local: true}
+	}
 	a := &phoneAsk{Kind: "pick", Title: termSafe(p.title), Hint: termSafe(p.hint), Sel: p.sel}
 	switch p.mode {
 	case popSlider:
 		a.Kind, a.Ends = "slider", p.ends
 	case popInput:
-		a.Kind, a.Masked, a.Query = "input", p.masked, p.query
+		a.Kind, a.Masked = "input", p.masked
+		// A masked field is a key being typed. The page draws dots, so it only
+		// needs to know whether something is there — never the value itself.
+		if !p.masked {
+			a.Query = p.query
+		}
 	}
 	for i, c := range p.list {
 		a.Opts = append(a.Opts, phoneOpt{Label: termSafe(c.label), Desc: termSafe(c.desc),
@@ -447,14 +508,16 @@ func (m *Model) answerPhonePopup(index int, text string) tea.Cmd {
 	return nil
 }
 
-// phoneBlock is one transcript entry as a line the page can style.
+// phoneBlock is one transcript entry as a line the page can style. Everything
+// shown goes through Redact: the phone draws on a screen other people can see,
+// and a key printed by a tool has no business there.
 func phoneBlock(b *block, m *Model) (phoneLine, bool) {
 	switch b.kind {
 	case kindUser:
-		return phoneLine{Role: "you", Text: termSafe(b.text)}, true
+		return phoneLine{Role: "you", Text: agent.Redact(termSafe(b.text))}, true
 	case kindAssistant:
 		if t := strings.TrimSpace(termSafe(b.text)); t != "" {
-			return phoneLine{Role: "ai", Text: t}, true
+			return phoneLine{Role: "ai", Text: agent.Redact(t)}, true
 		}
 	case kindTool:
 		head := displayName(b.name)
@@ -471,12 +534,12 @@ func phoneBlock(b *block, m *Model) (phoneLine, bool) {
 		if b.result != "" {
 			head += "\n" + clipText(termSafe(b.result), 1200)
 		}
-		return phoneLine{Role: "tool", Text: head, State: state}, true
+		return phoneLine{Role: "tool", Text: agent.Redact(head), State: state}, true
 	case kindError:
-		return phoneLine{Role: "error", Text: b.text}, true
+		return phoneLine{Role: "error", Text: agent.Redact(b.text)}, true
 	case kindInfo, kindCmdOut:
 		if t := strings.TrimSpace(b.text); t != "" {
-			return phoneLine{Role: "info", Text: t}, true
+			return phoneLine{Role: "info", Text: agent.Redact(t)}, true
 		}
 	}
 	return phoneLine{}, false
@@ -490,24 +553,24 @@ func phoneDetail(req *claude.PermissionRequest) string {
 	str := func(k string) string { s, _ := in[k].(string); return s }
 	switch req.ToolName {
 	case "Bash":
-		return "$ " + str("command")
+		return agent.Redact("$ " + str("command"))
 	case "Edit", "MultiEdit":
 		if d := str("diff"); d != "" {
-			return clipText(d, 1600)
+			return agent.Redact(clipText(d, 1600))
 		}
 		return str("file_path")
 	case "Write":
 		if c := str("content"); c != "" {
-			return clipText(str("file_path")+"\n\n"+c, 1600)
+			return agent.Redact(clipText(str("file_path")+"\n\n"+c, 1600))
 		}
 		return str("file_path")
 	case "Read":
 		return str("file_path")
 	}
 	if b, err := json.MarshalIndent(in, "", "  "); err == nil && len(b) > 2 {
-		return clipText(termSafe(string(b)), 800)
+		return agent.Redact(clipText(termSafe(string(b)), 800))
 	}
-	return req.Description
+	return agent.Redact(req.Description)
 }
 
 // phoneNote says what denying does, matching what the terminal's prompt
@@ -526,17 +589,71 @@ func clipText(s string, n int) string {
 	return s[:n] + "\n…"
 }
 
+// cookieName holds the token once the link has been opened. Keeping it in an
+// HttpOnly cookie means the page's own JavaScript never sees the token, so a
+// script injected into the page (or an extension reading localStorage) can't
+// lift it, and the URL bar stops carrying it after the first load.
+const cookieName = "teveus_phone"
+
+// headers applies the response headers every phone response gets. The page is
+// a single self-contained document with inline <style> and <script> (nonce'd
+// by phonePageHTML), so the CSP can forbid everything else.
+func (p *phoneServer) headers(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Cross-Origin-Opener-Policy", "same-origin")
+		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")
+		h.Set("Content-Security-Policy",
+			"default-src 'none'; style-src 'nonce-"+p.nonce+"'; script-src 'nonce-"+p.nonce+"'; "+
+				"connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+		// No shared caches: every response depends on who is logged in.
+		h.Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// allowed accepts the cookie the link handed out, the Authorization header for
+// scripts, or the token in the URL. The URL form stays so a bookmarked link
+// still works; it is only needed once, because the page is then served from
+// the cookie.
 func (p *phoneServer) allowed(r *http.Request) bool {
-	t := r.URL.Query().Get("t")
-	if t == "" {
-		t = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	candidates := make([]string, 0, 3)
+	if c, err := r.Cookie(cookieName); err == nil {
+		candidates = append(candidates, c.Value)
 	}
-	if t == "" {
-		// The link carries it in the path, so it can be bookmarked and shared
-		// as one URL.
-		t = strings.TrimPrefix(r.URL.Path, "/p/")
+	if t := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); t != "" {
+		candidates = append(candidates, t)
 	}
-	return subtle.ConstantTimeCompare([]byte(t), []byte(p.token)) == 1
+	if t := r.URL.Query().Get("t"); t != "" {
+		candidates = append(candidates, t)
+	}
+	if t := strings.TrimPrefix(r.URL.Path, "/p/"); t != r.URL.Path && t != "" {
+		candidates = append(candidates, t)
+	}
+	for _, t := range candidates {
+		if subtle.ConstantTimeCompare([]byte(t), []byte(p.token)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// secureCookie marks the cookie HTTPS-only when the page is served over TLS.
+// It is plain HTTP today, so the cookie is HttpOnly + SameSite=Strict instead,
+// which still keeps it out of scripts and off cross-site requests.
+func (p *phoneServer) setTokenCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    p.token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   r.TLS != nil,
+	})
 }
 
 func (p *phoneServer) state(w http.ResponseWriter, r *http.Request) {
@@ -587,9 +704,14 @@ func (p *phoneServer) answer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch body.Action {
-	case "allow", "always", "deny":
+	case "allow", "deny":
+	case "always":
+		// "Always allow" writes a rule that outlives the page and the turn.
+		// A lost link would then keep that power, so the terminal keeps it.
+		http.Error(w, "permanent approvals have to be given in the terminal", http.StatusForbidden)
+		return
 	default:
-		http.Error(w, "action must be allow, always or deny", http.StatusBadRequest)
+		http.Error(w, "action must be allow or deny", http.StatusBadRequest)
 		return
 	}
 	p.mu.Lock()
@@ -603,19 +725,45 @@ func (p *phoneServer) answer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// phoneModeRank orders the permission modes by how much they allow. The page
+// can move down the scale (towards plan) but never up: a link that ends up in
+// the wrong hands must not be able to hand the agent more power than the
+// terminal already has, which would turn "approve this edit" into "run
+// anything".
+var phoneModeRank = map[string]int{
+	"plan":              0,
+	"default":           1,
+	"acceptEdits":       2,
+	"auto":              3,
+	"bypassPermissions": 4,
+	"dontAsk":           4,
+}
+
 func (p *phoneServer) mode(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Mode string }
 	if !p.decode(w, r, &body) {
 		return
 	}
+	known := false
 	for _, md := range modes {
 		if md == body.Mode {
-			p.send(phoneMsg{mode: md})
-			w.WriteHeader(http.StatusNoContent)
-			return
+			known = true
+			break
 		}
 	}
-	http.Error(w, "unknown mode", http.StatusBadRequest)
+	if !known {
+		http.Error(w, "unknown mode", http.StatusBadRequest)
+		return
+	}
+	p.mu.Lock()
+	cur := p.view.Mode
+	p.mu.Unlock()
+	if phoneModeRank[body.Mode] > phoneModeRank[cur] {
+		http.Error(w, "the phone can make permissions stricter, not looser: use the terminal", http.StatusForbidden)
+		return
+	}
+	p.send(phoneMsg{mode: body.Mode})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (p *phoneServer) session(w http.ResponseWriter, r *http.Request) {
@@ -647,10 +795,10 @@ func (p *phoneServer) popup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.mu.Lock()
-	open := p.view.Prompt != nil
+	open := p.view.Prompt != nil && p.view.Prompt.Kind != "local"
 	p.mu.Unlock()
 	if !open {
-		http.Error(w, "nothing is open", http.StatusConflict)
+		http.Error(w, "that question has to be answered in the terminal", http.StatusConflict)
 		return
 	}
 	idx := -1
@@ -670,12 +818,49 @@ func (p *phoneServer) stop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// openWindow redirects the phone to another window's page. The page never sees
+// the token that link carries: it only names the window, and the server builds
+// the URL, so a page can't harvest the links of the other windows.
+func (p *phoneServer) openWindow(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Win string `json:"win"` // host:port, as /state listed it
+	}
+	if !p.decode(w, r, &body) {
+		return
+	}
+	p.mu.Lock()
+	var target string
+	for _, o := range p.others {
+		if o.Win == body.Win && o.URL != "" {
+			target = o.URL
+			break
+		}
+	}
+	p.mu.Unlock()
+	if target == "" {
+		http.Error(w, "that window isn't answering", http.StatusNotFound)
+		return
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
+}
+
 func (p *phoneServer) page(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
 	if !p.allowed(r) {
 		http.Error(w, "This page needs the link teveus printed, with its token.", http.StatusUnauthorized)
 		return
 	}
-	w.Write([]byte(phonePage))
+	// Opening the link trades the token in the URL for a cookie, so the URL bar,
+	// the history and anything that reads them stop carrying it. The page then
+	// runs on the cookie alone.
+	fromLink := r.URL.Query().Get("t") != "" || strings.HasPrefix(r.URL.Path, "/p/")
+	if fromLink && r.URL.Path != "/" {
+		p.setTokenCookie(w, r)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	if _, err := r.Cookie(cookieName); err != nil {
+		p.setTokenCookie(w, r)
+	}
+	w.Write([]byte(phonePageHTML(p.nonce)))
 }

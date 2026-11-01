@@ -1054,11 +1054,25 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, paren
 	e.mu.Lock()
 	mode, always, session := e.mode, e.always[t.def.Name], e.session
 	e.mu.Unlock()
+	// A shell command that names a credential store is asked about in every
+	// mode, autopilot included: `cat ~/.ssh/id_rsa` is not a build step, and a
+	// model talked into it by a web page shouldn't be able to do it quietly.
+	secrets := t.def.Name == "Bash" && e.commandTouchesSecrets(str(in, "command"))
 	if h := e.hooks.run(ctx, "PreToolUse", t.def.Name, session, in, ""); h.block {
 		return "Blocked by a PreToolUse hook: " + h.out, true
 	}
 	// Reads inside the project run freely; everything else is checked.
-	if t.access != readOnly || outside {
+	if secrets && rule != "allow" {
+		// A credential store is a question, never an automatic yes: not in
+		// auto, not in bypass, not from a turning the user gave once before.
+		// An explicit allow rule still counts, because the user wrote it.
+		if r := e.ask(ctx, t, tc); !r.allow {
+			e.mu.Lock()
+			e.stopTurn = true
+			e.mu.Unlock()
+			return "The user didn't allow that. Don't try another way to read a credential store; tell them what you needed.", true
+		}
+	} else if t.access != readOnly || outside {
 		switch {
 		case mode == "plan" && t.access != readOnly && t.access != network:
 			return "Plan mode is read-only. Describe the change in your plan instead of making it.", true

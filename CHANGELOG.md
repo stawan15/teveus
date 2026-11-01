@@ -20,6 +20,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- `/scrub` masks the secrets in conversations saved before this version. New conversations, prompt history and exports are masked as they are written, so an API key you pasted, or an `.env` a command printed, comes back as `[redacted:…abcd]`, with the last four characters left so you can tell which key it was.
+
+### Changed
+
+- The phone page listens on `127.0.0.1` unless you name another address, so reaching it from a phone goes through a tunnel you set up rather than your whole network. Binding wider still works (`-phone 0.0.0.0:8787`) and now says so, warning that the page is plain HTTP.
+- Opening the phone link now trades its token for an `HttpOnly`, `SameSite=Strict` cookie and redirects to `/`. The token stops appearing in the address bar, the browser history and the requests the page makes, and other windows' pages no longer carry their links: tapping one asks this window's server to open it.
+
+### Security
+
+- The phone page can make permissions stricter but not looser. Switching to autopilot, and granting an "always allow" rule, now have to be done in the terminal, so a link that leaks can't hand the agent more than the window already had.
+- Phone replies now carry `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `nosniff`, a nonce-based Content-Security-Policy and no-store caching, and the server bounds header size and read, write and idle timeouts.
+- Commands, background jobs, hooks and MCP servers no longer inherit your API keys and tokens: `*_API_KEY`, `*_TOKEN`, `*_SECRET`, `*_PASSWORD`, `AWS_*` and similar are dropped from their environment. An MCP server still gets the variables its own configuration lists.
+- A shell command that names a credential store (`~/.ssh`, `~/.aws`, `~/.git-credentials`, teveus's own config directory, cloud metadata) now asks first even in autopilot, instead of running quietly.
+- WebFetch no longer reaches this machine or its network. Loopback, private, link-local and CGNAT addresses and cloud metadata are refused on the first request and on every redirect, and the address actually connected to is checked, so a DNS answer can't change in between. A new `WebFetchLocal` setting turns this off for a local dev server.
+- `/undo` and `/rewind` now give a file back its original permissions instead of a fixed `0644`, so a restored `0600` key file doesn't become world-readable.
+
 ## [0.30.0] - 2026-11-01
 
 ### Fixed

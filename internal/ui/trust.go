@@ -71,6 +71,9 @@ func (m *Model) askTrust() {
 	}
 	m.pop.accent = cYellow
 	m.pop.flat = true
+	// Trusting a folder decides what the agent may read and change. The phone
+	// can answer ordinary questions, not this one.
+	m.pop.localOnly = true
 	m.pop.cancel = func(m *Model) { m.quit() }
 }
 

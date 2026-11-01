@@ -127,3 +127,36 @@ func editPath(in map[string]any) string {
 	}
 	return str(in, "notebook_path")
 }
+
+// secretCommandMarkers are substrings that say a shell command is reaching for
+// a credential store. Bash can read anything the user can, so this is only a
+// list of things that always warrant a question — the file tools refuse them
+// outright, but a shell has no paths to inspect before it runs.
+var secretCommandMarkers = []string{
+	".ssh/", ".ssh ", "id_rsa", "id_ed25519", "id_ecdsa",
+	".gnupg", ".aws/credentials", ".aws/config", ".netrc", ".git-credentials",
+	".npmrc", ".pypirc", ".docker/config.json", ".kube/config",
+	".claude/.credentials.json", ".config/gh/hosts.yml",
+	".config/gcloud", ".local/share/opencode/auth.json",
+	"auth.json", "phone-token", "mcp-approved.json",
+	"security-credentials", "169.254.169.254",
+}
+
+// commandTouchesSecrets reports whether a shell command mentions one of the
+// credential stores, or teveus's own config directory.
+func (e *Engine) commandTouchesSecrets(cmd string) bool {
+	l := strings.ToLower(cmd)
+	if e.opts.ConfigDir != "" {
+		dir := strings.ToLower(e.opts.ConfigDir)
+		if strings.Contains(l, dir) {
+			return true
+		}
+		// ~/.config/teveus written as $HOME or ~ is caught by the markers below.
+	}
+	for _, m := range secretCommandMarkers {
+		if strings.Contains(l, m) {
+			return true
+		}
+	}
+	return false
+}

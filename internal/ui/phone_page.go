@@ -1,6 +1,10 @@
 package ui
 
-// phonePage is the whole phone UI: no build step, no assets, one file.
+import "strings"
+
+// phonePage is the whole phone UI: no build step, no assets, one file. The
+// placeholders are a CSP nonce: the page carries inline <style> and <script>,
+// so the policy allows exactly that nonce and nothing else.
 const phonePage = `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -8,8 +12,9 @@ const phonePage = `<!doctype html>
 <meta name="theme-color" content="#0b0d12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="referrer" content="no-referrer">
 <title>teveus</title>
-<style>
+<style nonce="{{NONCE}}">
 :root { color-scheme:dark; --bg:#0b0d12; --card:#14171e; --edge:#1f2430; --text:#e9ebf2;
   --dim:#7f8798; --faint:#5a6376; --accent:#8ab4ff; --ok:#3fbf7f; --warn:#e0b341; --bad:#e0647a;
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace }
@@ -169,9 +174,10 @@ textarea:focus { outline:none; border-color:#2f4a70 }
 <div id="modes" hidden><div class="sheet" id="modelist"></div></div>
 <div id="sessions" hidden><div class="sheet" id="sessionlist"></div></div>
 <div id="cmds" hidden><div class="sheet" id="cmdlist"></div></div>
-<script>
-const tok = location.pathname.replace(/^\/p\//, '') || new URLSearchParams(location.search).get('t') || '';
-const q = p => p + '?t=' + encodeURIComponent(tok);
+<script nonce="{{NONCE}}">
+// The token lives in an HttpOnly cookie the page never reads: the browser
+// attaches it to every request, so nothing here has to carry it.
+const q = p => p;
 const post = (p, b) => fetch(q(p), {method:'POST', headers:{'Content-Type':'application/json'},
   body: JSON.stringify(b || {})});
 const $ = id => document.getElementById(id);
@@ -236,8 +242,9 @@ function render(v) {
     asktitle.textContent = 'approve ' + v.perm.tool + (v.perm.more ? ' +' + v.perm.more : '');
     askwhy.textContent = v.perm.reason || ''; askwhy.hidden = !v.perm.reason;
     askbody.textContent = v.perm.detail || '';
-    always.hidden = !v.perm.always;
-    always.textContent = v.perm.alwaysLabel || 'Always';
+    // "Always allow" writes a rule that outlives the page, so it stays in the
+    // terminal; the page only offers this one time.
+    always.hidden = true;
     asknote.textContent = v.perm.note || ''; asknote.hidden = !v.perm.note;
     ask.dataset.id = v.perm.id;
   } else {
@@ -278,6 +285,17 @@ function showPopup(p) {
   popHead.textContent = (p.title || 'choose') + (p.hint ? ' · ' + p.hint : '');
   popPick.textContent = '';
   popInput.hidden = p.kind !== 'input';
+
+  if (p.kind === 'local') {
+    // Trusting a folder and agreeing to run Claude Code are answered where the
+    // user is sitting, not over a link.
+    const note = document.createElement('p');
+    note.className = 'sub';
+    note.textContent = 'This one has to be answered in the terminal.';
+    popPick.appendChild(note);
+    popsEl.hidden = false;
+    return;
+  }
 
   if (p.kind === 'input') {
     popText.value = p.query || '';
@@ -529,8 +547,17 @@ sessbtn.onclick = () => {
     b.querySelector('.sub').textContent = state + (other ? ' · other window' : '');
     b.onclick = () => {
       sessEl.hidden = true;
-      // Another window's page is its own: open it rather than act for it.
-      if (other) { location.href = tb.url; return }
+      // Another window's page is its own: ask this server for its link rather
+      // than carrying it here, so no page ever holds another window's token.
+      if (other) {
+        fetch('/open', {method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({win: tb.win})}).then(r => {
+          if (r.redirected) location.href = r.url;
+          else if (r.ok) location.reload();
+          else if (r.status === 404) hint.textContent = 'that window is gone';
+        });
+        return
+      }
       post('/session', {id: tb.id}).then(() => { follow = true; poll() });
     };
     return b;
@@ -568,3 +595,8 @@ addEventListener('resize', poll);
 poll(); setInterval(poll, 1200);
 </script></body></html>
 `
+
+// phonePageHTML is the page with the CSP nonce filled in.
+func phonePageHTML(nonce string) string {
+	return strings.ReplaceAll(phonePage, "{{NONCE}}", nonce)
+}

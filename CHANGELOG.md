@@ -3,22 +3,9 @@
 What changed in each version of teveus. The newest version is at the top.
 The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
-## [0.31.0] - 2026-11-01
-
-### Added
-
-- Every response is now written to a usage ledger, `~/.config/teveus/usage.jsonl`: the model, the project, the four token counts, and the provider's own cost when it reports one. Cost and tokens used to live only in memory, so nothing outside a running teveus could report them; a menu bar monitor, a script or a spreadsheet can now read them. One JSON line per billed response, appended, so it can be followed while teveus runs. `TEVEUS_CONFIG` moves the ledger with the rest of the config directory.
-- Skills and slash commands now live in teveus's own folders: `.teveus/skills` and `.teveus/commands` in the project, or `skills` and `commands` in the config directory to use them in every project. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for another agent works unchanged, and `.agents` and `.claude` are still read (teveus's own folders win when a name is defined twice).
-- A skill's folder comes back with its instructions, so skills that bundle scripts or reference files next to `SKILL.md` work.
-- Skills can say `disable-model-invocation: true` to stay out of the model's hands and only run when you type the command, and `user-invocable: false` to hide from the slash menu. Both are honoured wherever the skill sits.
-
-### Fixed
-
-- Reading your own skills no longer counts as reading the config directory. The config directory is off limits because it holds your API keys and rules, which also hid the skills in it; that exemption covers reading only, so a reply can't write a skill that you would later load.
-- Models behind OpenCode and other gateways now report their real context window, so auto-compaction fires before a session outgrows it. Those gateways nest the limit as `limit.context` and the prices as `cost.text`, where OpenRouter uses a flat `context_length` and string prices; only the second shape was read, so the window came back as zero and compaction — which is skipped when the window is unknown — never ran. Prices were missing from the picker for the same reason.
-- `max` reasoning effort now reaches models that take it. OpenAI-style APIs were capped at `high` three times over: in the protocol ceiling, in the request builder, and in the effect it had on the effort picker. A gateway that publishes each model's levels (`capabilities.reasoning.effort`, as OpenCode does) is now believed over that guess, so DeepSeek, which takes `low`/`high`/`max`, is no longer quietly held at `high`.
-
 ## [Unreleased]
+
+## [0.32.0] - 2026-11-01
 
 ### Added
 
@@ -41,6 +28,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A shell command that names a credential store (`~/.ssh`, `~/.aws`, `~/.git-credentials`, teveus's own config directory, cloud metadata) now asks first even in autopilot, instead of running quietly.
 - WebFetch no longer reaches this machine or its network. Loopback, private, link-local and CGNAT addresses and cloud metadata are refused on the first request and on every redirect, and the address actually connected to is checked, so a DNS answer can't change in between. A new `WebFetchLocal` setting turns this off for a local dev server.
 - `/undo` and `/rewind` now give a file back its original permissions instead of a fixed `0644`, so a restored `0600` key file doesn't become world-readable.
+
+## [0.31.0] - 2026-11-01
+
+### Added
+
+- Every response is now written to a usage ledger, `~/.config/teveus/usage.jsonl`: the model, the project, the four token counts, and the provider's own cost when it reports one. Cost and tokens used to live only in memory, so nothing outside a running teveus could report them; a menu bar monitor, a script or a spreadsheet can now read them. One JSON line per billed response, appended, so it can be followed while teveus runs. `TEVEUS_CONFIG` moves the ledger with the rest of the config directory.
+- Skills and slash commands now live in teveus's own folders: `.teveus/skills` and `.teveus/commands` in the project, or `skills` and `commands` in the config directory to use them in every project. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for another agent works unchanged, and `.agents` and `.claude` are still read (teveus's own folders win when a name is defined twice).
+- A skill's folder comes back with its instructions, so skills that bundle scripts or reference files next to `SKILL.md` work.
+- Skills can say `disable-model-invocation: true` to stay out of the model's hands and only run when you type the command, and `user-invocable: false` to hide from the slash menu. Both are honoured wherever the skill sits.
+
+### Fixed
+
+- Reading your own skills no longer counts as reading the config directory. The config directory is off limits because it holds your API keys and rules, which also hid the skills in it; that exemption covers reading only, so a reply can't write a skill that you would later load.
+- Models behind OpenCode and other gateways now report their real context window, so auto-compaction fires before a session outgrows it. Those gateways nest the limit as `limit.context` and the prices as `cost.text`, where OpenRouter uses a flat `context_length` and string prices; only the second shape was read, so the window came back as zero and compaction — which is skipped when the window is unknown — never ran. Prices were missing from the picker for the same reason.
+- `max` reasoning effort now reaches models that take it. OpenAI-style APIs were capped at `high` three times over: in the protocol ceiling, in the request builder, and in the effect it had on the effort picker. A gateway that publishes each model's levels (`capabilities.reasoning.effort`, as OpenCode does) is now believed over that guess, so DeepSeek, which takes `low`/`high`/`max`, is no longer quietly held at `high`.
 
 ## [0.30.0] - 2026-11-01
 
@@ -405,7 +407,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0

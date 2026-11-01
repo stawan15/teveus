@@ -18,8 +18,10 @@ import (
 // Bash can still read anything the user can; it is asked for in every mode
 // except autopilot, which the user chooses knowingly.
 
-// sensitive reports whether p is, or is inside, a credential store.
-func (e *Engine) sensitive(p string) bool {
+// sensitive reports whether p is, or is inside, a credential store. Reading
+// a skill the user wrote is fine; writing one is not, because a skill is
+// instructions the model will follow later, loaded without asking.
+func (e *Engine) sensitivePath(p string, writing bool) bool {
 	home, _ := os.UserHomeDir()
 	var roots []string
 	if e.opts.ConfigDir != "" {
@@ -35,13 +37,34 @@ func (e *Engine) sensitive(p string) bool {
 			roots = append(roots, filepath.Join(home, r))
 		}
 	}
+	var readable []string
+	if !writing && e.opts.ConfigDir != "" {
+		readable = append(readable, filepath.Join(e.opts.ConfigDir, "skills"), filepath.Join(e.opts.ConfigDir, "commands"))
+	}
 	for _, cand := range realPaths(p) {
+		// The user's own skills and commands are prompts they wrote for the
+		// model to read; the rest of the config directory holds keys and rules.
+		if withinAny(cand, readable) {
+			continue
+		}
 		for _, r := range roots {
 			for _, rr := range realPaths(r) {
 				if within(cand, rr) {
 					// Public SSH keys are fine to read.
 					return !(strings.HasSuffix(cand, ".pub") && strings.Contains(cand, string(filepath.Separator)+".ssh"+string(filepath.Separator)))
 				}
+			}
+		}
+	}
+	return false
+}
+
+// withinAny reports whether p is inside any of roots.
+func withinAny(p string, roots []string) bool {
+	for _, r := range roots {
+		for _, rr := range realPaths(r) {
+			if within(p, rr) {
+				return true
 			}
 		}
 	}

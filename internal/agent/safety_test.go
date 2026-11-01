@@ -77,8 +77,30 @@ func TestCredentialFilesAreOffLimitsInEveryMode(t *testing.T) {
 		filepath.Join(home, ".claude", ".credentials.json"): true,
 		filepath.Join(home, "projects", "x.go"):             false,
 	} {
-		if got := e.sensitive(p); got != want {
+		if got := e.sensitivePath(p, false); got != want {
 			t.Errorf("sensitive(%s) = %v", p, got)
+		}
+	}
+}
+
+// A skill the user put in the config directory is a prompt meant to be read,
+// but writing one would plant instructions the model follows later.
+func TestSkillsInTheConfigDirAreReadableButNotWritable(t *testing.T) {
+	cfg := t.TempDir()
+	e := &Engine{opts: Options{ConfigDir: cfg}}
+	skill := filepath.Join(cfg, "skills", "deploy", "SKILL.md")
+	if e.sensitivePath(skill, false) || e.sensitivePath(filepath.Join(cfg, "commands", "x.md"), false) {
+		t.Error("reading a skill asks, but it is the user's own prompt")
+	}
+	for _, p := range []string{skill, filepath.Join(cfg, "commands", "x.md")} {
+		if !e.sensitivePath(p, true) {
+			t.Errorf("writing %s is allowed, which would plant instructions", p)
+		}
+	}
+	// Everything else in the config directory stays off limits both ways.
+	for _, p := range []string{filepath.Join(cfg, "auth.json"), filepath.Join(cfg, "settings.json")} {
+		if !e.sensitivePath(p, false) || !e.sensitivePath(p, true) {
+			t.Errorf("%s is reachable", p)
 		}
 	}
 }

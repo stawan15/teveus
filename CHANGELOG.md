@@ -3,7 +3,7 @@
 What changed in each version of teveus. The newest version is at the top.
 The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [0.31.0] - 2026-11-01
 
 ### Added
 
@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Reading your own skills no longer counts as reading the config directory. The config directory is off limits because it holds your API keys and rules, which also hid the skills in it; that exemption covers reading only, so a reply can't write a skill that you would later load.
 - Models behind OpenCode and other gateways now report their real context window, so auto-compaction fires before a session outgrows it. Those gateways nest the limit as `limit.context` and the prices as `cost.text`, where OpenRouter uses a flat `context_length` and string prices; only the second shape was read, so the window came back as zero and compaction — which is skipped when the window is unknown — never ran. Prices were missing from the picker for the same reason.
 - `max` reasoning effort now reaches models that take it. OpenAI-style APIs were capped at `high` three times over: in the protocol ceiling, in the request builder, and in the effect it had on the effort picker. A gateway that publishes each model's levels (`capabilities.reasoning.effort`, as OpenCode does) is now believed over that guess, so DeepSeek, which takes `low`/`high`/`max`, is no longer quietly held at `high`.
+
+## [Unreleased]
 
 ## [0.30.0] - 2026-11-01
 
@@ -381,7 +383,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0

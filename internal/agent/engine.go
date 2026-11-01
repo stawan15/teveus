@@ -930,6 +930,7 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		e.mu.Lock()
 		e.cost += resp.Usage.Cost
 		e.mu.Unlock()
+		e.recordUsage(modelID, resp.Usage, parent != "")
 		conv.add(Message{Role: "assistant", Text: resp.Text, ToolCalls: resp.ToolCalls, Reasoning: resp.Reasoning})
 
 		var blocks []claude.ContentBlock
@@ -1212,6 +1213,7 @@ func (e *Engine) compactHistory(ctx context.Context, client Client, modelID stri
 	}
 	e.saveLocked()
 	e.mu.Unlock()
+	e.recordUsage(modelID, resp.Usage, false)
 	return resp.Text, nil
 }
 

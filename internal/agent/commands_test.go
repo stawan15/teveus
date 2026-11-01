@@ -55,7 +55,7 @@ func TestLoadCustom(t *testing.T) {
 	writeFile(t, filepath.Join(root, ".claude/commands/empty.md"), "---\ndescription: x\n---\n")
 	writeFile(t, filepath.Join(root, ".claude/commands/compact.md"), "must not shadow the built-in")
 
-	got := loadCustom(sub) // found from a subdirectory, like CLAUDE.md
+	got := loadCustom(sub, "") // found from a subdirectory, like CLAUDE.md
 	names := map[string]customCmd{}
 	for _, c := range got {
 		names[c.name] = c
@@ -69,9 +69,70 @@ func TestLoadCustom(t *testing.T) {
 	if c := names["git:sync"]; c.description != "Sync branches" {
 		t.Errorf("git:sync = %+v", c)
 	}
-	if c := names["pdf"]; !c.skill || !strings.Contains(skillsPrompt(got), "- pdf: Work with PDFs") {
+	if c := names["pdf"]; !c.skill || !c.modelRuns || !c.listed || c.dir != filepath.Join(root, ".claude/skills/pdf") {
 		t.Errorf("pdf = %+v", c)
 	}
+	if !strings.Contains(skillsPrompt(got), "- pdf: Work with PDFs") {
+		t.Errorf("pdf is not offered to the model: %q", skillsPrompt(got))
+	}
+}
+
+// teveus reads its own .teveus directories first, then the neutral .agents
+// layout of the Agent Skills standard, then Claude Code's .claude.
+func TestCustomDirsInOrder(t *testing.T) {
+	isolateHome(t)
+	root := t.TempDir()
+	os.Mkdir(filepath.Join(root, ".git"), 0o755)
+	cfg := t.TempDir()
+	for _, dir := range []string{".teveus", ".agents", ".claude"} {
+		writeFile(t, filepath.Join(root, dir, "commands", "same.md"), "# "+dir)
+	}
+	writeFile(t, filepath.Join(root, ".agents", "skills", "neutral", "SKILL.md"), "---\ndescription: Neutral\n---\nDo it.")
+	writeFile(t, filepath.Join(cfg, "skills", "global", "SKILL.md"), "---\ndescription: Everywhere\n---\nDo it.")
+
+	names := map[string]customCmd{}
+	for _, c := range loadCustom(root, cfg) {
+		names[c.name] = c
+	}
+	if got := names["same"].body; got != "# .teveus" {
+		t.Errorf("the nearest root did not win: %q", got)
+	}
+	if c := names["neutral"]; !c.skill || c.dir != filepath.Join(root, ".agents", "skills", "neutral") {
+		t.Errorf("neutral = %+v", c)
+	}
+	if c, ok := names["global"]; !ok || c.dir != filepath.Join(cfg, "skills", "global") {
+		t.Errorf("a skill in the config directory does not apply here: %+v", c)
+	}
+}
+
+// A skill that says not to run on its own must not be offered to the model,
+// and one that says the user cannot invoke it must stay out of the menu.
+func TestSkillInvocationFlags(t *testing.T) {
+	isolateHome(t)
+	root := t.TempDir()
+	cfg := t.TempDir()
+	writeFile(t, filepath.Join(cfg, "skills", "manual", "SKILL.md"),
+		"---\ndescription: Only when asked\ndisable-model-invocation: true\n---\nDo it.")
+	writeFile(t, filepath.Join(cfg, "skills", "hidden", "SKILL.md"),
+		"---\ndescription: Model only\nuser-invocable: false\n---\nDo it.")
+
+	cmds := loadCustom(root, cfg)
+	if p := skillsPrompt(cmds); strings.Contains(p, "manual") || !strings.Contains(p, "hidden") {
+		t.Errorf("skills offered to the model: %q", p)
+	}
+	var inMenu []string
+	for _, c := range customCommands(cmds) {
+		inMenu = append(inMenu, c.Name)
+	}
+	for _, n := range inMenu {
+		if n == "hidden" {
+			t.Error("user-invocable: false appeared in the slash menu")
+		}
+		if n == "manual" {
+			return // the user can still run it
+		}
+	}
+	t.Error("a skill the user can invoke is missing from the menu")
 }
 
 func TestCustomCommandReachesModel(t *testing.T) {
@@ -93,11 +154,25 @@ func TestSkillTool(t *testing.T) {
 	isolateHome(t)
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, ".claude/skills/pdf/SKILL.md"), "---\ndescription: PDFs\n---\nUse pdftotext.")
-	out, err := skillTool(dir).run(context.TODO(), nil, map[string]any{"skill": "pdf"})
-	if err != nil || out != "Use pdftotext." {
+	out, err := skillTool(dir, "").run(context.TODO(), nil, map[string]any{"skill": "pdf"})
+	// The directory comes with the instructions, so a skill can point at the
+	// scripts bundled next to its SKILL.md.
+	if want := "Directory: " + filepath.Join(dir, ".claude/skills/pdf"); err != nil || !strings.HasPrefix(out, want+"\n\n") || !strings.HasSuffix(out, "Use pdftotext.") {
 		t.Fatalf("Skill = %q, %v", out, err)
 	}
-	if _, err := skillTool(dir).run(context.TODO(), nil, map[string]any{"skill": "nope"}); err == nil {
+	if _, err := skillTool(dir, "").run(context.TODO(), nil, map[string]any{"skill": "nope"}); err == nil {
 		t.Fatal("an unknown skill should be an error")
+	}
+}
+
+// The Skill tool is where disable-model-invocation has to hold: listing the
+// skill in the prompt is not enough if the model can call it anyway.
+func TestSkillToolRefusesModelDisabledSkill(t *testing.T) {
+	isolateHome(t)
+	cfg := t.TempDir()
+	writeFile(t, filepath.Join(cfg, "skills", "manual", "SKILL.md"),
+		"---\ndescription: Only when asked\ndisable-model-invocation: true\n---\nDo it.")
+	if _, err := skillTool(t.TempDir(), cfg).run(context.TODO(), nil, map[string]any{"skill": "manual"}); err == nil {
+		t.Fatal("a skill set to not run on its own was loaded by the model")
 	}
 }

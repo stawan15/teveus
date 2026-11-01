@@ -100,17 +100,25 @@ func (f *fakeCLI) start(opts Options) *Client {
 // args is what the script was invoked with.
 func (f *fakeCLI) args() []string {
 	f.t.Helper()
-	// The script writes its arguments before it reads anything; waiting for
-	// Initialize to land means those lines are there.
+	// The script writes its arguments one printf at a time and ends the list
+	// with --done--, so waiting for that marker, not just for a non-empty
+	// file, is what keeps a test from reading half of them.
 	waitFor(f.t, func() bool {
 		b, err := os.ReadFile(filepath.Join(f.dir, "args.log"))
-		return err == nil && len(b) > 0
+		return err == nil && strings.Contains(string(b), "--done--\n")
 	})
 	b, err := os.ReadFile(filepath.Join(f.dir, "args.log"))
 	if err != nil {
 		return nil
 	}
-	return strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	var out []string
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if line == "--done--" {
+			break
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 // told returns the JSON lines the client sent the script, decoded.

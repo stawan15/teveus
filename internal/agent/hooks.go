@@ -123,7 +123,7 @@ func (h *hooks) run(ctx context.Context, event, tool string, session string, in 
 		ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 		cmd := shellCommand(ctx, c)
 		cmd.Dir = h.cwd
-		cmd.Env = append(os.Environ(), "TEVEUS_PROJECT_DIR="+h.cwd)
+		cmd.Env = append(childEnv(), "TEVEUS_PROJECT_DIR="+h.cwd)
 		cmd.Stdin = bytes.NewReader(stdin)
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &stdout, &stderr

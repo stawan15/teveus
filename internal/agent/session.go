@@ -23,6 +23,9 @@ type Session struct {
 
 func sessionPath(dir, id string) string { return filepath.Join(dir, id+".json") }
 
+// SaveSession writes a conversation to disk with its secrets masked: prompts
+// and tool output are kept for /resume, but a pasted API key or an .env a tool
+// printed must not sit in a file for good.
 func SaveSession(dir string, s Session) error {
 	if dir == "" || len(s.History) == 0 {
 		return nil
@@ -30,7 +33,7 @@ func SaveSession(dir string, s Session) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	b, err := json.Marshal(s)
+	b, err := json.Marshal(RedactSession(s))
 	if err != nil {
 		return err
 	}
@@ -90,6 +93,7 @@ type checkpoint struct {
 	historyLen int
 	files      map[string][]byte
 	order      []string
+	modes      map[string]os.FileMode
 }
 
 func (c *checkpoint) remember(path string) {
@@ -100,8 +104,23 @@ func (c *checkpoint) remember(path string) {
 	if err != nil {
 		b = nil
 	}
+	if c.modes == nil {
+		c.modes = map[string]os.FileMode{}
+	}
+	if info, err := os.Stat(path); err == nil {
+		c.modes[path] = info.Mode().Perm()
+	}
 	c.files[path] = b
 	c.order = append(c.order, path)
+}
+
+// checkpointMode is what a restored file gets back when it didn't exist
+// before: the same permissions a new file would get, never wider.
+func checkpointMode(mode os.FileMode) os.FileMode {
+	if mode == 0 {
+		return 0o644
+	}
+	return mode.Perm()
 }
 
 func (c *checkpoint) restore() ([]string, error) {
@@ -117,7 +136,7 @@ func (c *checkpoint) restore() ([]string, error) {
 			}
 		} else if cur, err := os.ReadFile(p); err == nil && bytes.Equal(cur, orig) {
 			continue
-		} else if err := os.WriteFile(p, orig, 0o644); err != nil {
+		} else if err := os.WriteFile(p, orig, checkpointMode(c.modes[p])); err != nil {
 			return restored, err
 		}
 		restored = append(restored, p)

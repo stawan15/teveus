@@ -32,13 +32,18 @@ func runWebFetch(ctx context.Context, _ *Toolbox, in map[string]any) (string, er
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	// Refuse this machine, its network and cloud metadata before anything is
+	// sent: the URL came from the model, which may have read it on a page.
+	if err := checkFetchURL(ctx, u); err != nil {
+		return "", err
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", userAgent)
 	req.Header.Set("Accept", "text/html,text/plain,text/markdown,application/json;q=0.9,*/*;q=0.5")
-	resp, err := httpDo(req)
+	resp, err := fetchClient().Do(req)
 	if err != nil {
 		return "", err
 	}

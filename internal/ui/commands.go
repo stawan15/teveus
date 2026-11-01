@@ -60,6 +60,7 @@ func init() {
 		{"commit", "Let the AI write the message and commit this work (/commit <words> steers it)", "", func(m *Model, arg string) tea.Cmd { return m.commit(arg) }},
 		{"update", "Check for a new version of teveus and install it", "", func(m *Model, _ string) tea.Cmd { return m.updateNow() }},
 		{"purge", "Delete teveus's saved conversations and prompt history", "", func(m *Model, _ string) tea.Cmd { m.openPurge(); return nil }},
+		{"scrub", "Mask API keys and passwords in saved conversations", "", func(m *Model, _ string) tea.Cmd { return m.scrubSessions() }},
 		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},
 		{"hooks", "Commands that run before or after tool calls", "", func(m *Model, _ string) tea.Cmd { return m.showHooks() }},
 		{"mcp", "MCP servers: list them, approve a project's", "", func(m *Model, _ string) tea.Cmd { return m.showMCP() }},

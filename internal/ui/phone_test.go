@@ -5,7 +5,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -117,14 +119,15 @@ func TestPhonePageOffUntilTurnedOn(t *testing.T) {
 
 func TestPhonePageNeedsTheToken(t *testing.T) {
 	_, p, _ := phoneTestModel(t)
-	// The page itself only exists under the token's path.
+	// The page itself only exists once the cookie has been handed out, or the
+	// link's token is presented.
 	resp, err := http.Get(p.baseURL() + "/")
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("bare root = %d, want 404", resp.StatusCode)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("bare root = %d, want 401", resp.StatusCode)
 	}
 	resp, err = http.Get(p.baseURL() + "/p/wrong")
 	if err != nil {
@@ -145,14 +148,152 @@ func TestPhonePageNeedsTheToken(t *testing.T) {
 	if code := phoneGet(t, p, "/state", nil); code != http.StatusOK {
 		t.Fatalf("good token = %d", code)
 	}
-	// The link's own form works without a query string.
-	resp, err = http.Get(p.baseURL() + "/p/" + p.token)
+	// The link's own form works without a query string, and trades the token in
+	// the URL for a cookie the page never sees.
+	link := p.baseURL() + "/p/" + p.token
+	jar, err := cookiejar.New(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	client := &http.Client{Jar: jar}
+	// Look at the first hop on its own: it is the one that sets the cookie.
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	first, err := noRedirect.Get(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.Body.Close()
+	if first.StatusCode != http.StatusSeeOther {
+		t.Fatalf("opening the link = %d, want a redirect to /", first.StatusCode)
+	}
+	var attrs []string
+	for _, sc := range first.Header.Values("Set-Cookie") {
+		if strings.HasPrefix(sc, cookieName+"=") {
+			attrs = append(attrs, strings.ToLower(sc))
+		}
+	}
+	if len(attrs) == 0 {
+		t.Fatal("opening the link didn't hand out a Set-Cookie")
+	}
+	for _, want := range []string{"httponly", "samesite=strict", "path=/"} {
+		if !strings.Contains(attrs[0], want) {
+			t.Fatalf("cookie %q is missing %q", attrs[0], want)
+		}
+	}
+	resp, err = client.Get(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("token in the path = %d", resp.StatusCode)
+		t.Fatalf("opening the link = %d", resp.StatusCode)
+	}
+	if resp.Request.URL.Path != "/" {
+		t.Fatalf("opening the link left the token in the URL: %s", resp.Request.URL)
+	}
+	u, _ := url.Parse(p.baseURL())
+	var found bool
+	for _, c := range jar.Cookies(u) {
+		if c.Name == cookieName {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the link didn't hand out the token cookie")
+	}
+	if strings.Contains(string(body), p.token) {
+		t.Fatal("the page carries the token in its body")
+	}
+	// The cookie alone is enough for the API.
+	req, _ := http.NewRequest("GET", p.baseURL()+"/state", nil)
+	cres, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cres.Body.Close()
+	if cres.StatusCode != http.StatusOK {
+		t.Fatalf("cookie-only /state = %d", cres.StatusCode)
+	}
+}
+
+func TestPhoneSecurityHeaders(t *testing.T) {
+	_, p, _ := phoneTestModel(t)
+	req, _ := http.NewRequest("GET", p.baseURL()+"/p/"+p.token+"", nil)
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	for h, want := range map[string]string{
+		"Referrer-Policy":            "no-referrer",
+		"X-Content-Type-Options":     "nosniff",
+		"X-Frame-Options":            "DENY",
+		"Cross-Origin-Opener-Policy": "same-origin",
+	} {
+		if got := resp.Header.Get(h); got != want {
+			t.Errorf("%s = %q, want %q", h, got, want)
+		}
+	}
+	csp := resp.Header.Get("Content-Security-Policy")
+	if !strings.Contains(csp, "nonce-"+p.nonce) || strings.Contains(csp, "unsafe-inline") {
+		t.Fatalf("CSP = %q", csp)
+	}
+	if cc := resp.Header.Get("Cache-Control"); cc != "no-store" {
+		t.Fatalf("Cache-Control = %q", cc)
+	}
+	if p.nonce == "" || strings.Contains(string(phonePageHTML(p.nonce)), "{{NONCE}}") {
+		t.Fatal("the page kept its nonce placeholder")
+	}
+}
+
+// The phone can tighten permissions but never loosen them: a link that leaks
+// must not be able to turn the agent loose on the machine.
+func TestPhoneModeOnlyGoesStricter(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.mode = "default"
+	m.refresh()
+	if code := phonePost(t, p, "/mode", `{"mode":"auto"}`); code != http.StatusForbidden {
+		t.Fatalf("auto = %d, want 403", code)
+	}
+	select {
+	case msg := <-msgs:
+		t.Fatalf("a looser mode was sent: %#v", msg)
+	default:
+	}
+	if code := phonePost(t, p, "/mode", `{"mode":"plan"}`); code != http.StatusNoContent {
+		t.Fatalf("plan = %d, want 204", code)
+	}
+	select {
+	case msg := <-msgs:
+		pm, ok := msg.(phoneMsg)
+		if !ok || pm.mode != "plan" {
+			t.Fatalf("message = %#v", msg)
+		}
+	default:
+		t.Fatal("the stricter mode never reached the UI")
+	}
+}
+
+func TestPhoneCantGrantPermanentApproval(t *testing.T) {
+	_, p, msgs := phoneTestModel(t)
+	p.mu.Lock()
+	p.view.Perm = &phonePerm{ID: "req-1", Tool: "Bash", Detail: "$ rm -rf build"}
+	p.mu.Unlock()
+	if code := phonePost(t, p, "/perm", `{"action":"always","id":"req-1"}`); code != http.StatusForbidden {
+		t.Fatalf("always = %d, want 403", code)
+	}
+	select {
+	case msg := <-msgs:
+		t.Fatalf("a permanent approval was sent: %#v", msg)
+	default:
+	}
+	if code := phonePost(t, p, "/perm", `{"action":"allow","id":"req-1"}`); code != http.StatusNoContent {
+		t.Fatalf("allow = %d, want 204", code)
 	}
 }
 
@@ -421,11 +562,32 @@ func TestPhoneListsOtherWindows(t *testing.T) {
 	if found.Title != "deploy to prod · elsewhere" || found.State != "working" {
 		t.Fatalf("other window = %+v", found)
 	}
-	if !strings.HasSuffix(found.URL, "/p/other-token") {
-		t.Fatalf("url = %q", found.URL)
-	}
 	if found.Now {
 		t.Fatal("another window's session is marked as the one on screen")
+	}
+
+	// The page may open that window, but it never learns that window's token:
+	// every window of cette install shares one, so a page holding it could act
+	// as any of them.
+	var raw map[string]any
+	phoneGet(t, p, "/state", &raw)
+	if b, _ := json.Marshal(raw); strings.Contains(string(b), "other-token") || strings.Contains(string(b), "/p/") {
+		t.Fatalf("/state leaks another window's link: %s", b)
+	}
+	// /open builds the link on the server instead.
+	req, _ := http.NewRequest("POST", p.baseURL()+"/open?t="+p.token, strings.NewReader(`{"win":"`+otherAddr+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if loc := resp.Header.Get("Location"); loc != "http://"+otherAddr+"/p/other-token" {
+		t.Fatalf("open = %d %q", resp.StatusCode, loc)
+	}
+	if code := phonePost(t, p, "/open", `{"win":"10.0.0.9:9999"}`); code != http.StatusNotFound {
+		t.Fatalf("unknown window = %d, want 404", code)
 	}
 
 	// A handle whose process is gone is dropped, not listed.
@@ -670,5 +832,45 @@ func TestPhoneSendsRepliesAsMarkdownForThePage(t *testing.T) {
 	// Tools are not markdown: their text keeps the state marker instead.
 	if tool := p.view.Msgs[1]; tool.Role != "tool" || strings.Contains(tool.Text, "##") {
 		t.Fatalf("tool message = %+v", tool)
+	}
+}
+
+// Trusting a folder and agreeing to run Claude Code are answered in the
+// terminal: a leaked link must not be able to widen what the app may touch.
+func TestPhoneCantAnswerLocalQuestions(t *testing.T) {
+	m, p, msgs := phoneTestModel(t)
+	m.askTrust()
+	m.refresh()
+	phoneGet(t, p, "/state", nil)
+	p.mu.Lock()
+	prompt := p.view.Prompt
+	p.mu.Unlock()
+	if prompt == nil || !prompt.Local || prompt.Kind != "local" {
+		t.Fatalf("the page was shown an answerable trust prompt: %+v", prompt)
+	}
+	if code := phonePost(t, p, "/popup", `{"index":0}`); code != http.StatusConflict {
+		t.Fatalf("answering the trust prompt = %d, want 409", code)
+	}
+	select {
+	case msg := <-msgs:
+		t.Fatalf("the phone answered a local question: %#v", msg)
+	default:
+	}
+}
+
+// A key being typed into a masked field never reaches the page.
+func TestPhoneMaskedInputValueStaysLocal(t *testing.T) {
+	m, p, _ := phoneTestModel(t)
+	m.pop = popup{mode: popInput, title: "API key", masked: true, query: "sk-abcdefghijklmnop"}
+	m.refresh()
+	phoneGet(t, p, "/state", nil)
+	p.mu.Lock()
+	ask := p.view.Prompt
+	p.mu.Unlock()
+	if ask == nil || !ask.Masked {
+		t.Fatalf("prompt = %+v", ask)
+	}
+	if ask.Query != "" {
+		t.Fatalf("the masked value reached the page: %q", ask.Query)
 	}
 }

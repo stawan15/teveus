@@ -203,6 +203,10 @@ func New(cfg Config) *Model {
 		histIdx:    -1,
 	}
 	m.setProject(cwd)
+	// Teach the redactor the keys this install holds, so they are masked even
+	// when they have no recognisable shape (a self-hosted base URL's token, a
+	// key copied out of auth.json).
+	agent.LoadKnownSecrets(configDir())
 	return m
 }
 
@@ -242,8 +246,13 @@ func (m *Model) startPhoneServer() tea.Cmd {
 	}
 	m.settings.PhonePage = true
 	saveSettings(m.settings)
-	m.add(&block{kind: kindInfo, text: "Phone: open this on a device on the same network —\n" + url +
-		"\nAnyone with this link can prompt and approve. Turn it off with /phone off."})
+	note := "Phone: open this on a device that can reach this machine —\n" + url +
+		"\nAnyone with this link can prompt and approve. Turn it off with /phone off."
+	if phoneIsPublicAddr(addr) {
+		note += "\n⚠ It is listening on every interface over plain HTTP, so anyone on this network can read the traffic." +
+			" Prefer the default (127.0.0.1) with a tunnel, or a network you trust."
+	}
+	m.add(&block{kind: kindInfo, text: note})
 	return nil
 }
 
@@ -290,6 +299,9 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	var c claude.Backend
 	var err error
 	if m.engine == "api" {
+		// WebFetch's guard is process-wide: it covers the tool whether the
+		// engine, a subagent or a resumed session calls it.
+		agent.SetWebFetchLocal(m.settings.WebFetchLocal)
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,

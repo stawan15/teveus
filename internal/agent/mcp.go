@@ -516,10 +516,14 @@ func startStdio(cfg MCPConfig, cwd string) (*stdioConn, error) {
 	}
 	cmd := exec.Command(expandEnv(cfg.Command), args...)
 	cmd.Dir = cwd
-	cmd.Env = os.Environ()
+	// A server gets the environment it was configured with, not every key the
+	// user's shell exports: a third-party server has no business reading the
+	// user's API keys it wasn't given.
+	extra := make(map[string]string, len(cfg.Env))
 	for k, v := range cfg.Env {
-		cmd.Env = append(cmd.Env, k+"="+expandEnv(v))
+		extra[k] = expandEnv(v)
 	}
+	cmd.Env = childEnvWith(extra)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

@@ -98,13 +98,14 @@ func (m *Model) showSearch(msg searchMsg) {
 }
 
 // searchSession looks through what was said in a saved conversation: your
-// messages and the replies, not tool output.
+// messages and the replies, not tool output. Hits are redacted: a search
+// result can quote a pasted key, and it is shown on screen.
 func searchSession(s savedSession, query string) (searchHit, bool) {
 	h := searchHit{s: s}
 	see := func(text string) {
 		if snip, ok := snippet(text, query); ok {
 			if h.n == 0 {
-				h.snippet = snip
+				h.snippet = agent.Redact(snip)
 			}
 			h.n++
 		}

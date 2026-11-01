@@ -52,13 +52,57 @@ func clampEffort(level string, protocol Protocol) (string, bool) {
 // ClampEffort is the ceiling for a "provider/model" pick, for the UI to show
 // the level the model is really asked for.
 func ClampEffort(level, model string) (string, bool) {
-	p := OpenAI
+	return clampEffort(level, protocolOf(model))
+}
+
+// ClampToModel is ClampEffort with the levels the provider published for the
+// model, which are more accurate than the protocol when it lists them.
+func ClampToModel(level, model string, efforts []string) (string, bool) {
+	if len(efforts) > 0 {
+		return clampToEfforts(level, efforts)
+	}
+	return ClampEffort(level, model)
+}
+
+// protocolOf is the wire protocol behind a "provider/model" pick.
+func protocolOf(model string) Protocol {
 	if pid, _, ok := strings.Cut(model, "/"); ok {
 		if known, found := ProviderByID(pid); found {
-			p = known.Protocol
+			return known.Protocol
 		}
 	}
-	return clampEffort(level, p)
+	return OpenAI
+}
+
+// clampToEfforts lowers a level to the highest one a model's own list of
+// levels contains. A provider that publishes the list is telling the truth
+// about that model: OpenAI-style APIs are not all limited to high, and a
+// gateway can pass max through to a model that takes it.
+func clampToEfforts(level string, efforts []string) (string, bool) {
+	if len(efforts) == 0 || level == "" {
+		return level, false
+	}
+	for _, l := range efforts {
+		if l == level {
+			return level, false // the model takes it as asked
+		}
+	}
+	// Not on the list: drop to the highest level below it that is.
+	want := effortRank(level)
+	best := ""
+	for _, l := range efforts {
+		if r := effortRank(l); r > effortRank(best) && r < want {
+			best = l
+		}
+	}
+	if best == "" {
+		for _, l := range efforts { // nothing below it: the lowest listed
+			if r := effortRank(l); r > 0 && (best == "" || r < effortRank(best)) {
+				best = l
+			}
+		}
+	}
+	return best, true
 }
 
 // effortCaps remembers, per model, the highest effort a provider accepted.
@@ -148,17 +192,17 @@ func mentionsLevel(err error, level string) bool {
 func (e *Engine) effortFor(modelID string) (level string, why string) {
 	e.mu.Lock()
 	want, full := e.opts.Effort, e.model
+	efforts := e.efforts[full]
 	e.mu.Unlock()
 	if want == "" {
 		return "", ""
 	}
-	protocol := OpenAI
-	if pid, _, ok := strings.Cut(full, "/"); ok {
-		if p, known := ProviderByID(pid); known {
-			protocol = p.Protocol
-		}
+	level, capped := clampEffort(want, protocolOf(full))
+	if len(efforts) > 0 {
+		// The provider listed this model's levels, which beats a guess from
+		// its protocol: OpenCode passes max through to models that take it.
+		level, capped = clampToEfforts(want, efforts)
 	}
-	level, capped := clampEffort(want, protocol)
 	if capped {
 		why = "this API stops at " + level
 	}

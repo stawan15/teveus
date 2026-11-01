@@ -20,9 +20,10 @@ type ModelInfo struct {
 	Description string `json:"description"`
 
 	// Optional presentation hints from the API engine.
-	Group string `json:"-"` // e.g. "OpenRouter · Anthropic"
-	Meta  string `json:"-"` // e.g. "200k · $3/$15"
-	Free  bool   `json:"-"`
+	Group     string   `json:"-"` // e.g. "OpenRouter · Anthropic"
+	Meta      string   `json:"-"` // e.g. "200k · $3/$15"
+	Free      bool     `json:"-"`
+	Reasoning []string `json:"-"` // effort levels the provider listed, highest first
 }
 
 // Ready is the answer to our initialize request.

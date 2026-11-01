@@ -35,8 +35,17 @@ func (m *Model) effortInUse() (string, bool) {
 	if m.engine != "api" {
 		return want, false
 	}
-	lvl, capped := agent.ClampEffort(want, m.model)
-	return lvl, capped
+	return agent.ClampToModel(want, m.model, m.modelReasoning(m.model))
+}
+
+// modelReasoning is the levels the provider published for a model, if it did.
+func (m *Model) modelReasoning(value string) []string {
+	for _, mi := range m.models {
+		if mi.Value == value {
+			return mi.Reasoning
+		}
+	}
+	return nil
 }
 
 func (m *Model) openEffortSlider() {
@@ -66,7 +75,7 @@ func (m *Model) effortCeiling() (string, bool) {
 	if m.engine != "api" {
 		return "max", false
 	}
-	lvl, capped := agent.ClampEffort("max", m.model)
+	lvl, capped := agent.ClampToModel("max", m.model, m.modelReasoning(m.model))
 	return lvl, capped
 }
 

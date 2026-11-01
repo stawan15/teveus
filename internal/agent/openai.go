@@ -71,8 +71,29 @@ func (c *openaiClient) Models(ctx context.Context) ([]Model, error) {
 		Data []struct {
 			ID      string `json:"id"`
 			Name    string `json:"name"`
-			Context int    `json:"context_length"`
 			Created int64  `json:"created"`
+			// OpenRouter says context_length and prices as decimal strings;
+			// gateways like OpenCode say limit.context, nest the prices, and
+			// list the effort levels the model takes. Both are read.
+			Context int `json:"context_length"`
+			Limit   struct {
+				Context int `json:"context"`
+			} `json:"limit"`
+			Cost *struct {
+				Text struct {
+					Input struct {
+						Price float64 `json:"price"`
+					} `json:"input"`
+					Output struct {
+						Price float64 `json:"price"`
+					} `json:"output"`
+				} `json:"text"`
+			} `json:"cost"`
+			Capabilities struct {
+				Reasoning struct {
+					Effort []string `json:"effort"`
+				} `json:"reasoning"`
+			} `json:"capabilities"`
 			Pricing *struct {
 				Prompt     string `json:"prompt"`
 				Completion string `json:"completion"`
@@ -84,13 +105,22 @@ func (c *openaiClient) Models(ctx context.Context) ([]Model, error) {
 	}
 	var ms []Model
 	for _, d := range out.Data {
-		m := Model{ID: strings.TrimPrefix(d.ID, "models/"), Name: d.Name, Context: d.Context, Created: d.Created}
+		m := Model{ID: strings.TrimPrefix(d.ID, "models/"), Name: d.Name, Context: d.Context, Created: d.Created,
+			Efforts: d.Capabilities.Reasoning.Effort}
+		if m.Context == 0 {
+			m.Context = d.Limit.Context
+		}
 		if d.Pricing != nil {
+			// OpenRouter: prices per token, as strings.
 			in, err1 := strconv.ParseFloat(d.Pricing.Prompt, 64)
 			outp, err2 := strconv.ParseFloat(d.Pricing.Completion, 64)
 			if err1 == nil && err2 == nil && in >= 0 && outp >= 0 {
 				m.In, m.Out, m.Priced = in*1e6, outp*1e6, true
 			}
+		} else if d.Cost != nil {
+			// OpenCode: already per million tokens.
+			m.In, m.Out = d.Cost.Text.Input.Price, d.Cost.Text.Output.Price
+			m.Priced = m.In >= 0 && m.Out >= 0
 		}
 		ms = append(ms, m)
 	}
@@ -341,9 +371,9 @@ func mergeReasoning(list []map[string]any, frag map[string]any) []map[string]any
 // OpenAI-style APIs take.
 func openaiEffort(e string) string {
 	switch e {
-	case "low", "medium", "high":
+	case "low", "medium", "high", "max":
 		return e
-	case "xhigh", "max":
+	case "xhigh":
 		return "high"
 	}
 	return ""

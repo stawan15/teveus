@@ -29,6 +29,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - The phone page listens on `127.0.0.1` unless you name another address, so reaching it from a phone goes through a tunnel you set up rather than your whole network. Binding wider still works (`-phone 0.0.0.0:8787`) and now says so, warning that the page is plain HTTP.
 - Opening the phone link now trades its token for an `HttpOnly`, `SameSite=Strict` cookie and redirects to `/`. The token stops appearing in the address bar, the browser history and the requests the page makes, and other windows' pages no longer carry their links: tapping one asks this window's server to open it.
 
+### Fixed
+
+- Updating no longer leaves the app frozen on the installer's last line. teveus wraps the terminal's input so a mouse report that arrives in pieces isn't typed as text, and a program started with the terminal handed over — the updater, and Claude Code's sign-in from `/login` — got that wrapper instead of the terminal itself. The command ran and finished, but the signal saying so never came back, so the window sat there until it was killed. Both now get the terminal directly, and a finished update still ends the app so the new version starts clean.
+
 ### Security
 
 - The phone page can make permissions stricter but not looser. Switching to autopilot, and granting an "always allow" rule, now have to be done in the terminal, so a link that leaks can't hand the agent more than the window already had.

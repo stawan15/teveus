@@ -70,7 +70,7 @@ func (m *Model) useSubscription() tea.Cmd {
 		bin = "claude"
 	}
 	m.note("opening Anthropic's Claude Code sign-in…", true)
-	return tea.ExecProcess(exec.Command(bin, "auth", "login"), func(err error) tea.Msg {
+	return execInTerminal(exec.Command(bin, "auth", "login"), func(err error) tea.Msg {
 		if err != nil {
 			return loginResultMsg{err: fmt.Errorf("claude login: %w", err), claude: true}
 		}

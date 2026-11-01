@@ -74,6 +74,15 @@
           ]
         },
         {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Updating no longer leaves the app frozen on the installer's last line. teveus wraps the terminal's input so a mouse report that arrives in pieces isn't typed as text, and a program started with the terminal handed over — the updater, and Claude Code's sign-in from `/login` — got that wrapper instead of the terminal itself. The command ran and finished, but the signal saying so never came back, so the window sat there until it was killed. Both now get the terminal directly, and a finished update still ends the app so the new version starts clean.",
+              "items": []
+            }
+          ]
+        },
+        {
           "title": "Security",
           "items": [
             {

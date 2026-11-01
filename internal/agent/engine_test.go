@@ -481,3 +481,35 @@ func TestTwoEmptyRepliesEndTheTurn(t *testing.T) {
 		t.Fatalf("requests = %d: it kept asking a model that says nothing", len(s.requests))
 	}
 }
+
+// A shell command that reaches for a credential store is asked about even in
+// autopilot: a model talked into `cat ~/.ssh/id_rsa` by something it read
+// must not be able to do it quietly.
+func TestCredentialCommandsAskEvenInAuto(t *testing.T) {
+	s := &script{replies: []string{
+		oaiToolCall("c1", "Bash", `{"command":"cat ~/.ssh/id_rsa"}`),
+		oaiText("I won't do that."),
+	}}
+	srv := httptest.NewServer(s.handler(t, `{"data":[]}`))
+	defer srv.Close()
+	r, _ := startEngine(t, "custom", Credential{BaseURL: srv.URL}, "custom/m", "auto")
+	r.e.Send("read my key")
+	// until(false) denies whatever asks, so an ask is the only way to reach a
+	// result with the command not run.
+	res := r.until(false)
+	if res.IsError {
+		t.Fatalf("result = %+v", res)
+	}
+	var asked bool
+	for _, ev := range r.events {
+		if pr, ok := ev.(*claude.PermissionRequest); ok {
+			asked = true
+			if pr.ToolName != "Bash" {
+				t.Fatalf("asked about %s", pr.ToolName)
+			}
+		}
+	}
+	if !asked {
+		t.Fatal("autopilot ran a command that reads a private key without asking")
+	}
+}

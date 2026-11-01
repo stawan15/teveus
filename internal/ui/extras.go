@@ -13,6 +13,8 @@ import (
 
 	osc52 "github.com/aymanbagabas/go-osc52/v2"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/stawan15/teveus/internal/agent"
 )
 
 // Settings persist between runs in ~/.config/teveus/settings.json.
@@ -43,6 +45,9 @@ type Settings struct {
 	APIModel     string   `json:"apiModel,omitempty"`     // last model picked on the API engine
 	RecentModels []string `json:"recentModels,omitempty"` // newest first
 	PhonePage    bool     `json:"phonePage,omitempty"`    // serve the phone page (phone.go); off by default
+	// WebFetch refuses this machine, its network and cloud metadata by default,
+	// because a URL the model chose is untrusted input (fetchguard.go).
+	WebFetchLocal bool `json:"webFetchLocal,omitempty"`
 }
 
 func configDir() string {
@@ -126,7 +131,13 @@ func saveHistory(h []string) {
 	if len(h) > historyMax {
 		h = h[len(h)-historyMax:]
 	}
-	b, _ := json.Marshal(h)
+	// A prompt is kept so the up arrow works, but a key pasted into one must
+	// not survive on disk: mask it on the way out.
+	clean := make([]string, len(h))
+	for i, s := range h {
+		clean[i] = agent.Redact(s)
+	}
+	b, _ := json.Marshal(clean)
 	writePrivate("history.json", b)
 }
 

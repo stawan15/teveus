@@ -70,6 +70,9 @@ func (m *Model) askClaudeNotice(then func(m *Model) tea.Cmd) {
 	m.pop.accent = cYellow // a notice to read, not an error
 	m.pop.hold, m.pop.holdEnd = "accept", time.Now().Add(claudeNoticeRead)
 	m.pop.flat = true
+	// Agreeing to run Claude Code under Anthropic's terms is recorded for good,
+	// and it has to be given where the user is: not over a link.
+	m.pop.localOnly = true
 	m.pop.cancel = func(m *Model) { m.note("Claude Code not started · /engine to choose", false) }
 }
 

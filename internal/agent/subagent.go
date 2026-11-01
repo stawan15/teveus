@@ -21,8 +21,8 @@ func (e *Engine) tools(main bool) []tool {
 				return e.runWebSearch(ctx, in)
 			}})
 	}
-	if hasSkills(loadCustom(e.opts.Cwd)) {
-		list = append(list, skillTool(e.opts.Cwd))
+	if hasSkills(loadCustom(e.opts.Cwd, e.opts.ConfigDir)) {
+		list = append(list, skillTool(e.opts.Cwd, e.opts.ConfigDir))
 	}
 	list = append(list, e.mcpTools()...)
 	if main {

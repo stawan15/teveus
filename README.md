@@ -59,7 +59,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
 | 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
-| 🧩 **Make it yours** | On the Direct API engine: your slash commands and skills from `.claude/commands` and `.claude/skills`, `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
+| 🧩 **Make it yours** | On the Direct API engine: your slash commands and skills from `.teveus/commands` and `.teveus/skills` in the project, or from the config directory to use them in every project. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for any agent works, and `.agents` and `.claude` are read too. Plus `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
 | 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
 | 📱 **Take it to your phone** | `/phone` serves a page your phone opens: prompt, watch replies and approve tools from the sofa. Every open window shows up there, and the link stays the same between runs |
 | 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |

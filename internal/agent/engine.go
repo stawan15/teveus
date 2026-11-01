@@ -512,7 +512,7 @@ func (e *Engine) loadProviders() {
 	e.emit(claude.Ready{
 		PermissionMode: mode,
 		Models:         models,
-		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd))...),
+		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd, e.opts.ConfigDir))...),
 	})
 	e.emit(claude.Init{SessionID: e.session, Model: model, Cwd: e.opts.Cwd, PermissionMode: mode})
 	go e.refreshUsage(true)
@@ -777,7 +777,7 @@ func (e *Engine) turn(text string, images []claude.Image) {
 	}
 
 	if strings.HasPrefix(strings.TrimSpace(text), "/") {
-		text = expandCustom(loadCustom(e.opts.Cwd), text)
+		text = expandCustom(loadCustom(e.opts.Cwd, e.opts.ConfigDir), text)
 	}
 	e.mu.Lock()
 	cp := &checkpoint{historyLen: len(e.history), files: map[string][]byte{}}
@@ -1038,7 +1038,7 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, paren
 	}
 	outside := false
 	for _, p := range e.toolPaths(t.def.Name, in) {
-		if e.sensitive(p) {
+		if e.sensitivePath(p, t.access == editsFiles) {
 			return p + " holds credentials, so teveus's file tools can't touch it in any mode. Don't try another way; tell the user what you needed.", true
 		}
 		outside = outside || !e.inProject(p)

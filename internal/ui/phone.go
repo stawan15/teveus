@@ -215,7 +215,7 @@ func phoneIsPublicAddr(addr string) bool {
 	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
 		return !ip.IsLoopback()
 	}
-	return strings.EqualFold(host, "localhost") == false
+	return !strings.EqualFold(host, "localhost")
 }
 
 // phoneHost is the address to put in the link: the machine's own address on

@@ -75,7 +75,8 @@ type Engine struct {
 	closed   bool
 	session  string
 	creds    map[string]Credential
-	ctxLen   map[string]int // context window by "provider/model", when known
+	ctxLen   map[string]int      // context window by "provider/model", when known
+	efforts  map[string][]string // reasoning levels the model takes, when known
 	stopTurn bool
 	seen     map[string]readSig // files the main conversation read and is still holding
 
@@ -108,6 +109,7 @@ func Start(opts Options) (*Engine, error) {
 		session:   "api-" + hex.EncodeToString(id),
 		creds:     map[string]Credential{},
 		ctxLen:    map[string]int{},
+		efforts:   map[string][]string{},
 		seen:      map[string]readSig{},
 		effortCap: loadEffortCaps(opts.ConfigDir),
 	}
@@ -481,16 +483,21 @@ func (e *Engine) loadProviders() {
 
 	var models []claude.ModelInfo
 	ctxLen := map[string]int{}
+	efforts := map[string][]string{}
 	for r := range results {
 		for _, m := range r.models {
 			models = append(models, modelInfo(r.p, m))
 			if m.Context > 0 {
 				ctxLen[r.p.ID+"/"+m.ID] = m.Context
 			}
+			if len(m.Efforts) > 0 {
+				efforts[r.p.ID+"/"+m.ID] = m.Efforts
+			}
 		}
 	}
 	e.mu.Lock()
 	e.ctxLen = ctxLen
+	e.efforts = efforts
 	e.mu.Unlock()
 	// Groups: well-known makers first, then the rest alphabetically; within
 	// a group the provider's order (newest first) is kept.
@@ -1243,7 +1250,7 @@ func overflowError(err error) bool {
 // modelInfo shapes a model for the picker: a short name, the full name, a
 // group (provider, and maker for routers) and context/price metadata.
 func modelInfo(p Provider, m Model) claude.ModelInfo {
-	info := claude.ModelInfo{Value: p.ID + "/" + m.ID, DisplayName: m.ID, Group: p.Name}
+	info := claude.ModelInfo{Value: p.ID + "/" + m.ID, DisplayName: m.ID, Group: p.Name, Reasoning: m.Efforts}
 	name := m.Name
 	if vendor, short, ok := strings.Cut(m.ID, "/"); ok {
 		// Routers name models "vendor/model": group by vendor.

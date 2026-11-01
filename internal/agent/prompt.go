@@ -47,7 +47,7 @@ func (e *Engine) systemPrompt() string {
 	if e.opts.Style != "" {
 		sb.WriteString("\n# Communication\n" + e.opts.Style + "\n")
 	}
-	sb.WriteString(skillsPrompt(loadCustom(e.opts.Cwd)))
+	sb.WriteString(skillsPrompt(loadCustom(e.opts.Cwd, e.opts.ConfigDir)))
 	if ins := projectInstructions(e.opts.Cwd); ins != "" {
 		sb.WriteString("\n# Project instructions (from the repository; follow them)\n" + ins + "\n")
 	}

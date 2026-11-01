@@ -5,15 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
-### Added
-
-- Skills and slash commands now live in teveus's own folders: `.teveus/skills` and `.teveus/commands` in the project, or `skills` and `commands` in the config directory to use them in every project. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for another agent works unchanged, and `.agents` and `.claude` are still read (teveus's own folders win when a name is defined twice).
-- A skill's folder comes back with its instructions, so skills that bundle scripts or reference files next to `SKILL.md` work.
-- Skills can say `disable-model-invocation: true` to stay out of the model's hands and only run when you type the command, and `user-invocable: false` to hide from the slash menu. Both are honoured wherever the skill sits.
-
 ### Fixed
 
-- Reading your own skills no longer counts as reading the config directory. The config directory is off limits because it holds your API keys and rules, which also hid the skills in it; that exemption covers reading only, so a reply can't write a skill that you would later load.
+- Models behind OpenCode and other gateways now report their real context window, so auto-compaction fires before a session outgrows it. Those gateways nest the limit as `limit.context` and the prices as `cost.text`, where OpenRouter uses a flat `context_length` and string prices; only the second shape was read, so the window came back as zero and compaction — which is skipped when the window is unknown — never ran. Prices were missing from the picker for the same reason.
+- `max` reasoning effort now reaches models that take it. OpenAI-style APIs were capped at `high` three times over: in the protocol ceiling, in the request builder, and in the effect it had on the effort picker. A gateway that publishes each model's levels (`capabilities.reasoning.effort`, as OpenCode does) is now believed over that guess, so DeepSeek, which takes `low`/`high`/`max`, is no longer quietly held at `high`.
 
 ## [0.30.0] - 2026-11-01
 

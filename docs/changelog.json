@@ -1,11 +1,27 @@
 {
-  "latest": "0.33.0",
+  "latest": "0.33.1",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.32.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.33.1",
+      "date": "2026-11-03",
+      "url": "https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The window sends about a fifth of the bytes to the terminal it used to. Markdown replies were carrying a colour code around every blank that filled a line out to the width — a six-line answer came to 1,300 escape sequences, and a full screen was 53 KB on every redraw. Blanks no longer carry a colour, so a frame is 10 KB. Backgrounds and underlines are untouched.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.0",

@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-11-03
+
+### Changed
+
+- The window sends about a fifth of the bytes to the terminal it used to. Markdown replies were carrying a colour code around every blank that filled a line out to the width — a six-line answer came to 1,300 escape sequences, and a full screen was 53 KB on every redraw. Blanks no longer carry a colour, so a frame is 10 KB. Backgrounds and underlines are untouched.
+
 ## [0.33.0] - 2026-11-03
 
 ### Changed
@@ -418,6 +424,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.1]: https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/stawan15/teveus/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0

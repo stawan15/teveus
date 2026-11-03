@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-03
+
 ### Changed
 
 - Drawing the window is roughly four times cheaper on a long conversation, so streaming a reply no longer makes the interface lag. The transcript is fitted to its column directly instead of through lipgloss, the sidebar is appended row by row, and a frame row is measured with a byte scan when it holds no colour or wide characters.
@@ -416,6 +418,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.0]: https://github.com/stawan15/teveus/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0

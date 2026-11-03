@@ -82,22 +82,23 @@ type Model struct {
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
 
-	sessionID string
-	model     string
-	mode      string
-	cwd       string
-	branch    string
-	cost      float64
-	prevCost  float64
-	context   int
-	fiveHour  *claude.Window
-	sevenDay  *claude.Window
-	monthly   *claude.Window
-	commands  []claude.Command
-	models    []claude.ModelInfo
-	files     []string
-	project   projectInfo
-	starters  []string
+	sessionID  string
+	model      string
+	mode       string
+	modeBefore string // what to fall back to when the CLI refuses a mode
+	cwd        string
+	branch     string
+	cost       float64
+	prevCost   float64
+	context    int
+	fiveHour   *claude.Window
+	sevenDay   *claude.Window
+	monthly    *claude.Window
+	commands   []claude.Command
+	models     []claude.ModelInfo
+	files      []string
+	project    projectInfo
+	starters   []string
 
 	pop           popup
 	warnedCtx     bool
@@ -1101,6 +1102,7 @@ func (m *Model) setModel(name string) {
 }
 
 func (m *Model) setMode(mode string) {
+	m.modeBefore = m.mode
 	m.mode = mode
 	if m.client != nil {
 		m.client.SetPermissionMode(mode)
@@ -1402,10 +1404,20 @@ func (m *Model) handleEvent(ev claude.Event) {
 
 	case claude.ControlResult:
 		if e.Error != "" {
+			// A mode the CLI won't take (auto is not available on every model)
+			// used to leave the pill reading "autopilot" while the session was
+			// still asking: put the mode it kept back on screen.
+			if e.Tag == "mode" && m.modeBefore != "" {
+				m.mode, m.modeBefore = m.modeBefore, ""
+				m.note("still "+modeLabel(m.mode)+": "+e.Error, false)
+				m.layout()
+				return
+			}
 			m.note(e.Tag+": "+e.Error, false)
 			return
 		}
 		if e.Tag == "mode" {
+			m.modeBefore = ""
 			var body struct{ Mode string }
 			if json.Unmarshal(e.Body, &body) == nil && body.Mode != "" {
 				m.mode = body.Mode

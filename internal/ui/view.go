@@ -146,19 +146,36 @@ func (m *Model) View() string {
 	m.layout()
 	main := m.chatView()
 	if m.sideW > 0 {
-		// lipgloss treats Width as a minimum, so a single chat line wider than
-		// the column would shift the sidebar right on that row and draw the row
-		// past the window, which the terminal then wraps — the border walks
-		// sideways and the frame grows a row. Fit the text to the column first.
-		main = lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(m.chatW).Render(fitWidth(main, m.chatW)), m.sidebar(m.vp.Height))
+		// Both sides come out already fitted to their column (the transcript by
+		// the scroller, the sidebar by its own frame), so joining the rows is a
+		// string concat: measuring them again through lipgloss on every
+		// streamed chunk was most of a frame's work.
+		main = joinSides(main, m.sidebar(m.vp.Height))
 	}
 	rows := []string{m.header()}
 	if t := m.tabStrip(); t != "" {
 		rows = append(rows, t)
 	}
-	return m.clampFrame(lipgloss.JoinVertical(lipgloss.Left,
-		append(rows, main, m.bottomFitted(), m.statusBar())...))
+	rows = append(rows, main, m.bottomFitted(), m.statusBar())
+	return m.clampFrame(strings.Join(rows, "\n"))
+}
+
+// joinSides puts the transcript and the sidebar on the same rows, left to
+// right.
+func joinSides(left, right string) string {
+	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
+	out := make([]string, max(len(l), len(r)))
+	for i := range out {
+		var a, b string
+		if i < len(l) {
+			a = l[i]
+		}
+		if i < len(r) {
+			b = r[i]
+		}
+		out[i] = a + b
+	}
+	return strings.Join(out, "\n")
 }
 
 // clampFrame makes the frame exactly as tall as the window with every row
@@ -175,7 +192,7 @@ func (m *Model) clampFrame(s string) string {
 	lines := strings.Split(s, "\n")
 	pad := strings.Repeat(" ", m.w)
 	for i, l := range lines {
-		switch w := ansi.StringWidth(l); {
+		switch w := lineWidth(l); {
 		case w > m.w:
 			lines[i] = ansi.Truncate(l, m.w, "")
 		case w < m.w:

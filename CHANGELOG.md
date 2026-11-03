@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.2] - 2026-11-03
+
+### Changed
+
+- Saving a conversation no longer rescans the whole transcript for secrets after every turn. Ordinary prose holds nothing a key pattern can match, so the scan stops at a cheap first check: a long session now saves in 2 ms instead of 160 ms, and a reply is no longer followed by a stall.
+- A long saved conversation draws its blocks on every core at once instead of one after another.
+- The usage bars in the sidebar keep their percentage on the same line as the bar. It was dropping onto a line of its own, one cell past the column.
+
+### Fixed
+
+- Start-up is as quick as it was before 0.32. A dependency update had made the width tables cost 23 ms at launch; the two libraries are pinned back.
+
 ## [0.33.1] - 2026-11-03
 
 ### Changed
@@ -424,6 +436,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.2]: https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/stawan15/teveus/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0

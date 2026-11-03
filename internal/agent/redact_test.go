@@ -216,3 +216,31 @@ func TestCheckpointKeepsFileMode(t *testing.T) {
 		t.Fatalf("restored with %o, want 600", perm)
 	}
 }
+
+// The quick test that skips the regexes must never skip a secret: whatever
+// the patterns are meant to catch has to pass mayHoldSecret.
+func TestQuickCheckPassesEverySecretShape(t *testing.T) {
+	for _, in := range []string{
+		"sk-abcdefghijklmnopqrstuvwxyz012345",
+		"ANTHROPIC_API_KEY=sk-ant-api03-abcdefghijklmnopqrstuv",
+		"ghp_abcdefghijklmnopqrstuvwxyz0123",
+		"AKIAIOSFODNN7EXAMPLE",
+		"Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+		"xoxb-123456789012-abcdefghij",
+		"postgres://user:hunter2password@db.local/x",
+		"password=\"correct horse battery\"",
+		"AIzaSyA1234567890abcdefghijklmnopqrstuv",
+		"-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----",
+		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnop",
+		"glpat-abcdefghijklmnopqrst",
+		"npm_abcdefghijklmnopqrstuvwxyz0123",
+		"github_pat_abcdefghijklmnopqrstuvwxyz",
+	} {
+		if !mayHoldSecret(in) {
+			t.Errorf("skipped a secret shape: %q", in)
+		}
+		if got := Redact(in); !strings.Contains(got, maskedPrefix) {
+			t.Errorf("%q was not masked: %q", in, got)
+		}
+	}
+}

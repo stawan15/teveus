@@ -1,11 +1,44 @@
 {
-  "latest": "0.33.1",
+  "latest": "0.33.2",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.32.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.33.2",
+      "date": "2026-11-03",
+      "url": "https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Saving a conversation no longer rescans the whole transcript for secrets after every turn. Ordinary prose holds nothing a key pattern can match, so the scan stops at a cheap first check: a long session now saves in 2 ms instead of 160 ms, and a reply is no longer followed by a stall.",
+              "items": []
+            },
+            {
+              "text": "A long saved conversation draws its blocks on every core at once instead of one after another.",
+              "items": []
+            },
+            {
+              "text": "The usage bars in the sidebar keep their percentage on the same line as the bar. It was dropping onto a line of its own, one cell past the column.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Start-up is as quick as it was before 0.32. A dependency update had made the width tables cost 23 ms at launch; the two libraries are pinned back.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.1",

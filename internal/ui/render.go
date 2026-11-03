@@ -489,6 +489,18 @@ func truncate(s string, w int) string {
 	return ansi.Truncate(s, w, "…")
 }
 
+// lineWidth is ansi.StringWidth with a fast path for the plain rows most of a
+// frame is made of: printable ASCII with no escape sequences is one cell a
+// byte. Measuring a frame row costs more than drawing the transcript.
+func lineWidth(s string) int {
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c < 0x20 || c > 0x7e {
+			return ansi.StringWidth(s)
+		}
+	}
+	return len(s)
+}
+
 // fitWidth hard-wraps any line of s wider than w, so text with no spaces to
 // break on (Thai, Chinese, URLs) cannot draw past its column. lipgloss only
 // wraps at word boundaries, and its Width is a minimum, not a clamp.

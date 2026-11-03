@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -63,14 +62,24 @@ func (s *scroller) visible() []string {
 }
 
 func (s *scroller) View() string {
-	// Clamp before padding: lipgloss treats Width as a minimum, so a line
-	// wider than the viewport (text with no spaces to wrap on) would draw over
-	// whatever sits beside it instead of being cut.
-	lines := s.visible()
-	fitted := make([]string, len(lines))
-	for i, l := range lines {
-		fitted[i] = ansi.Truncate(l, s.Width, "")
+	// Clamp before padding: a line wider than the viewport (text with no
+	// spaces to wrap on) would draw over whatever sits beside it instead of
+	// being cut. Padding by hand keeps this off lipgloss, which would measure
+	// every row of the visible screen on each streamed chunk.
+	width, height := max(s.Width, 0), max(s.Height, 0)
+	blank := strings.Repeat(" ", width)
+	out := make([]string, 0, height)
+	for _, l := range s.visible() {
+		switch w := lineWidth(l); {
+		case w > width:
+			l = ansi.Truncate(l, width, "")
+		case w < width:
+			l += blank[w:]
+		}
+		out = append(out, l)
 	}
-	return lipgloss.NewStyle().Width(s.Width).Height(s.Height).MaxHeight(s.Height).MaxWidth(s.Width).
-		Render(strings.Join(fitted, "\n"))
+	for len(out) < height {
+		out = append(out, blank)
+	}
+	return strings.Join(out, "\n")
 }

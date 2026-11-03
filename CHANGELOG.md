@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Changed
+
+- Drawing the window is roughly four times cheaper on a long conversation, so streaming a reply no longer makes the interface lag. The transcript is fitted to its column directly instead of through lipgloss, the sidebar is appended row by row, and a frame row is measured with a byte scan when it holds no colour or wide characters.
+
+### Fixed
+
+- The permission pill no longer says autopilot while the session is still asking. Claude Code refuses `auto` on models that don't support it and keeps the old mode; teveus now puts that mode back on screen and shows the reason.
+
 ## [0.32.0] - 2026-11-01
 
 ### Added

@@ -62,6 +62,21 @@ func TestCycleModeWalksTheList(t *testing.T) {
 	}
 }
 
+// A mode the CLI refuses (auto is not available on every model) must not
+// leave the pill claiming a mode the session isn't running.
+func TestRefusedModeGoesBackOnScreen(t *testing.T) {
+	m := testModel(t)
+	m.mode = "default"
+	m.setMode("auto")
+	m.handleEvent(claude.ControlResult{Tag: "mode", Error: "auto mode unavailable for this model"})
+	if m.mode != "default" {
+		t.Fatalf("mode after a refused switch: %q, want default", m.mode)
+	}
+	if !strings.Contains(m.notice, "auto mode unavailable") {
+		t.Fatalf("the refusal wasn't shown: %q", m.notice)
+	}
+}
+
 func TestTrimAsksForTheDiffOrTheProject(t *testing.T) {
 	m := testModel(t)
 	b := &captureBackend{tabBackend: tabBackend{ch: make(chan claude.Event)}}

@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -69,6 +72,7 @@ func (m *Model) refresh() {
 	// The last block is left out of the cache: it is the one a streamed chunk
 	// changes, so the prefix would be stale by the next refresh.
 	cut := max(len(m.blocks)-1, 0)
+	m.warm(m.blocks[base:cut], width)
 	saved := false
 	var next prefixCache
 	for i := base; i < len(m.blocks); i++ {
@@ -111,6 +115,43 @@ func (m *Model) refresh() {
 	if m.phone != nil {
 		m.phone.snapshot(m)
 	}
+}
+
+// warm renders blocks that still need paint before the loop that joins them,
+// spreading the work over the cores when there is enough of it. glamour keeps
+// state inside a renderer, so each worker draws with its own; the blocks it
+// fills are only read afterwards, by this goroutine.
+//
+// A resumed conversation is the case this is for: opening 3,000 saved blocks
+// meant 3,000 markdown renders in a row, and most of the second it took.
+func (m *Model) warm(blocks []*block, width int) {
+	var todo []*block
+	for _, b := range blocks {
+		if b.needsPaint(width) {
+			todo = append(todo, b)
+		}
+	}
+	if len(todo) < 24 || runtime.GOMAXPROCS(0) < 2 {
+		return // not worth the goroutines; render() will do these in the loop
+	}
+	workers := min(runtime.GOMAXPROCS(0), len(todo))
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r := renderer{cwd: m.r.cwd, expand: m.r.expand, spin: m.r.spin}
+			for {
+				i := int(next.Add(1) - 1)
+				if i >= len(todo) {
+					return
+				}
+				r.render(todo[i], width)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // prefixCache is the transcript drawn up to the last block: how many lines it
@@ -472,8 +513,12 @@ func todoTasks(input map[string]any) []task {
 }
 
 func usageLine(name string, win *claude.Window, w int) []string {
+	// The name and its space are part of the row: leave room for them before
+	// asking the bar for the rest, or the row runs a cell wide and the
+	// percentage wraps onto a line of its own.
+	label := name + " "
 	pct := fmt.Sprintf(" %3.0f%%", win.Utilization*100)
-	lines := []string{sDim.Render(name+" ") + bar(win.Utilization, w-3-len(pct)) + sText.Render(pct)}
+	lines := []string{sDim.Render(label) + bar(win.Utilization, w-len(label)-len(pct)) + sText.Render(pct)}
 	if win.ResetsAt > 0 {
 		lines = append(lines, sFaint.Render("   resets "+time.Unix(win.ResetsAt, 0).Format("Mon 15:04")))
 	}

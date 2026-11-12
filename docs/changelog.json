@@ -1,11 +1,27 @@
 {
-  "latest": "0.33.4",
+  "latest": "0.33.5",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.32.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.33.5",
+      "date": "2026-11-03",
+      "url": "https://github.com/stawan15/teveus/compare/v0.33.4...v0.33.5",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "The window redraws about twenty times cheaper while a reply streams, so the spinner and the text no longer stutter. The sidebar, the frame padding and the sweep of light across the status bar were being rebuilt on every animation tick although none of them had changed. A frame is now 53 µs where it was 2.7 ms, and 2.3 ms in 0.29.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.4",

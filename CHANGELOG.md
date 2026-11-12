@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.5] - 2026-11-03
+
+### Changed
+
+- The window redraws about twenty times cheaper while a reply streams, so the spinner and the text no longer stutter. The sidebar, the frame padding and the sweep of light across the status bar were being rebuilt on every animation tick although none of them had changed. A frame is now 53 µs where it was 2.7 ms, and 2.3 ms in 0.29.
+
 ## [0.33.4] - 2026-11-03
 
 ### Changed
@@ -448,6 +454,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.5]: https://github.com/stawan15/teveus/compare/v0.33.4...v0.33.5
 [0.33.4]: https://github.com/stawan15/teveus/compare/v0.33.3...v0.33.4
 [0.33.3]: https://github.com/stawan15/teveus/compare/v0.33.2...v0.33.3
 [0.33.2]: https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2

@@ -206,9 +206,9 @@ func (b *block) needsPaint(width int) bool {
 //
 // A newline restarts the wrap, so everything up to the last newline lays out
 // the same no matter what follows: that part is wrapped once and kept, and
-// only the line still being written is wrapped again. Chunks almost always
-// fall inside a line, and a line is bounded by the column, not by the length
-// of the reply.
+// only the line still being written is wrapped again. A chunk almost always
+// falls inside a line, so the work per chunk is one line's worth instead of
+// the whole reply.
 func (r *renderer) streamingText(b *block, width int) string {
 	const pad = 2
 	body := max(width-pad, 1)

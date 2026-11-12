@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-11-12
+
 ### Security
 
 - `golang.org/x/net` is at v0.62.0, which fixes a parser bug that could make WebFetch stall on a page built from many short text runs. The Go toolchain is pinned to 1.27.4 for the `net/http` fix in GO-2026-6859, which the phone page's `MaxBytesReader` could reach.
@@ -353,6 +355,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.29.0...HEAD
+[0.29.1]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0

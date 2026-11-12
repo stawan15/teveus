@@ -231,22 +231,48 @@ func (m *Model) clampFrame(s string) string {
 	// cell, terminals draw two, so measuring the folded form under-reports.
 	s = termSafe(s)
 	lines := strings.Split(s, "\n")
-	pad := strings.Repeat(" ", m.w)
+	if cap(m.clamped) < len(lines) {
+		m.clamped = make([]string, 0, len(lines)+8)
+	}
+	m.clamped = m.clamped[:len(lines)]
 	for i, l := range lines {
-		switch w := lineWidth(l); {
-		case w > m.w:
-			lines[i] = ansi.Truncate(l, m.w, "")
-		case w < m.w:
-			lines[i] = l + pad[w:]
+		m.clamped[i] = m.fitRow(l)
+	}
+	if len(m.clamped) > m.h {
+		m.clamped = m.clamped[:m.h]
+	}
+	return strings.Join(m.clamped, "\n")
+}
+
+// fitRow pads or cuts one frame row to the window width. Most rows are the
+// same string from frame to frame (the sidebar, the header, the status bar)
+// or differ in a way that leaves the width alone, and measuring a styled row
+// means walking its graphemes — 21% of a frame before this cache.
+func (m *Model) fitRow(l string) string {
+	target := m.w // the width the row is fitted to
+	if m.rowCache == nil {
+		m.rowCache = make(map[string]string, 64)
+	}
+	if target != m.rowCacheW {
+		for k := range m.rowCache {
+			delete(m.rowCache, k)
 		}
+		m.rowCacheW, m.rowPad = target, strings.Repeat(" ", target)
 	}
-	if len(lines) > m.h {
-		lines = lines[:m.h]
+	if out, ok := m.rowCache[l]; ok {
+		return out
 	}
-	for len(lines) < m.h {
-		lines = append(lines, pad)
+	out := l
+	switch w := lineWidth(l); {
+	case w > target:
+		out = ansi.Truncate(l, target, "")
+	case w < target:
+		out = l + m.rowPad[w:]
 	}
-	return strings.Join(lines, "\n")
+	if len(m.rowCache) < 512 {
+		m.rowCache[l] = out
+	}
+	return out
 }
 
 // bottomFitted is the bottom area cut to leave room for the header, the
@@ -356,6 +382,21 @@ func (m *Model) center(width int, lines []string) string {
 }
 
 func (m *Model) sidebar(height int) string {
+	// Everything the sidebar shows — model, mode, cost, tokens, usage bars —
+	// stays the same while a reply streams, but the frame is redrawn many
+	// times a second for the spinner. Cached on those values the redraws are
+	// free, and comparing them is cheaper than building the section stack.
+	key := sideKey{
+		height: height, sideW: m.sideW, model: m.model, mode: m.mode,
+		engine: m.engine, cost: m.cost, tokIn: m.tokIn, tokOut: m.tokOut,
+		context: m.context, busy: m.busy, perms: len(m.perms),
+		queue: len(m.queue), tasks: len(m.tasks), todos: len(m.todos),
+		sessionID: m.sessionID, cwd: m.cwd, branch: m.branch,
+		five: m.fiveHour != nil, seven: m.sevenDay != nil, month: m.monthly != nil,
+	}
+	if m.sideCache != "" && key == m.sideKeyUsed {
+		return m.sideCache
+	}
 	w := m.sideW - 3
 	var s []string
 	section := func(title, right string) {
@@ -492,12 +533,25 @@ func (m *Model) sidebar(height int) string {
 	// and a line that wraps on screen pushes the border in a row and everything
 	// below it down. Fit the joined rows to the inner width first; wrapping
 	// can add rows, so MaxHeight still decides the final height.
-	return lipgloss.NewStyle().
+	out := lipgloss.NewStyle().
 		Width(m.sideW-1).Height(height).MaxHeight(height).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(cFaint).
 		PaddingLeft(1).
 		Render(fitWidth(strings.Join(s, "\n"), w))
+	m.sideCache, m.sideKeyUsed = out, key
+	return out
+}
+
+// sideKey is what the sidebar depends on: everything its sections print.
+type sideKey struct {
+	height, sideW, perms, queue, tasks, todos int
+	model, mode, engine                       string
+	cost                                      float64
+	tokIn, tokOut, context                    int
+	busy                                      bool
+	sessionID, cwd, branch                    string
+	five, seven, month                        bool
 }
 
 func todoTasks(input map[string]any) []task {
@@ -745,20 +799,38 @@ func (m *Model) spendLine() string {
 }
 
 // shimmer paints text with a bright band sweeping across it.
+// shimmer lets a highlight run along the phase text while a turn runs. Only
+// three shades are ever used (the head of the sweep and its two neighbours),
+// and they are worked out once: a per-rune lipgloss style was 686 allocations
+// and 60 µs of every frame, an eighth of the whole redraw, for one line.
+var shimmerShades = func() [3]string {
+	var out [3]string
+	for d := 0; d < 3; d++ {
+		out[d] = lipgloss.NewStyle().
+			Foreground(mix(cAccent, lipgloss.Color("#FFFFFF"), 0.6-float64(d)*0.2)).
+			Render("\x00")
+	}
+	return out
+}()
+
 func shimmer(s string, frame int) string {
 	runes := []rune(s)
 	pos := frame%(len(runes)+10) - 3
 	var sb strings.Builder
+	sb.Grow(len(s) * 6)
 	for i, r := range runes {
 		d := i - pos
 		if d < 0 {
 			d = -d
 		}
-		t := 0.0
-		if d < 3 {
-			t = 0.6 - float64(d)*0.2
+		if d >= 3 {
+			sb.WriteRune(r)
+			continue
 		}
-		sb.WriteString(lipgloss.NewStyle().Foreground(mix(cAccent, lipgloss.Color("#FFFFFF"), t)).Render(string(r)))
+		sh := shimmerShades[d]
+		sb.WriteString(sh[:strings.Index(sh, "\x00")])
+		sb.WriteRune(r)
+		sb.WriteString(sh[strings.Index(sh, "\x00")+1:])
 	}
 	return sb.String()
 }

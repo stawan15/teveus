@@ -69,6 +69,19 @@ type Model struct {
 	tc           prefixCache
 	sel          selection
 
+	// clampFrame fits each row to the window; most rows repeat from frame to
+	// frame, so the fitted form is cached. rowCacheW is the width it was
+	// filled for and rowPad a row of blanks at that width.
+	clamped   []string
+	rowCache  map[string]string
+	rowCacheW int
+	rowPad    string
+
+	// sideCache keeps the drawn sidebar: it changes only when one of the
+	// values in sideKey does, and the spinner redraws the frame without it.
+	sideCache   string
+	sideKeyUsed sideKey
+
 	// inputCache keeps the drawn input box. A scroll or a streamed chunk
 	// redraws the frame with the same box, and drawing it costs about a
 	// seventh of a frame: the textarea's view goes through lipgloss.

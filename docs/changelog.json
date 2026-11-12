@@ -1,11 +1,27 @@
 {
-  "latest": "0.33.3",
+  "latest": "0.33.4",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.32.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.33.4",
+      "date": "2026-11-03",
+      "url": "https://github.com/stawan15/teveus/compare/v0.33.3...v0.33.4",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "A long reply no longer gets slower to draw as it grows. Every chunk used to re-wrap the whole answer so far, so the end of a long one re-laid-out thousands of words per chunk; it now wraps only the line still being written. A 4,000-word reply costs 60 µs per chunk where it cost 1.2 ms.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.3",

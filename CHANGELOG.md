@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.4] - 2026-11-03
+
+### Changed
+
+- A long reply no longer gets slower to draw as it grows. Every chunk used to re-wrap the whole answer so far, so the end of a long one re-laid-out thousands of words per chunk; it now wraps only the line still being written. A 4,000-word reply costs 60 µs per chunk where it cost 1.2 ms.
+
 ## [0.33.3] - 2026-11-03
 
 ### Changed
@@ -442,6 +448,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.4]: https://github.com/stawan15/teveus/compare/v0.33.3...v0.33.4
 [0.33.3]: https://github.com/stawan15/teveus/compare/v0.33.2...v0.33.3
 [0.33.2]: https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1

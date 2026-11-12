@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.3] - 2026-11-03
+
+### Changed
+
+- Typing and scrolling show up about three times sooner. A key used to wait for the next 60 FPS tick of the renderer, and every frame rebuilt the input box from scratch; the renderer now runs at 120 FPS and the box is reused until something in it changes. Measured on a terminal: 13 ms per keystroke before, 4 ms now.
+
 ## [0.33.2] - 2026-11-03
 
 ### Changed
@@ -436,6 +442,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.3]: https://github.com/stawan15/teveus/compare/v0.33.2...v0.33.3
 [0.33.2]: https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2
 [0.33.1]: https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/stawan15/teveus/compare/v0.32.0...v0.33.0

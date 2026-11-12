@@ -2,6 +2,22 @@
   "latest": "0.29.0",
   "versions": [
     {
+      "version": "Unreleased",
+      "date": null,
+      "url": "https://github.com/stawan15/teveus/compare/v0.29.0...HEAD",
+      "sections": [
+        {
+          "title": "Security",
+          "items": [
+            {
+              "text": "`golang.org/x/net` is at v0.62.0, which fixes a parser bug that could make WebFetch stall on a page built from many short text runs. The Go toolchain is pinned to 1.27.4 for the `net/http` fix in GO-2026-6859, which the phone page's `MaxBytesReader` could reach.",
+              "items": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.29.0",
       "date": "2026-10-26",
       "url": "https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0",

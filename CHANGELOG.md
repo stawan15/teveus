@@ -3,6 +3,12 @@
 What changed in each version of teveus. The newest version is at the top.
 The format follows [Keep a Changelog](https://keepachangelog.com), and versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Security
+
+- `golang.org/x/net` is at v0.62.0, which fixes a parser bug that could make WebFetch stall on a page built from many short text runs. The Go toolchain is pinned to 1.27.4 for the `net/http` fix in GO-2026-6859, which the phone page's `MaxBytesReader` could reach.
+
 ## [0.29.0] - 2026-10-26
 
 ### Changed

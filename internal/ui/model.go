@@ -69,6 +69,12 @@ type Model struct {
 	tc           prefixCache
 	sel          selection
 
+	// inputCache keeps the drawn input box. A scroll or a streamed chunk
+	// redraws the frame with the same box, and drawing it costs about a
+	// seventh of a frame: the textarea's view goes through lipgloss.
+	inputCache string
+	inputKey   string
+
 	blocks   []*block
 	tools    map[string]*block
 	stream   *block

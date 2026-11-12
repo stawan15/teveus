@@ -58,6 +58,11 @@ func main() {
 	}
 
 	progOpts := []tea.ProgramOption{tea.WithAltScreen()}
+	// A key or a wheel notch shows up on the next tick of the renderer, so the
+	// 60 FPS default is up to 16 ms of delay on every scroll. The renderer
+	// skips a frame whose buffer did not change, so raising the cap costs
+	// nothing while the window is idle.
+	progOpts = append(progOpts, tea.WithFPS(120))
 	if !settings.NoMouse {
 		progOpts = append(progOpts, tea.WithMouseCellMotion())
 	}

@@ -588,6 +588,15 @@ func (m *Model) queueView() string {
 // inputView draws the input box with the permission mode set into its bottom
 // border, so the mode sits right where you type without crowding the text.
 func (m *Model) inputView() string {
+	// The box only changes when its text, the cursor line, the height or the
+	// mode does. A scroll or a streamed chunk redraws the same box, and
+	// rendering it costs about a seventh of a frame (the textarea goes through
+	// lipgloss), so the last drawing is reused.
+	key := m.input.Value() + "\x00" + m.mode + "\x00" +
+		fmt.Sprint(m.w, "/", m.input.Line(), "/", m.input.Height())
+	if m.inputCache != "" && key == m.inputKey {
+		return m.inputCache
+	}
 	col := modeColor(m.mode)
 	bc := lipgloss.NewStyle().Foreground(cFaint)
 	label := " " + lipgloss.NewStyle().Foreground(col).Render("● "+modeLabel(m.mode)) + " "
@@ -608,7 +617,8 @@ func (m *Model) inputView() string {
 		// taller than the space layout gave it and shoves the hints and status
 		// bar off the bottom of the screen.
 		Render(fitWidth(m.input.View(), max(w-2, 1)))
-	return top + "\n" + body + "\n" + bottom
+	m.inputCache, m.inputKey = top+"\n"+body+"\n"+bottom, key
+	return m.inputCache
 }
 
 func (m *Model) permView() string {

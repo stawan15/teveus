@@ -57,6 +57,12 @@ type block struct {
 	cache  string
 	cacheW int
 	dirty  bool
+
+	// A reply that is still arriving is laid out once up to its last newline;
+	// wrappedLen says how much of text that covers. See streamingText.
+	wrapped    string
+	wrappedLen int
+	wrappedW   int
 }
 
 func (b *block) invalidate() { b.dirty = true }
@@ -151,8 +157,7 @@ func (r *renderer) render(b *block, width int) string {
 	case kindAssistant:
 		if b.streaming {
 			// Raw text while streaming; markdown once the block is complete.
-			out = lipgloss.NewStyle().Width(width-2).PaddingLeft(2).Foreground(cText).Render(b.text) +
-				sAccent.Render(" ▍")
+			out = r.streamingText(b, width) + sAccent.Render(" ▍")
 		} else {
 			out = r.markdown(b.text, width)
 		}
@@ -173,6 +178,13 @@ func (r *renderer) render(b *block, width int) string {
 		}
 		out = strings.Join(lines, "\n")
 	}
+	if b.streaming {
+		// streamingText already breaks every line to the column, and there are
+		// no links or padding colours to strip: fitting it again would cut the
+		// whole reply a second time on every chunk.
+		b.cache, b.cacheW, b.dirty = out, width, false
+		return b.cache
+	}
 	if !b.streaming {
 		out = linkify(out, b.text+"\n"+b.result)
 	}
@@ -185,6 +197,41 @@ func (r *renderer) render(b *block, width int) string {
 // needsPaint reports whether render would do any work for this block.
 func (b *block) needsPaint(width int) bool {
 	return b.dirty || b.cacheW != width || b.cache == ""
+}
+
+// streamingText lays out a reply that is still arriving. Wrapping the whole
+// text on every chunk was the slow part of a long answer: lipgloss re-wrapped
+// 4,000 words each time a few more arrived, over a millisecond per chunk and
+// growing with the answer.
+//
+// A newline restarts the wrap, so everything up to the last newline lays out
+// the same no matter what follows: that part is wrapped once and kept, and
+// only the line still being written is wrapped again. Chunks almost always
+// fall inside a line, and a line is bounded by the column, not by the length
+// of the reply.
+func (r *renderer) streamingText(b *block, width int) string {
+	const pad = 2
+	body := max(width-pad, 1)
+	wrap := func(s string) string { return sText.Width(body).PaddingLeft(pad).Render(s) }
+
+	if b.wrappedW != width {
+		b.wrapped, b.wrappedLen, b.wrappedW = "", 0, width
+	}
+	// Settle whole lines: a line that is still open can still gain words.
+	if cut := strings.LastIndexByte(b.text, '\n') + 1; cut > b.wrappedLen && cut <= len(b.text) {
+		if b.wrapped != "" {
+			b.wrapped += "\n"
+		}
+		b.wrapped += wrap(b.text[b.wrappedLen:cut])
+		b.wrappedLen = cut
+	}
+	if tail := b.text[min(b.wrappedLen, len(b.text)):]; tail != "" {
+		if b.wrapped == "" {
+			return wrap(tail)
+		}
+		return b.wrapped + "\n" + wrap(tail)
+	}
+	return b.wrapped
 }
 
 // stripPaddingColour removes the foreground-colour codes glamour wraps around

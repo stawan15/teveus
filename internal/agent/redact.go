@@ -116,11 +116,39 @@ func redactWith(s string, extra []string) string {
 			s = strings.ReplaceAll(s, v, maskTail(v))
 		}
 	}
+	// Every pattern needs some marker of a secret to match at all: a run of
+	// twenty letters, an "=", an "@", a colon. Ordinary prose in a long
+	// conversation has none of them, and this is called for every message on
+	// every save — thirteen regexes over a thousand messages was 158 ms, most
+	// of the time a turn spent after the reply was already on screen.
+	if !mayHoldSecret(s) {
+		return s
+	}
 	for _, p := range secretPatterns {
 		re, keep := p.re, p.keep
 		s = re.ReplaceAllStringFunc(s, func(m string) string { return maskMatch(keep, m) })
 	}
 	return s
+}
+
+// mayHoldSecret cheaply rules out text with nothing a pattern could match:
+// every rule needs either a symbol (=, :, @, /) or a long unbroken token.
+func mayHoldSecret(s string) bool {
+	run := 0
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '=' || c == ':' || c == '@' || c == '/':
+			return true
+		case c >= 'A' && c <= 'Z', c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_' || c == '-':
+			run++
+			if run >= 8 {
+				return true // a token long enough to be a key
+			}
+		default:
+			run = 0
+		}
+	}
+	return false
 }
 
 // maskMatch keeps the readable part of a match (the header name, the key

@@ -66,6 +66,7 @@ type Model struct {
 	frame        int
 	blockStart   []int    // first transcript line of each block, for mouse clicks
 	lines        []string // rendered transcript lines, for selection
+	tc           prefixCache
 	sel          selection
 
 	blocks   []*block
@@ -202,6 +203,10 @@ func New(cfg Config) *Model {
 		histIdx:    -1,
 	}
 	m.setProject(cwd)
+	// Teach the redactor the keys this install holds, so they are masked even
+	// when they have no recognisable shape (a self-hosted base URL's token, a
+	// key copied out of auth.json).
+	agent.LoadKnownSecrets(configDir())
 	return m
 }
 
@@ -241,8 +246,13 @@ func (m *Model) startPhoneServer() tea.Cmd {
 	}
 	m.settings.PhonePage = true
 	saveSettings(m.settings)
-	m.add(&block{kind: kindInfo, text: "Phone: open this on a device on the same network —\n" + url +
-		"\nAnyone with this link can prompt and approve. Turn it off with /phone off."})
+	note := "Phone: open this on a device that can reach this machine —\n" + url +
+		"\nAnyone with this link can prompt and approve. Turn it off with /phone off."
+	if phoneIsPublicAddr(addr) {
+		note += "\n⚠ It is listening on every interface over plain HTTP, so anyone on this network can read the traffic." +
+			" Prefer the default (127.0.0.1) with a tunnel, or a network you trust."
+	}
+	m.add(&block{kind: kindInfo, text: note})
 	return nil
 }
 
@@ -289,6 +299,9 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	var c claude.Backend
 	var err error
 	if m.engine == "api" {
+		// WebFetch's guard is process-wide: it covers the tool whether the
+		// engine, a subagent or a resumed session calls it.
+		agent.SetWebFetchLocal(m.settings.WebFetchLocal)
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
@@ -317,7 +330,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.ResumeMsg:
-		// Back from ctrl+z: the shell drew over the screen while teveus was
+		// Back from a stop: the shell drew over the screen while teveus was
 		// stopped, and Bubble Tea's renderer still believes its last frame is
 		// on screen, so nothing would be drawn. Ask for a clear, which also
 		// resets that belief, and put the key protocol back.
@@ -327,6 +340,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.layout()
 		m.refresh()
+		// ReleaseTerminal turns mouse capture off, and RestoreTerminal doesn't
+		// turn it back on, so without this the wheel stops scrolling after the
+		// first stop until the app is restarted.
+		if !m.settings.NoMouse {
+			return m, tea.Batch(tea.EnableMouseCellMotion, func() tea.Msg { return repaintMsg{} })
+		}
 		return m, func() tea.Msg { return repaintMsg{} }
 
 	case repaintMsg:
@@ -960,10 +979,10 @@ func (m *Model) submit(text string) tea.Cmd {
 				}
 			}
 		}
-		// Claude Code reads its own ".claude" files, not teveus's ".agent"
-		// layout, so those commands are filled in here.
+		// Claude Code reads its own ".claude" files, not teveus's own layouts,
+		// so those commands are filled in here.
 		if m.engine != "api" {
-			if expanded, ok := agent.ExpandOwn(m.cwd, text); ok {
+			if expanded, ok := agent.ExpandOwn(m.cwd, configDir(), text); ok {
 				m.sendShown = strings.TrimSpace(text)
 				text = expanded
 			}

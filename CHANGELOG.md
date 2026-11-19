@@ -7,21 +7,74 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ### Added
 
-- teveus has its own layout for commands and skills: `.agent/commands/<name>.md` and `.agent/skills/<name>/SKILL.md`, in the project or in your home directory. A skill dropped there is `/<name>` in the `/` menu straight away, with no setup, and works on both engines — Claude Code doesn't read `.agent`, so the app fills the command in before sending. Files in `.claude/` are still read, and `.agent/` wins when both define the same name.
+- teveus has its own layout for commands and skills: `.teveus/commands/<name>.md` and `.teveus/skills/<name>/SKILL.md`, in the project or in your home directory (the `.agent` spelling of both works too). A skill dropped there is `/<name>` in the `/` menu straight away, with no setup, on either engine — Claude Code doesn't read those directories, so the app fills the command in before sending and the transcript still shows what you typed.
 
 ### Fixed
 
-- Your skills and slash commands now keep their own format and steps when the assistant-style savers are on. The concise answer style, minimal code levels and the private answer style defer to a skill's own instructions instead of shortening its checklist away.
-- A skill that the model loaded no longer disappears from the conversation when old tool output is dropped to save context, so long tasks don't lose their steps half way.
+- Your skills and slash commands keep their own format and steps when the assistant-style savers are on. The concise answer style, minimal code levels and the private answer style now say they are only the default, so they no longer shorten a skill's checklist away.
+- A skill the model loaded no longer disappears from the conversation when old tool output is dropped to save context, so a long task doesn't lose its steps half way.
 - Subagents can load a skill and are told which ones exist, and they no longer run at a lower reasoning effort than you picked.
 - Tool output wider than the window wraps instead of ending in `…`, so a long command result or URL is readable without expanding. Fence markers no longer flash as bare backticks while a reply streams in.
 - Rendering no longer rewrites the transcript text, so copying a Thai reply (or saving the session) gives back the characters the model wrote.
 
-## [0.29.1] - 2026-11-12
+## [0.32.0] - 2026-11-01
+
+### Added
+
+- `/scrub` masks the secrets in conversations saved before this version. New conversations, prompt history and exports are masked as they are written, so an API key you pasted, or an `.env` a command printed, comes back as `[redacted:…abcd]`, with the last four characters left so you can tell which key it was.
+
+### Changed
+
+- The phone page listens on `127.0.0.1` unless you name another address, so reaching it from a phone goes through a tunnel you set up rather than your whole network. Binding wider still works (`-phone 0.0.0.0:8787`) and now says so, warning that the page is plain HTTP.
+- Opening the phone link now trades its token for an `HttpOnly`, `SameSite=Strict` cookie and redirects to `/`. The token stops appearing in the address bar, the browser history and the requests the page makes, and other windows' pages no longer carry their links: tapping one asks this window's server to open it.
+
+### Fixed
+
+- Updating no longer leaves the app frozen on the installer's last line. teveus wraps the terminal's input so a mouse report that arrives in pieces isn't typed as text, and a program started with the terminal handed over — the updater, and Claude Code's sign-in from `/login` — got that wrapper instead of the terminal itself. The command ran and finished, but the signal saying so never came back, so the window sat there until it was killed. Both now get the terminal directly, and a finished update still ends the app so the new version starts clean.
 
 ### Security
 
-- `golang.org/x/net` is at v0.62.0, which fixes a parser bug that could make WebFetch stall on a page built from many short text runs. The Go toolchain is pinned to 1.27.4 for the `net/http` fix in GO-2026-6859, which the phone page's `MaxBytesReader` could reach.
+- The phone page can make permissions stricter but not looser. Switching to autopilot, and granting an "always allow" rule, now have to be done in the terminal, so a link that leaks can't hand the agent more than the window already had.
+- Phone replies now carry `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `nosniff`, a nonce-based Content-Security-Policy and no-store caching, and the server bounds header size and read, write and idle timeouts.
+- Commands, background jobs, hooks and MCP servers no longer inherit your API keys and tokens: `*_API_KEY`, `*_TOKEN`, `*_SECRET`, `*_PASSWORD`, `AWS_*` and similar are dropped from their environment. An MCP server still gets the variables its own configuration lists.
+- A shell command that names a credential store (`~/.ssh`, `~/.aws`, `~/.git-credentials`, teveus's own config directory, cloud metadata) now asks first even in autopilot, instead of running quietly.
+- WebFetch no longer reaches this machine or its network. Loopback, private, link-local and CGNAT addresses and cloud metadata are refused on the first request and on every redirect, and the address actually connected to is checked, so a DNS answer can't change in between. A new `WebFetchLocal` setting turns this off for a local dev server.
+- `/undo` and `/rewind` now give a file back its original permissions instead of a fixed `0644`, so a restored `0600` key file doesn't become world-readable.
+
+## [0.31.0] - 2026-11-01
+
+### Added
+
+- Every response is now written to a usage ledger, `~/.config/teveus/usage.jsonl`: the model, the project, the four token counts, and the provider's own cost when it reports one. Cost and tokens used to live only in memory, so nothing outside a running teveus could report them; a menu bar monitor, a script or a spreadsheet can now read them. One JSON line per billed response, appended, so it can be followed while teveus runs. `TEVEUS_CONFIG` moves the ledger with the rest of the config directory.
+- Skills and slash commands now live in teveus's own folders: `.teveus/skills` and `.teveus/commands` in the project, or `skills` and `commands` in the config directory to use them in every project. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for another agent works unchanged, and `.agents` and `.claude` are still read (teveus's own folders win when a name is defined twice).
+- A skill's folder comes back with its instructions, so skills that bundle scripts or reference files next to `SKILL.md` work.
+- Skills can say `disable-model-invocation: true` to stay out of the model's hands and only run when you type the command, and `user-invocable: false` to hide from the slash menu. Both are honoured wherever the skill sits.
+
+### Fixed
+
+- Reading your own skills no longer counts as reading the config directory. The config directory is off limits because it holds your API keys and rules, which also hid the skills in it; that exemption covers reading only, so a reply can't write a skill that you would later load.
+- Models behind OpenCode and other gateways now report their real context window, so auto-compaction fires before a session outgrows it. Those gateways nest the limit as `limit.context` and the prices as `cost.text`, where OpenRouter uses a flat `context_length` and string prices; only the second shape was read, so the window came back as zero and compaction — which is skipped when the window is unknown — never ran. Prices were missing from the picker for the same reason.
+- `max` reasoning effort now reaches models that take it. OpenAI-style APIs were capped at `high` three times over: in the protocol ceiling, in the request builder, and in the effect it had on the effort picker. A gateway that publishes each model's levels (`capabilities.reasoning.effort`, as OpenCode does) is now believed over that guess, so DeepSeek, which takes `low`/`high`/`max`, is no longer quietly held at `high`.
+
+## [0.30.0] - 2026-11-01
+
+### Fixed
+
+- Long unbroken text no longer spills out of the chat column. Thai and Chinese are usually written without spaces, and a URL has none either, so a reply could draw straight over the sidebar. Such lines now wrap inside their own column, and the sidebar keeps its place on every row.
+- A wrapped line no longer swallows the rest of its message. The wrapper reused the split slice's array for its output, and breaking one line appends more entries than it consumes, so the lines after it were overwritten and vanished — a long command in a `Bash` result could cut the reply short.
+- Being stopped by the terminal no longer wrecks the screen. `ctrl+z` was handled, but the kernel can also stop the process on its own — `kill -TSTP`, a closing window, or a background process group reading the terminal (`SIGTTIN`, which the shell reports as `suspended (tty input)`). Those went unhandled, so the process stopped with the alternate screen, the key protocol and mouse capture still on, and the shell echoed every mouse report as text. They now restore the terminal before stopping and take it back on `fg`.
+- The mouse keeps working after `fg`. Releasing the terminal turns mouse capture off, and restoring it doesn't turn it back on, so the wheel stopped scrolling after the first suspend until the app was restarted.
+- Thai and Lao text no longer pushes the right-hand border inwards. The width libraries count SARA AM (`ำ`) as one cell while terminals draw two, so a line holding it measured a bit narrower than it drew, wrapped, and shifted everything below it — the sidebar edge wandered a row at a time. Tool output, the todo list, the sidebar's own sections, the status bar, the input box and the popups each build their text in a different place, and now each one measures it the way the terminal does.
+- The frame is now forced to the window's size before it is drawn. A row that wraps, or a bottom area a line taller than measured, used to leave the previous frame showing through — a missing input border with the old status bar still on screen. Any such mistake is now clipped and padded instead of breaking the display.
+
+### Changed
+
+- Built with Go 1.27, whose runtime and standard library bring the fixes and speedups of that release. Releases are still built for the same platforms.
+- Long sessions stay smooth. While a reply streams, teveus now redraws only the message that changed instead of rebuilding the whole transcript: a 6000-block session went from about 22 ms to 2.4 ms per chunk. The welcome text no longer lingers above the first message.
+
+### Security
+
+- Updated the libraries behind web fetching and images. A page that WebFetch downloads could previously make the HTML parser do quadratic work and stall the app; `govulncheck` now reports no vulnerabilities.
 
 ## [0.29.0] - 2026-10-26
 
@@ -366,8 +419,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.29.0...HEAD
-[0.29.1]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.29.1
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0
+[0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0
+[0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/stawan15/teveus/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/stawan15/teveus/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/stawan15/teveus/compare/v0.26.0...v0.27.0

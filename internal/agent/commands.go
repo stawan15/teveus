@@ -13,58 +13,43 @@ import (
 	"github.com/stawan15/teveus/internal/claude"
 )
 
-// Custom slash commands and skills are Markdown files. teveus reads its own
-// ".agent" layout first, then Claude Code's ".claude" one, so files written
-// for either keep working:
+// Custom slash commands and skills are Markdown files. A skill is a directory
+// with a SKILL.md, the format of the Agent Skills standard, so one written for
+// any agent works here:
 //
-//	.agent/commands/review.md        /review      (a prompt; $ARGUMENTS, $1…$9 fill in what follows)
-//	.agent/commands/git/sync.md      /git:sync
-//	.agent/skills/pdf/SKILL.md       /pdf         (also offered to the model, which loads it with the Skill tool)
+//	.teveus/skills/pdf/SKILL.md       /pdf   (also offered to the model, which loads it with the Skill tool)
+//	.teveus/commands/review.md        /review  (a prompt; $ARGUMENTS, $1…$9 fill in what follows)
+//	.teveus/commands/git/sync.md      /git:sync
 //
-// Both layouts are read from the project (the working directory up to the
-// repository root, nearest wins) and from the home directory. Like AGENTS.md
-// they are prompts, not programs: nothing in them runs by itself, and the
-// model's tool calls still go through the permission checks. A file may start
-// with front matter ("---", key: value lines, "---") holding description and
-// argument-hint.
+// teveus has its own directories and reads them first: .teveus (and the
+// neutral .agent spelling of it) in each directory from the working directory
+// up to the repository root (nearest wins), the config directory (skills that
+// apply to every project), and ~/.config/teveus. The neutral .agents layout of
+// the Agent Skills standard and the .claude layout are read after it, so files
+// already written for other agents keep working. Like CLAUDE.md these are
+// prompts, not programs: nothing in them runs by itself, and the model's tool
+// calls still go through the permission checks. A file may start with front
+// matter ("---", key: value lines, "---") holding description, argument-hint,
+// disable-model-invocation and user-invocable.
 
 type customCmd struct {
 	name, description, hint, body string
+	dir                           string // a skill's directory, so it can read files next to SKILL.md
 	skill                         bool
-}
-
-// skillRoots are the directories commands and skills are read from, nearest
-// first. own limits them to teveus's own ".agent" layout: those are the ones
-// no other engine can see, so the UI expands them itself.
-func skillRoots(cwd string, own bool) []string {
-	layouts := []string{".agent"}
-	if !own {
-		layouts = append(layouts, ".claude")
-	}
-	var roots []string
-	for dir := cwd; ; dir = filepath.Dir(dir) {
-		for _, l := range layouts {
-			roots = append(roots, filepath.Join(dir, l))
-		}
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil || filepath.Dir(dir) == dir {
-			break
-		}
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		for _, l := range layouts {
-			roots = append(roots, filepath.Join(home, l))
-		}
-	}
-	return roots
+	// modelRuns is false for disable-model-invocation: true, and listed is
+	// false for user-invocable: false.
+	modelRuns, listed bool
 }
 
 // loadCustom returns every custom command and skill visible from cwd, by name.
-func loadCustom(cwd string) []customCmd { return loadCustomIn(cwd, false) }
+// configDir is teveus's own settings directory, whose skills apply everywhere.
+func loadCustom(cwd, configDir string) []customCmd { return loadCustomIn(cwd, configDir, false) }
 
-// ownCustom returns only the ones in teveus's own ".agent" layout.
-func ownCustom(cwd string) []customCmd { return loadCustomIn(cwd, true) }
+// ownCustom returns only the ones in teveus's own layouts: the files no other
+// engine reads, which the UI has to fill in itself.
+func ownCustom(cwd, configDir string) []customCmd { return loadCustomIn(cwd, configDir, true) }
 
-func loadCustomIn(cwd string, own bool) []customCmd {
+func loadCustomIn(cwd, configDir string, own bool) []customCmd {
 	seen := map[string]bool{}
 	var out []customCmd
 	add := func(c customCmd) {
@@ -73,7 +58,30 @@ func loadCustomIn(cwd string, own bool) []customCmd {
 			out = append(out, c)
 		}
 	}
-	for _, root := range skillRoots(cwd, own) {
+	var ownRoots, others []string
+	for dir := cwd; ; dir = filepath.Dir(dir) {
+		ownRoots = append(ownRoots,
+			filepath.Join(dir, ".teveus"), filepath.Join(dir, ".agent"))
+		others = append(others,
+			filepath.Join(dir, ".agents"), filepath.Join(dir, ".claude"))
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil || filepath.Dir(dir) == dir {
+			break
+		}
+	}
+	if configDir != "" {
+		ownRoots = append(ownRoots, configDir)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		ownRoots = append(ownRoots,
+			filepath.Join(home, ".config", "teveus"), filepath.Join(home, ".agent"))
+		others = append(others,
+			filepath.Join(home, ".agents"), filepath.Join(home, ".claude"))
+	}
+	roots := ownRoots
+	if !own {
+		roots = append(roots, others...)
+	}
+	for _, root := range roots {
 		for _, c := range readCommandDir(filepath.Join(root, "commands")) {
 			add(c)
 		}
@@ -105,7 +113,9 @@ func readSkillDir(dir string) []customCmd {
 	entries, _ := os.ReadDir(dir)
 	var out []customCmd
 	for _, e := range entries {
-		if c, ok := readCustomFile(filepath.Join(dir, e.Name(), "SKILL.md"), e.Name(), true); ok {
+		path := filepath.Join(dir, e.Name(), "SKILL.md")
+		if c, ok := readCustomFile(path, e.Name(), true); ok {
+			c.dir = filepath.Dir(path)
 			out = append(out, c)
 		}
 	}
@@ -133,7 +143,27 @@ func readCustomFile(path, name string, skill bool) (customCmd, bool) {
 	if r := []rune(desc); len(r) > 100 {
 		desc = string(r[:100]) + "…"
 	}
-	return customCmd{name: name, description: desc, hint: meta["argument-hint"], body: body, skill: skill}, true
+	return customCmd{name: name, description: desc, hint: meta["argument-hint"], body: body,
+		skill: skill, modelRuns: !truthy(meta["disable-model-invocation"]),
+		listed: !falsey(meta["user-invocable"])}, true
+}
+
+// truthy and falsey read the boolean front-matter values the skill format
+// allows, which are not just true and false.
+func truthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "yes", "on", "1":
+		return true
+	}
+	return false
+}
+
+func falsey(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "false", "no", "off", "0":
+		return true
+	}
+	return false
 }
 
 // splitFrontMatter separates a leading "---" block of "key: value" lines.
@@ -189,6 +219,9 @@ func expandCustom(cmds []customCmd, text string) string {
 func customCommands(cmds []customCmd) []claude.Command {
 	var out []claude.Command
 	for _, c := range cmds {
+		if !c.listed {
+			continue // user-invocable: false hides it from the menu
+		}
 		out = append(out, claude.Command{Name: c.name, Description: c.description, ArgumentHint: c.hint})
 	}
 	return out
@@ -197,12 +230,14 @@ func customCommands(cmds []customCmd) []claude.Command {
 // OwnCommands are the commands and skills in teveus's own ".agent" layout.
 // Only this app reads that layout, so the UI offers them in the slash menu;
 // the Direct API engine lists them itself.
-func OwnCommands(cwd string) []claude.Command { return customCommands(ownCustom(cwd)) }
+func OwnCommands(cwd, configDir string) []claude.Command {
+	return customCommands(ownCustom(cwd, configDir))
+}
 
 // ExpandOwn fills in a command or skill from teveus's own ".agent" layout, for
 // an engine that can't read those files. It reports false when text isn't one.
-func ExpandOwn(cwd, text string) (string, bool) {
-	out := expandCustom(ownCustom(cwd), text)
+func ExpandOwn(cwd, configDir, text string) (string, bool) {
+	out := expandCustom(ownCustom(cwd, configDir), text)
 	return out, out != text
 }
 
@@ -210,7 +245,7 @@ func ExpandOwn(cwd, text string) (string, bool) {
 func skillsPrompt(cmds []customCmd) string {
 	var sb strings.Builder
 	for _, c := range cmds {
-		if c.skill {
+		if c.skill && c.modelRuns {
 			sb.WriteString("- " + c.name + ": " + c.description + "\n")
 		}
 	}
@@ -220,23 +255,29 @@ func skillsPrompt(cmds []customCmd) string {
 	return "\n# Skills\nWhen a task matches one of these, call the Skill tool with its name to load its instructions, then follow them:\n" + sb.String()
 }
 
+// hasSkills reports whether the model has a skill it could be offered.
 func hasSkills(cmds []customCmd) bool {
 	for _, c := range cmds {
-		if c.skill {
+		if c.skill && c.modelRuns {
 			return true
 		}
 	}
 	return false
 }
 
-func skillTool(cwd string) tool {
+// skillTool loads a skill by name. The directory is included in what the model
+// sees, so a skill can point at the scripts and references bundled with it.
+func skillTool(cwd, configDir string) tool {
 	return tool{access: readOnly, def: ToolDef{Name: "Skill",
 		Description: "Load a skill's instructions by name (see the Skills list in the system prompt).",
 		Schema:      obj(map[string]any{"skill": prop("string", "The skill's name")}, "skill")},
 		run: func(_ context.Context, _ *Toolbox, in map[string]any) (string, error) {
 			name := strings.TrimPrefix(strings.TrimSpace(str(in, "skill")), "/")
-			for _, c := range loadCustom(cwd) {
-				if c.skill && c.name == name {
+			for _, c := range loadCustom(cwd, configDir) {
+				if c.skill && c.modelRuns && c.name == name {
+					if c.dir != "" {
+						return "Directory: " + c.dir + "\n\n" + c.body, nil
+					}
 					return c.body, nil
 				}
 			}

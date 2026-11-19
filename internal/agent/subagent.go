@@ -21,8 +21,8 @@ func (e *Engine) tools(main bool) []tool {
 				return e.runWebSearch(ctx, in)
 			}})
 	}
-	if hasSkills(loadCustom(e.opts.Cwd)) {
-		list = append(list, skillTool(e.opts.Cwd))
+	if hasSkills(loadCustom(e.opts.Cwd, e.opts.ConfigDir)) {
+		list = append(list, skillTool(e.opts.Cwd, e.opts.ConfigDir))
 	}
 	list = append(list, e.mcpTools()...)
 	if main {
@@ -59,7 +59,7 @@ func (c *subConv) system() string {
 	var sb strings.Builder
 	sb.WriteString(subagentPrompt)
 	sb.WriteString("\n\n# Environment\n- Working directory: " + c.e.opts.Cwd + "\n")
-	sb.WriteString(skillsPrompt(loadCustom(c.e.opts.Cwd)))
+	sb.WriteString(skillsPrompt(loadCustom(c.e.opts.Cwd, c.e.opts.ConfigDir)))
 	return sb.String()
 }
 

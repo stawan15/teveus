@@ -282,7 +282,7 @@ func (m *Model) runUpdate(version string) tea.Cmd {
 		return nil
 	}
 	cmd := exec.Command(args[0], args[1:]...)
-	return tea.ExecProcess(cmd, func(err error) tea.Msg { return updateDoneMsg{version: version, err: err} })
+	return execInTerminal(cmd, func(err error) tea.Msg { return updateDoneMsg{version: version, err: err} })
 }
 
 // handleUpdateDone reports how the installer went. A successful install ends

@@ -75,7 +75,8 @@ type Engine struct {
 	closed   bool
 	session  string
 	creds    map[string]Credential
-	ctxLen   map[string]int // context window by "provider/model", when known
+	ctxLen   map[string]int      // context window by "provider/model", when known
+	efforts  map[string][]string // reasoning levels the model takes, when known
 	stopTurn bool
 	seen     map[string]readSig // files the main conversation read and is still holding
 
@@ -108,6 +109,7 @@ func Start(opts Options) (*Engine, error) {
 		session:   "api-" + hex.EncodeToString(id),
 		creds:     map[string]Credential{},
 		ctxLen:    map[string]int{},
+		efforts:   map[string][]string{},
 		seen:      map[string]readSig{},
 		effortCap: loadEffortCaps(opts.ConfigDir),
 	}
@@ -481,16 +483,21 @@ func (e *Engine) loadProviders() {
 
 	var models []claude.ModelInfo
 	ctxLen := map[string]int{}
+	efforts := map[string][]string{}
 	for r := range results {
 		for _, m := range r.models {
 			models = append(models, modelInfo(r.p, m))
 			if m.Context > 0 {
 				ctxLen[r.p.ID+"/"+m.ID] = m.Context
 			}
+			if len(m.Efforts) > 0 {
+				efforts[r.p.ID+"/"+m.ID] = m.Efforts
+			}
 		}
 	}
 	e.mu.Lock()
 	e.ctxLen = ctxLen
+	e.efforts = efforts
 	e.mu.Unlock()
 	// Groups: well-known makers first, then the rest alphabetically; within
 	// a group the provider's order (newest first) is kept.
@@ -512,7 +519,7 @@ func (e *Engine) loadProviders() {
 	e.emit(claude.Ready{
 		PermissionMode: mode,
 		Models:         models,
-		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd))...),
+		Commands:       append([]claude.Command{{Name: "compact", Description: "Summarise the conversation to free context"}}, customCommands(loadCustom(e.opts.Cwd, e.opts.ConfigDir))...),
 	})
 	e.emit(claude.Init{SessionID: e.session, Model: model, Cwd: e.opts.Cwd, PermissionMode: mode})
 	go e.refreshUsage(true)
@@ -777,7 +784,7 @@ func (e *Engine) turn(text string, images []claude.Image) {
 	}
 
 	if strings.HasPrefix(strings.TrimSpace(text), "/") {
-		text = expandCustom(loadCustom(e.opts.Cwd), text)
+		text = expandCustom(loadCustom(e.opts.Cwd, e.opts.ConfigDir), text)
 	}
 	e.mu.Lock()
 	cp := &checkpoint{historyLen: len(e.history), files: map[string][]byte{}}
@@ -917,6 +924,7 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		e.mu.Lock()
 		e.cost += resp.Usage.Cost
 		e.mu.Unlock()
+		e.recordUsage(modelID, resp.Usage, parent != "")
 		conv.add(Message{Role: "assistant", Text: resp.Text, ToolCalls: resp.ToolCalls, Reasoning: resp.Reasoning})
 
 		var blocks []claude.ContentBlock
@@ -1032,7 +1040,7 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, paren
 	}
 	outside := false
 	for _, p := range e.toolPaths(t.def.Name, in) {
-		if e.sensitive(p) {
+		if e.sensitivePath(p, t.access == editsFiles) {
 			return p + " holds credentials, so teveus's file tools can't touch it in any mode. Don't try another way; tell the user what you needed.", true
 		}
 		outside = outside || !e.inProject(p)
@@ -1040,11 +1048,25 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, paren
 	e.mu.Lock()
 	mode, always, session := e.mode, e.always[t.def.Name], e.session
 	e.mu.Unlock()
+	// A shell command that names a credential store is asked about in every
+	// mode, autopilot included: `cat ~/.ssh/id_rsa` is not a build step, and a
+	// model talked into it by a web page shouldn't be able to do it quietly.
+	secrets := t.def.Name == "Bash" && e.commandTouchesSecrets(str(in, "command"))
 	if h := e.hooks.run(ctx, "PreToolUse", t.def.Name, session, in, ""); h.block {
 		return "Blocked by a PreToolUse hook: " + h.out, true
 	}
 	// Reads inside the project run freely; everything else is checked.
-	if t.access != readOnly || outside {
+	if secrets && rule != "allow" {
+		// A credential store is a question, never an automatic yes: not in
+		// auto, not in bypass, not from a turning the user gave once before.
+		// An explicit allow rule still counts, because the user wrote it.
+		if r := e.ask(ctx, t, tc); !r.allow {
+			e.mu.Lock()
+			e.stopTurn = true
+			e.mu.Unlock()
+			return "The user didn't allow that. Don't try another way to read a credential store; tell them what you needed.", true
+		}
+	} else if t.access != readOnly || outside {
 		switch {
 		case mode == "plan" && t.access != readOnly && t.access != network:
 			return "Plan mode is read-only. Describe the change in your plan instead of making it.", true
@@ -1199,6 +1221,7 @@ func (e *Engine) compactHistory(ctx context.Context, client Client, modelID stri
 	}
 	e.saveLocked()
 	e.mu.Unlock()
+	e.recordUsage(modelID, resp.Usage, false)
 	return resp.Text, nil
 }
 
@@ -1237,7 +1260,7 @@ func overflowError(err error) bool {
 // modelInfo shapes a model for the picker: a short name, the full name, a
 // group (provider, and maker for routers) and context/price metadata.
 func modelInfo(p Provider, m Model) claude.ModelInfo {
-	info := claude.ModelInfo{Value: p.ID + "/" + m.ID, DisplayName: m.ID, Group: p.Name}
+	info := claude.ModelInfo{Value: p.ID + "/" + m.ID, DisplayName: m.ID, Group: p.Name, Reasoning: m.Efforts}
 	name := m.Name
 	if vendor, short, ok := strings.Cut(m.ID, "/"); ok {
 		// Routers name models "vendor/model": group by vendor.

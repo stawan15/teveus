@@ -146,6 +146,9 @@ type Model struct {
 	In, Out float64 // USD per million tokens, when the provider says
 	Priced  bool
 	Created int64 // unix time, when the provider says; newer sorts first
+	// Efforts are the reasoning levels the model takes, highest first, when
+	// the provider lists them; nil means the protocol's ceiling applies.
+	Efforts []string
 }
 
 // Client streams completions from one provider.

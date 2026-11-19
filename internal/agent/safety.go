@@ -18,8 +18,10 @@ import (
 // Bash can still read anything the user can; it is asked for in every mode
 // except autopilot, which the user chooses knowingly.
 
-// sensitive reports whether p is, or is inside, a credential store.
-func (e *Engine) sensitive(p string) bool {
+// sensitive reports whether p is, or is inside, a credential store. Reading
+// a skill the user wrote is fine; writing one is not, because a skill is
+// instructions the model will follow later, loaded without asking.
+func (e *Engine) sensitivePath(p string, writing bool) bool {
 	home, _ := os.UserHomeDir()
 	var roots []string
 	if e.opts.ConfigDir != "" {
@@ -35,13 +37,34 @@ func (e *Engine) sensitive(p string) bool {
 			roots = append(roots, filepath.Join(home, r))
 		}
 	}
+	var readable []string
+	if !writing && e.opts.ConfigDir != "" {
+		readable = append(readable, filepath.Join(e.opts.ConfigDir, "skills"), filepath.Join(e.opts.ConfigDir, "commands"))
+	}
 	for _, cand := range realPaths(p) {
+		// The user's own skills and commands are prompts they wrote for the
+		// model to read; the rest of the config directory holds keys and rules.
+		if withinAny(cand, readable) {
+			continue
+		}
 		for _, r := range roots {
 			for _, rr := range realPaths(r) {
 				if within(cand, rr) {
 					// Public SSH keys are fine to read.
 					return !(strings.HasSuffix(cand, ".pub") && strings.Contains(cand, string(filepath.Separator)+".ssh"+string(filepath.Separator)))
 				}
+			}
+		}
+	}
+	return false
+}
+
+// withinAny reports whether p is inside any of roots.
+func withinAny(p string, roots []string) bool {
+	for _, r := range roots {
+		for _, rr := range realPaths(r) {
+			if within(p, rr) {
+				return true
 			}
 		}
 	}
@@ -103,4 +126,37 @@ func editPath(in map[string]any) string {
 		return p
 	}
 	return str(in, "notebook_path")
+}
+
+// secretCommandMarkers are substrings that say a shell command is reaching for
+// a credential store. Bash can read anything the user can, so this is only a
+// list of things that always warrant a question — the file tools refuse them
+// outright, but a shell has no paths to inspect before it runs.
+var secretCommandMarkers = []string{
+	".ssh/", ".ssh ", "id_rsa", "id_ed25519", "id_ecdsa",
+	".gnupg", ".aws/credentials", ".aws/config", ".netrc", ".git-credentials",
+	".npmrc", ".pypirc", ".docker/config.json", ".kube/config",
+	".claude/.credentials.json", ".config/gh/hosts.yml",
+	".config/gcloud", ".local/share/opencode/auth.json",
+	"auth.json", "phone-token", "mcp-approved.json",
+	"security-credentials", "169.254.169.254",
+}
+
+// commandTouchesSecrets reports whether a shell command mentions one of the
+// credential stores, or teveus's own config directory.
+func (e *Engine) commandTouchesSecrets(cmd string) bool {
+	l := strings.ToLower(cmd)
+	if e.opts.ConfigDir != "" {
+		dir := strings.ToLower(e.opts.ConfigDir)
+		if strings.Contains(l, dir) {
+			return true
+		}
+		// ~/.config/teveus written as $HOME or ~ is caught by the markers below.
+	}
+	for _, m := range secretCommandMarkers {
+		if strings.Contains(l, m) {
+			return true
+		}
+	}
+	return false
 }

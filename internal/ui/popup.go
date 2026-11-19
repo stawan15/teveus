@@ -62,6 +62,13 @@ type popup struct {
 	hint   string
 	masked bool
 	submit func(m *Model, v string) tea.Cmd
+
+	// localOnly keeps a question in the terminal. The phone page can draw most
+	// sub-windows, but not the ones that decide what the app may do on this
+	// machine: trusting a folder, agreeing to run Claude Code, and anything
+	// whose answer is written to disk for good. A link that leaks must not be
+	// able to widen what the agent is allowed to touch.
+	localOnly bool
 }
 
 func (p *popup) open() bool { return p.mode != popNone }
@@ -395,10 +402,13 @@ func (m *Model) popupView() string {
 	if p.accent != "" {
 		frame = p.accent
 	}
+	// Fit the rows inside the frame: lipgloss counts Thai and Lao SARA AM as
+	// one cell and terminals draw two, so a row can draw past the border and
+	// wrap, which splits the box in two.
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(frame).
 		Padding(0, 1).
 		Width(width).
-		Render(strings.Join(lines, "\n"))
+		Render(fitWidth(strings.Join(lines, "\n"), inner))
 }

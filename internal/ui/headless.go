@@ -53,10 +53,10 @@ func RunHeadless(cfg Config, prompt string, asJSON bool, stdout, stderr io.Write
 	defer m.client.Close()
 	start := time.Now()
 	res := HeadlessResult{Engine: m.engine, Model: m.model}
-	// A command or skill from teveus's own ".agent" layout is filled in here
-	// for Claude Code, exactly as the interactive app does it.
+	// A command or skill from teveus's own layouts is filled in here for
+	// Claude Code, exactly as the interactive app does it.
 	if m.engine != "api" {
-		if expanded, ok := agent.ExpandOwn(m.cwd, prompt); ok {
+		if expanded, ok := agent.ExpandOwn(m.cwd, configDir(), prompt); ok {
 			prompt = expanded
 		}
 	}

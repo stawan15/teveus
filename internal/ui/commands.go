@@ -61,6 +61,7 @@ func init() {
 		{"commit", "Let the AI write the message and commit this work (/commit <words> steers it)", "", func(m *Model, arg string) tea.Cmd { return m.commit(arg) }},
 		{"update", "Check for a new version of teveus and install it", "", func(m *Model, _ string) tea.Cmd { return m.updateNow() }},
 		{"purge", "Delete teveus's saved conversations and prompt history", "", func(m *Model, _ string) tea.Cmd { m.openPurge(); return nil }},
+		{"scrub", "Mask API keys and passwords in saved conversations", "", func(m *Model, _ string) tea.Cmd { return m.scrubSessions() }},
 		{"permissions", "Saved allow/deny rules for tools", "", func(m *Model, arg string) tea.Cmd { return m.showPermissions(arg) }},
 		{"hooks", "Commands that run before or after tool calls", "", func(m *Model, _ string) tea.Cmd { return m.showHooks() }},
 		{"mcp", "MCP servers: list them, approve a project's", "", func(m *Model, _ string) tea.Cmd { return m.showMCP() }},
@@ -102,16 +103,16 @@ var coreCmds = map[string]bool{
 	"diff": true, "clear": true, "settings": true, "help": true, "exit": true,
 }
 
-// allCommands is the CLI's command list plus teveus's own ".agent" layout,
-// which only this app reads (so an engine that has never seen those files
-// still offers them in the "/" menu).
+// allCommands is the CLI's command list plus teveus's own layouts (.teveus and
+// .agent), which only this app reads (so an engine that has never seen those
+// files still offers them in the "/" menu).
 func (m *Model) allCommands() []claude.Command {
 	out := append([]claude.Command(nil), m.commands...)
 	seen := map[string]bool{}
 	for _, c := range out {
 		seen[c.Name] = true
 	}
-	for _, c := range agent.OwnCommands(m.cwd) {
+	for _, c := range agent.OwnCommands(m.cwd, configDir()) {
 		if !seen[c.Name] {
 			out = append(out, c)
 		}

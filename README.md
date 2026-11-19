@@ -59,7 +59,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
 | 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
-| 🧩 **Make it yours** | Your slash commands and skills from `.agent/` (teveus's own layout) or `.claude/`, on either engine: `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
+| 🧩 **Make it yours** | Your slash commands and skills from `.teveus/commands` and `.teveus/skills` in the project (the `.agent` spelling works too), or from the config directory to use them in every project, on either engine. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for any agent works, and `.agents` and `.claude` are read too. Plus `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
 | 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
 | 📱 **Take it to your phone** | `/phone` serves a page your phone opens: prompt, watch replies and approve tools from the sofa. Every open window shows up there, and the link stays the same between runs |
 | 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
@@ -117,13 +117,16 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 
 Leave a long task running and walk away: `/phone` turns on a small web page served by teveus itself, and you open its link on your phone.
 
-- **Prompt, watch, approve.** Type a message, read the replies, and answer the same approval question the terminal asks, with Allow, Always or Deny. There's a stop button for a turn that's gone wrong.
+- **Prompt, watch, approve.** Type a message, read the replies, and answer the same approval question the terminal asks, with Allow or Deny. There's a stop button for a turn that's gone wrong.
 - **Every window.** Each teveus you have open in a terminal shows up, with what it's doing, so the phone reaches all of them, not just one.
 - **Same shortcuts.** Type `/` on the page to search and run any command the app has.
 - **Off until you ask.** It starts from `/phone` or `/settings`, and stops when you turn it off or quit.
-- **One link, kept.** It stays the same between runs so you can save it to your home screen. Delete `~/.config/teveus/phone-token` to give out a new one and revoke the old link.
+- **One link, kept.** It stays the same between runs so you can save it to your home screen. Delete `~/.config/teveus/phone-token` to give out a new one and revoke the old link. Opening it swaps the token for a cookie, so the address bar stops carrying it.
+- **It can make things safer, not looser.** The page can switch to plan mode or ask before edits, but switching to autopilot and granting "always allow" have to happen in the terminal. Neither can it answer the questions that widen what the app may touch: trusting a folder, or agreeing to run Claude Code.
 
-Anyone with the link can prompt and approve while the page is on, so keep it on a network you trust: your home Wi-Fi, or a [Tailscale](https://tailscale.com) address if you want it from anywhere. Nothing leaves your computer except the questions you type.
+It listens on `127.0.0.1:8787`, so a phone reaches it through a tunnel you set up - [Tailscale](https://tailscale.com), `ssh -L`, or a reverse proxy with TLS. Binding it to your network still works (`teveus -phone 0.0.0.0:8787`), and it will tell you that page is plain HTTP on a network other people can read.
+
+Anyone with the link can prompt and approve while the page is on, so keep it on a network you trust. Nothing leaves your computer except the questions you type.
 
 ## Connect other AI providers
 

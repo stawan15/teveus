@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.6] - 2026-11-19
+
 ### Added
 
 - teveus has its own layout for commands and skills: `.teveus/commands/<name>.md` and `.teveus/skills/<name>/SKILL.md`, in the project or in your home directory (the `.agent` spelling of both works too). A skill dropped there is `/<name>` in the `/` menu straight away, with no setup, on either engine — Claude Code doesn't read those directories, so the app fills the command in before sending and the transcript still shows what you typed.
@@ -465,7 +467,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.6...HEAD
+[0.33.6]: https://github.com/stawan15/teveus/compare/v0.33.5...v0.33.6
 [0.33.5]: https://github.com/stawan15/teveus/compare/v0.33.4...v0.33.5
 [0.33.4]: https://github.com/stawan15/teveus/compare/v0.33.3...v0.33.4
 [0.33.3]: https://github.com/stawan15/teveus/compare/v0.33.2...v0.33.3

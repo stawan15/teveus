@@ -69,6 +69,25 @@ type Model struct {
 	tc           prefixCache
 	sel          selection
 
+	// clampFrame fits each row to the window; most rows repeat from frame to
+	// frame, so the fitted form is cached. rowCacheW is the width it was
+	// filled for and rowPad a row of blanks at that width.
+	clamped   []string
+	rowCache  map[string]string
+	rowCacheW int
+	rowPad    string
+
+	// sideCache keeps the drawn sidebar: it changes only when one of the
+	// values in sideKey does, and the spinner redraws the frame without it.
+	sideCache   string
+	sideKeyUsed sideKey
+
+	// inputCache keeps the drawn input box. A scroll or a streamed chunk
+	// redraws the frame with the same box, and drawing it costs about a
+	// seventh of a frame: the textarea's view goes through lipgloss.
+	inputCache string
+	inputKey   string
+
 	blocks   []*block
 	tools    map[string]*block
 	stream   *block
@@ -82,22 +101,23 @@ type Model struct {
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
 
-	sessionID string
-	model     string
-	mode      string
-	cwd       string
-	branch    string
-	cost      float64
-	prevCost  float64
-	context   int
-	fiveHour  *claude.Window
-	sevenDay  *claude.Window
-	monthly   *claude.Window
-	commands  []claude.Command
-	models    []claude.ModelInfo
-	files     []string
-	project   projectInfo
-	starters  []string
+	sessionID  string
+	model      string
+	mode       string
+	modeBefore string // what to fall back to when the CLI refuses a mode
+	cwd        string
+	branch     string
+	cost       float64
+	prevCost   float64
+	context    int
+	fiveHour   *claude.Window
+	sevenDay   *claude.Window
+	monthly    *claude.Window
+	commands   []claude.Command
+	models     []claude.ModelInfo
+	files      []string
+	project    projectInfo
+	starters   []string
 
 	pop           popup
 	warnedCtx     bool
@@ -1109,6 +1129,7 @@ func (m *Model) setModel(name string) {
 }
 
 func (m *Model) setMode(mode string) {
+	m.modeBefore = m.mode
 	m.mode = mode
 	if m.client != nil {
 		m.client.SetPermissionMode(mode)
@@ -1410,10 +1431,20 @@ func (m *Model) handleEvent(ev claude.Event) {
 
 	case claude.ControlResult:
 		if e.Error != "" {
+			// A mode the CLI won't take (auto is not available on every model)
+			// used to leave the pill reading "autopilot" while the session was
+			// still asking: put the mode it kept back on screen.
+			if e.Tag == "mode" && m.modeBefore != "" {
+				m.mode, m.modeBefore = m.modeBefore, ""
+				m.note("still "+modeLabel(m.mode)+": "+e.Error, false)
+				m.layout()
+				return
+			}
 			m.note(e.Tag+": "+e.Error, false)
 			return
 		}
 		if e.Tag == "mode" {
+			m.modeBefore = ""
 			var body struct{ Mode string }
 			if json.Unmarshal(e.Body, &body) == nil && body.Mode != "" {
 				m.mode = body.Mode

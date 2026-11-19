@@ -61,8 +61,11 @@ func main() {
 	// A key or a wheel notch shows up on the next tick of the renderer, so the
 	// 60 FPS default is up to 16 ms of delay on every scroll. The renderer
 	// skips a frame whose buffer did not change, so raising the cap costs
-	// nothing while the window is idle.
-	progOpts = append(progOpts, tea.WithFPS(120))
+	// nothing while the window is idle — but while a reply streams every tick
+	// is a full repaint, and a terminal that can't keep up shows that as lag.
+	// /fps (or Settings) picks the rate; the program is built once, so a
+	// change takes a restart.
+	progOpts = append(progOpts, tea.WithFPS(ui.FrameRate(settings)))
 	if !settings.NoMouse {
 		progOpts = append(progOpts, tea.WithMouseCellMotion())
 	}

@@ -42,6 +42,7 @@ type Settings struct {
 	Onboarded    bool     `json:"onboarded,omitempty"`    // first-run setup done
 	Level        string   `json:"level,omitempty"`        // guidance: "guided", "standard" (default) or "pro"
 	ReduceMotion bool     `json:"reduceMotion,omitempty"` // no spinners or shimmer
+	FrameRate    int      `json:"frameRate,omitempty"`    // renderer frames per second; 0 = 120
 	APIModel     string   `json:"apiModel,omitempty"`     // last model picked on the API engine
 	RecentModels []string `json:"recentModels,omitempty"` // newest first
 	PhonePage    bool     `json:"phonePage,omitempty"`    // serve the phone page (phone.go); off by default

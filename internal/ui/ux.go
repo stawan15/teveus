@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -150,6 +152,10 @@ func (m *Model) openSettingsAt(sel int) {
 		{"Experience", "Reduce motion", onOff(m.settings.ReduceMotion), func(m *Model) tea.Cmd {
 			m.settings.ReduceMotion = !m.settings.ReduceMotion
 			saveSettings(m.settings)
+			return nil
+		}},
+		{"Experience", "Frame rate", fmt.Sprintf("%d fps", m.frameRate()), func(m *Model) tea.Cmd {
+			m.openFrameRateSlider()
 			return nil
 		}},
 		{"Layout", "Sidebar", onOff(!m.settings.HideSide), func(m *Model) tea.Cmd { return m.toggleSidebar() }},

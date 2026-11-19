@@ -76,6 +76,7 @@ func init() {
 		{"subagent", "Model for research subagents (Direct API): a cheaper one saves tokens", "", func(m *Model, arg string) tea.Cmd { return m.openSubagentPicker(arg) }},
 		{"trim", "Review uncommitted changes for unneeded code (/trim all: whole project)", "", func(m *Model, arg string) tea.Cmd { return m.trim(arg) }},
 		{"mouse", "Mouse capture on/off (off = select text)", "", func(m *Model, _ string) tea.Cmd { return m.toggleMouse() }},
+		{"fps", "Frame rate: how often the window redraws (30, 60, 120)", "", func(m *Model, arg string) tea.Cmd { return m.setFrameRate(arg) }},
 		{"help", "Keyboard shortcuts and commands (or press ?)", "?", func(m *Model, _ string) tea.Cmd { m.openHelp(); return nil }},
 		{"settings", "All preferences in one place", "", func(m *Model, _ string) tea.Cmd { m.openSettings(); return nil }},
 		{"phone", "Prompt and approve from a phone: /phone on, off, or the link again", "", func(m *Model, arg string) tea.Cmd { return m.showPhone(arg) }},

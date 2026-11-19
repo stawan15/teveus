@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- The redraw rate is a setting: `/fps 30`, `/fps 60` or `/fps 120`, also under Settings → Frame rate. 120 halves the delay between a keystroke and its echo, but while a reply streams every frame is a full repaint, and a terminal that can't keep up (over SSH, in tmux, a large window) shows that as lag. 60 is the Bubble Tea default and what every terminal keeps up with. It applies at startup, so the note tells you to restart.
 ## [0.33.6] - 2026-11-19
 
 ### Added

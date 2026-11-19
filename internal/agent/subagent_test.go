@@ -85,6 +85,27 @@ func TestSubagentGetsOnlyReadOnlyTools(t *testing.T) {
 	}
 }
 
+// A subagent that has to follow a skill's steps (a checklist, an output
+// format) must be able to load it, and must be told it exists.
+func TestSubagentCanLoadSkills(t *testing.T) {
+	isolateHome(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".claude/skills/review/SKILL.md"), "---\nname: review\ndescription: Review a diff\n---\nRead every hunk twice.")
+	e, _ := Start(Options{Cwd: dir, Model: "openai/m", Mode: "auto", Store: NewStore(t.TempDir())})
+	defer e.Close()
+
+	names := map[string]bool{}
+	for _, tl := range e.subagentTools() {
+		names[tl.def.Name] = true
+	}
+	if !names["Skill"] {
+		t.Fatal("subagent cannot load a skill")
+	}
+	if !strings.Contains((&subConv{e: e}).system(), "Review a diff") {
+		t.Fatal("subagent was not told which skills exist")
+	}
+}
+
 // The SubagentModel setting must pick the model the subagent runs on, falling
 // back to the conversation's when that model isn't connected.
 func TestSubagentModelFallback(t *testing.T) {

@@ -41,7 +41,7 @@ func (e *Engine) tools(main bool) []tool {
 
 // subagentSkips are read-only tools a research subagent still doesn't get:
 // they change or depend on the main conversation's state.
-var subagentSkips = map[string]bool{"TodoWrite": true, "Skill": true, "BashOutput": true, "KillShell": true}
+var subagentSkips = map[string]bool{"TodoWrite": true, "BashOutput": true, "KillShell": true}
 
 const subagentPrompt = `You are a research subagent working for a coding agent in the user's terminal (teveus). You have read-only tools; you cannot edit files or run commands.
 
@@ -59,6 +59,7 @@ func (c *subConv) system() string {
 	var sb strings.Builder
 	sb.WriteString(subagentPrompt)
 	sb.WriteString("\n\n# Environment\n- Working directory: " + c.e.opts.Cwd + "\n")
+	sb.WriteString(skillsPrompt(loadCustom(c.e.opts.Cwd)))
 	return sb.String()
 }
 

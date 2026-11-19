@@ -5,6 +5,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- teveus has its own layout for commands and skills: `.agent/commands/<name>.md` and `.agent/skills/<name>/SKILL.md`, in the project or in your home directory. A skill dropped there is `/<name>` in the `/` menu straight away, with no setup, and works on both engines — Claude Code doesn't read `.agent`, so the app fills the command in before sending. Files in `.claude/` are still read, and `.agent/` wins when both define the same name.
+
+### Fixed
+
+- Your skills and slash commands now keep their own format and steps when the assistant-style savers are on. The concise answer style, minimal code levels and the private answer style defer to a skill's own instructions instead of shortening its checklist away.
+- A skill that the model loaded no longer disappears from the conversation when old tool output is dropped to save context, so long tasks don't lose their steps half way.
+- Subagents can load a skill and are told which ones exist, and they no longer run at a lower reasoning effort than you picked.
+- Tool output wider than the window wraps instead of ending in `…`, so a long command result or URL is readable without expanding. Fence markers no longer flash as bare backticks while a reply streams in.
+- Rendering no longer rewrites the transcript text, so copying a Thai reply (or saving the session) gives back the characters the model wrote.
+
 ## [0.29.1] - 2026-11-12
 
 ### Security

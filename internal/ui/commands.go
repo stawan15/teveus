@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/stawan15/teveus/internal/agent"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -101,6 +102,23 @@ var coreCmds = map[string]bool{
 	"diff": true, "clear": true, "settings": true, "help": true, "exit": true,
 }
 
+// allCommands is the CLI's command list plus teveus's own ".agent" layout,
+// which only this app reads (so an engine that has never seen those files
+// still offers them in the "/" menu).
+func (m *Model) allCommands() []claude.Command {
+	out := append([]claude.Command(nil), m.commands...)
+	seen := map[string]bool{}
+	for _, c := range out {
+		seen[c.Name] = true
+	}
+	for _, c := range agent.OwnCommands(m.cwd) {
+		if !seen[c.Name] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func (m *Model) slashChoices() []choice {
 	var out []choice
 	seen := map[string]bool{}
@@ -114,7 +132,7 @@ func (m *Model) slashChoices() []choice {
 		out = append(out, choice{label: "/" + c.name, value: c.name, desc: c.desc, key: key, aliases: aliasesOf(c.name), more: !coreCmds[c.name],
 			run: func(m *Model) tea.Cmd { return c.run(m, "") }})
 	}
-	for _, c := range m.commands {
+	for _, c := range m.allCommands() {
 		if seen[c.Name] || len(c.Name) > 1 && c.Name[:2] == "__" {
 			continue
 		}
@@ -183,12 +201,12 @@ func (m *Model) openPalette() {
 		{group: "app", label: "Keyboard shortcuts", key: "?", run: run(func(m *Model) tea.Cmd { m.openHelp(); return nil })},
 		{group: "app", label: "Quit", key: "ctrl+c ×2", run: run(func(m *Model) tea.Cmd { return m.quit() })},
 	}
-	for _, c := range m.commands {
+	for _, c := range m.allCommands() {
 		if len(c.Name) > 1 && c.Name[:2] == "__" {
 			continue
 		}
 		ch := m.cliChoice(c)
-		ch.group = "claude commands"
+		ch.group = "commands"
 		cs = append(cs, ch)
 	}
 	m.pop = popup{mode: popPalette, all: cs}

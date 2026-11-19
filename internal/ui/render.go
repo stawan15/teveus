@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -56,6 +57,12 @@ type block struct {
 	cache  string
 	cacheW int
 	dirty  bool
+
+	// A reply that is still arriving is laid out once up to its last newline;
+	// wrappedLen says how much of text that covers. See streamingText.
+	wrapped    string
+	wrappedLen int
+	wrappedW   int
 }
 
 func (b *block) invalidate() { b.dirty = true }
@@ -149,9 +156,7 @@ func (r *renderer) render(b *block, width int) string {
 	case kindAssistant:
 		if b.streaming {
 			// Raw text while streaming; markdown once the block is complete.
-			// Decompose first so the width counts like the terminal does.
-			out = lipgloss.NewStyle().Width(width-2).PaddingLeft(2).Foreground(cText).Render(streamText(termSafe(b.text))) +
-				sAccent.Render(" ▍")
+			out = r.streamingText(b, width) + sAccent.Render(" ▍")
 		} else {
 			out = r.markdown(termSafe(b.text), width)
 		}
@@ -172,12 +177,19 @@ func (r *renderer) render(b *block, width int) string {
 		}
 		out = strings.Join(lines, "\n")
 	}
+	if b.streaming {
+		// streamingText already breaks every line to the column, and there are
+		// no links or padding colours to strip: fitting it again would cut the
+		// whole reply a second time on every chunk.
+		b.cache, b.cacheW, b.dirty = out, width, false
+		return b.cache
+	}
 	if !b.streaming {
 		out = linkify(out, b.text+"\n"+b.result)
 	}
 	// Last line of defence: nothing may draw past its column, or the sidebar
 	// beside it is pushed sideways.
-	b.cache, b.cacheW, b.dirty = fitWidth(out, width), width, false
+	b.cache, b.cacheW, b.dirty = fitWidth(stripPaddingColour(out), width), width, false
 	return b.cache
 }
 
@@ -185,6 +197,72 @@ func (r *renderer) render(b *block, width int) string {
 func (b *block) needsPaint(width int) bool {
 	return b.dirty || b.cacheW != width || b.cache == ""
 }
+
+// streamingText lays out a reply that is still arriving. Wrapping the whole
+// text on every chunk was the slow part of a long answer: lipgloss re-wrapped
+// 4,000 words each time a few more arrived, over a millisecond per chunk and
+// growing with the answer.
+//
+// A newline restarts the wrap, so everything up to the last newline lays out
+// the same no matter what follows: that part is wrapped once and kept, and
+// only the line still being written is wrapped again. A chunk almost always
+// falls inside a line, so the work per chunk is one line's worth instead of
+// the whole reply.
+func (r *renderer) streamingText(b *block, width int) string {
+	const pad = 2
+	body := max(width-pad, 1)
+	// Fence markers are dropped while streaming: the raw text has no markdown,
+	// so a fence would show as a line of backticks next to nothing.
+	wrap := func(s string) string { return sText.Width(body).PaddingLeft(pad).Render(streamText(s)) }
+
+	if b.wrappedW != width {
+		b.wrapped, b.wrappedLen, b.wrappedW = "", 0, width
+	}
+	// Settle whole lines: a line that is still open can still gain words.
+	if cut := strings.LastIndexByte(b.text, '\n') + 1; cut > b.wrappedLen && cut <= len(b.text) {
+		if b.wrapped != "" {
+			b.wrapped += "\n"
+		}
+		b.wrapped += wrap(b.text[b.wrappedLen:cut])
+		b.wrappedLen = cut
+	}
+	if tail := b.text[min(b.wrappedLen, len(b.text)):]; tail != "" {
+		if b.wrapped == "" {
+			return wrap(tail)
+		}
+		return b.wrapped + "\n" + wrap(tail)
+	}
+	return b.wrapped
+}
+
+// stripPaddingColour removes the foreground-colour codes glamour wraps around
+// the blanks that fill text out to the wrap width. It sets a colour, writes one
+// space and resets, once per cell: a six-line reply came to 1,300 escape
+// sequences and 15 KB, and most of every frame was those blanks. A space drawn
+// in a text colour over the terminal's own background looks the same as a plain
+// space, so dropping the codes changes nothing on screen.
+//
+// Only foreground codes are matched: a background or underline around the
+// blanks is part of the drawing (Zebra-striped code blocks, selection marks)
+// and stays.
+func stripPaddingColour(s string) string {
+	if !strings.Contains(s, "\x1b") {
+		return s
+	}
+	// One pass per line, and only over lines that can match: this runs once per
+	// block render, never per frame.
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		if strings.Contains(l, "\x1b[0m") {
+			lines[i] = paddingRuns.ReplaceAllString(l, "$1")
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// paddingRuns matches a foreground colour set, a run of spaces, and the reset
+// that closes it.
+var paddingRuns = regexp.MustCompile(`\x1b\[(?:38;[0-9;]*|3[0-9]|9[0-9])m( +)\x1b\[0m`)
 
 func (r *renderer) tool(b *block, width int) string {
 	indent := "  "
@@ -514,6 +592,54 @@ func truncate(s string, w int) string {
 	return ansi.Truncate(s, w, "…")
 }
 
+// lineWidth is ansi.StringWidth for the rows a frame is actually made of,
+// without the grapheme walk that costs more than drawing the row. Plain ASCII
+// is one cell a byte, and so is ASCII with colour codes around it; anything
+// else (wide characters, combining marks, Thai) goes to the real measurement.
+func lineWidth(s string) int {
+	w := 0
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == 0x1b:
+			i = skipEscape(s, i)
+		case c >= 0x20 && c <= 0x7e:
+			w++
+		default:
+			return ansi.StringWidth(s)
+		}
+	}
+	return w
+}
+
+// skipEscape returns the index of the last byte of the escape sequence that
+// starts at s[i], which is always 0x1b.
+func skipEscape(s string, i int) int {
+	if i+1 >= len(s) {
+		return i
+	}
+	switch s[i+1] {
+	case '[': // CSI: parameter bytes, then one final byte in @ to ~
+		for j := i + 2; j < len(s); j++ {
+			if c := s[j]; c >= 0x40 && c <= 0x7e {
+				return j
+			}
+		}
+		return len(s) - 1
+	case ']': // OSC: runs to BEL or ST
+		for j := i + 2; j < len(s); j++ {
+			if s[j] == 0x07 {
+				return j
+			}
+			if s[j] == 0x1b && j+1 < len(s) && s[j+1] == '\\' {
+				return j + 1
+			}
+		}
+		return len(s) - 1
+	}
+	return i + 1
+}
+
 // fitWidth hard-wraps any line of s wider than w, so text with no spaces to
 // break on (Thai, Chinese, URLs) cannot draw past its column. lipgloss only
 // wraps at word boundaries, and its Width is a minimum, not a clamp.
@@ -552,8 +678,13 @@ var amSplitter = strings.NewReplacer("\u0e33", "\u0e4d\u0e32", "\u0eb3", "\u0ecd
 
 // termSafe makes s measure the same in lipgloss as on screen.
 func termSafe(s string) string {
-	if !strings.ContainsAny(s, "\u0e33\u0eb3") {
-		return s
+	// U+0E33 and U+0EB3 are the only runes this looks for, so a byte scan for
+	// their UTF-8 (e0 b8 b3 / e0 ba b3) answers faster than ContainsAny, which
+	// decodes the whole string. Every frame row goes through here.
+	for i := 0; i+2 < len(s); i++ {
+		if s[i] == 0xe0 && s[i+2] == 0xb3 && (s[i+1] == 0xb8 || s[i+1] == 0xba) {
+			return amSplitter.Replace(s)
+		}
 	}
-	return amSplitter.Replace(s)
+	return s
 }

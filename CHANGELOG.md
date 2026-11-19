@@ -17,6 +17,52 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Tool output wider than the window wraps instead of ending in `…`, so a long command result or URL is readable without expanding. Fence markers no longer flash as bare backticks while a reply streams in.
 - Rendering no longer rewrites the transcript text, so copying a Thai reply (or saving the session) gives back the characters the model wrote.
 
+## [0.33.5] - 2026-11-03
+
+### Changed
+
+- The window redraws about twenty times cheaper while a reply streams, so the spinner and the text no longer stutter. The sidebar, the frame padding and the sweep of light across the status bar were being rebuilt on every animation tick although none of them had changed. A frame is now 53 µs where it was 2.7 ms, and 2.3 ms in 0.29.
+
+## [0.33.4] - 2026-11-03
+
+### Changed
+
+- A long reply no longer gets slower to draw as it grows. Every chunk used to re-wrap the whole answer so far, so the end of a long one re-laid-out thousands of words per chunk; it now wraps only the line still being written. A 4,000-word reply costs 60 µs per chunk where it cost 1.2 ms.
+
+## [0.33.3] - 2026-11-03
+
+### Changed
+
+- Typing and scrolling show up about three times sooner. A key used to wait for the next 60 FPS tick of the renderer, and every frame rebuilt the input box from scratch; the renderer now runs at 120 FPS and the box is reused until something in it changes. Measured on a terminal: 13 ms per keystroke before, 4 ms now.
+
+## [0.33.2] - 2026-11-03
+
+### Changed
+
+- Saving a conversation no longer rescans the whole transcript for secrets after every turn. Ordinary prose holds nothing a key pattern can match, so the scan stops at a cheap first check: a long session now saves in 2 ms instead of 160 ms, and a reply is no longer followed by a stall.
+- A long saved conversation draws its blocks on every core at once instead of one after another.
+- The usage bars in the sidebar keep their percentage on the same line as the bar. It was dropping onto a line of its own, one cell past the column.
+
+### Fixed
+
+- Start-up is as quick as it was before 0.32. A dependency update had made the width tables cost 23 ms at launch; the two libraries are pinned back.
+
+## [0.33.1] - 2026-11-03
+
+### Changed
+
+- The window sends about a fifth of the bytes to the terminal it used to. Markdown replies were carrying a colour code around every blank that filled a line out to the width — a six-line answer came to 1,300 escape sequences, and a full screen was 53 KB on every redraw. Blanks no longer carry a colour, so a frame is 10 KB. Backgrounds and underlines are untouched.
+
+## [0.33.0] - 2026-11-03
+
+### Changed
+
+- Drawing the window is roughly four times cheaper on a long conversation, so streaming a reply no longer makes the interface lag. The transcript is fitted to its column directly instead of through lipgloss, the sidebar is appended row by row, and a frame row is measured with a byte scan when it holds no colour or wide characters.
+
+### Fixed
+
+- The permission pill no longer says autopilot while the session is still asking. Claude Code refuses `auto` on models that don't support it and keeps the old mode; teveus now puts that mode back on screen and shows the reason.
+
 ## [0.32.0] - 2026-11-01
 
 ### Added
@@ -420,6 +466,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - A three-step first-run setup.
 
 [Unreleased]: https://github.com/stawan15/teveus/compare/v0.32.0...HEAD
+[0.33.5]: https://github.com/stawan15/teveus/compare/v0.33.4...v0.33.5
+[0.33.4]: https://github.com/stawan15/teveus/compare/v0.33.3...v0.33.4
+[0.33.3]: https://github.com/stawan15/teveus/compare/v0.33.2...v0.33.3
+[0.33.2]: https://github.com/stawan15/teveus/compare/v0.33.1...v0.33.2
+[0.33.1]: https://github.com/stawan15/teveus/compare/v0.33.0...v0.33.1
+[0.33.0]: https://github.com/stawan15/teveus/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/stawan15/teveus/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/stawan15/teveus/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/stawan15/teveus/compare/v0.29.0...v0.30.0

@@ -6,7 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -69,6 +72,7 @@ func (m *Model) refresh() {
 	// The last block is left out of the cache: it is the one a streamed chunk
 	// changes, so the prefix would be stale by the next refresh.
 	cut := max(len(m.blocks)-1, 0)
+	m.warm(m.blocks[base:cut], width)
 	saved := false
 	var next prefixCache
 	for i := base; i < len(m.blocks); i++ {
@@ -113,6 +117,43 @@ func (m *Model) refresh() {
 	}
 }
 
+// warm renders blocks that still need paint before the loop that joins them,
+// spreading the work over the cores when there is enough of it. glamour keeps
+// state inside a renderer, so each worker draws with its own; the blocks it
+// fills are only read afterwards, by this goroutine.
+//
+// A resumed conversation is the case this is for: opening 3,000 saved blocks
+// meant 3,000 markdown renders in a row, and most of the second it took.
+func (m *Model) warm(blocks []*block, width int) {
+	var todo []*block
+	for _, b := range blocks {
+		if b.needsPaint(width) {
+			todo = append(todo, b)
+		}
+	}
+	if len(todo) < 24 || runtime.GOMAXPROCS(0) < 2 {
+		return // not worth the goroutines; render() will do these in the loop
+	}
+	workers := min(runtime.GOMAXPROCS(0), len(todo))
+	var next atomic.Int64
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r := renderer{cwd: m.r.cwd, expand: m.r.expand, spin: m.r.spin}
+			for {
+				i := int(next.Add(1) - 1)
+				if i >= len(todo) {
+					return
+				}
+				r.render(todo[i], width)
+			}
+		}()
+	}
+	wg.Wait()
+}
+
 // prefixCache is the transcript drawn up to the last block: how many lines it
 // took, the blocks they came from, and the line still unterminated.
 type prefixCache struct {
@@ -146,19 +187,36 @@ func (m *Model) View() string {
 	m.layout()
 	main := m.chatView()
 	if m.sideW > 0 {
-		// lipgloss treats Width as a minimum, so a single chat line wider than
-		// the column would shift the sidebar right on that row and draw the row
-		// past the window, which the terminal then wraps — the border walks
-		// sideways and the frame grows a row. Fit the text to the column first.
-		main = lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(m.chatW).Render(fitWidth(main, m.chatW)), m.sidebar(m.vp.Height))
+		// Both sides come out already fitted to their column (the transcript by
+		// the scroller, the sidebar by its own frame), so joining the rows is a
+		// string concat: measuring them again through lipgloss on every
+		// streamed chunk was most of a frame's work.
+		main = joinSides(main, m.sidebar(m.vp.Height))
 	}
 	rows := []string{m.header()}
 	if t := m.tabStrip(); t != "" {
 		rows = append(rows, t)
 	}
-	return m.clampFrame(lipgloss.JoinVertical(lipgloss.Left,
-		append(rows, main, m.bottomFitted(), m.statusBar())...))
+	rows = append(rows, main, m.bottomFitted(), m.statusBar())
+	return m.clampFrame(strings.Join(rows, "\n"))
+}
+
+// joinSides puts the transcript and the sidebar on the same rows, left to
+// right.
+func joinSides(left, right string) string {
+	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
+	out := make([]string, max(len(l), len(r)))
+	for i := range out {
+		var a, b string
+		if i < len(l) {
+			a = l[i]
+		}
+		if i < len(r) {
+			b = r[i]
+		}
+		out[i] = a + b
+	}
+	return strings.Join(out, "\n")
 }
 
 // clampFrame makes the frame exactly as tall as the window with every row
@@ -173,22 +231,48 @@ func (m *Model) clampFrame(s string) string {
 	// cell, terminals draw two, so measuring the folded form under-reports.
 	s = termSafe(s)
 	lines := strings.Split(s, "\n")
-	pad := strings.Repeat(" ", m.w)
+	if cap(m.clamped) < len(lines) {
+		m.clamped = make([]string, 0, len(lines)+8)
+	}
+	m.clamped = m.clamped[:len(lines)]
 	for i, l := range lines {
-		switch w := ansi.StringWidth(l); {
-		case w > m.w:
-			lines[i] = ansi.Truncate(l, m.w, "")
-		case w < m.w:
-			lines[i] = l + pad[w:]
+		m.clamped[i] = m.fitRow(l)
+	}
+	if len(m.clamped) > m.h {
+		m.clamped = m.clamped[:m.h]
+	}
+	return strings.Join(m.clamped, "\n")
+}
+
+// fitRow pads or cuts one frame row to the window width. Most rows are the
+// same string from frame to frame (the sidebar, the header, the status bar)
+// or differ in a way that leaves the width alone, and measuring a styled row
+// means walking its graphemes — 21% of a frame before this cache.
+func (m *Model) fitRow(l string) string {
+	target := m.w // the width the row is fitted to
+	if m.rowCache == nil {
+		m.rowCache = make(map[string]string, 64)
+	}
+	if target != m.rowCacheW {
+		for k := range m.rowCache {
+			delete(m.rowCache, k)
 		}
+		m.rowCacheW, m.rowPad = target, strings.Repeat(" ", target)
 	}
-	if len(lines) > m.h {
-		lines = lines[:m.h]
+	if out, ok := m.rowCache[l]; ok {
+		return out
 	}
-	for len(lines) < m.h {
-		lines = append(lines, pad)
+	out := l
+	switch w := lineWidth(l); {
+	case w > target:
+		out = ansi.Truncate(l, target, "")
+	case w < target:
+		out = l + m.rowPad[w:]
 	}
-	return strings.Join(lines, "\n")
+	if len(m.rowCache) < 512 {
+		m.rowCache[l] = out
+	}
+	return out
 }
 
 // bottomFitted is the bottom area cut to leave room for the header, the
@@ -298,6 +382,21 @@ func (m *Model) center(width int, lines []string) string {
 }
 
 func (m *Model) sidebar(height int) string {
+	// Everything the sidebar shows — model, mode, cost, tokens, usage bars —
+	// stays the same while a reply streams, but the frame is redrawn many
+	// times a second for the spinner. Cached on those values the redraws are
+	// free, and comparing them is cheaper than building the section stack.
+	key := sideKey{
+		height: height, sideW: m.sideW, model: m.model, mode: m.mode,
+		engine: m.engine, cost: m.cost, tokIn: m.tokIn, tokOut: m.tokOut,
+		context: m.context, busy: m.busy, perms: len(m.perms),
+		queue: len(m.queue), tasks: len(m.tasks), todos: len(m.todos),
+		sessionID: m.sessionID, cwd: m.cwd, branch: m.branch,
+		five: m.fiveHour != nil, seven: m.sevenDay != nil, month: m.monthly != nil,
+	}
+	if m.sideCache != "" && key == m.sideKeyUsed {
+		return m.sideCache
+	}
 	w := m.sideW - 3
 	var s []string
 	section := func(title, right string) {
@@ -434,12 +533,25 @@ func (m *Model) sidebar(height int) string {
 	// and a line that wraps on screen pushes the border in a row and everything
 	// below it down. Fit the joined rows to the inner width first; wrapping
 	// can add rows, so MaxHeight still decides the final height.
-	return lipgloss.NewStyle().
+	out := lipgloss.NewStyle().
 		Width(m.sideW-1).Height(height).MaxHeight(height).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(cFaint).
 		PaddingLeft(1).
 		Render(fitWidth(strings.Join(s, "\n"), w))
+	m.sideCache, m.sideKeyUsed = out, key
+	return out
+}
+
+// sideKey is what the sidebar depends on: everything its sections print.
+type sideKey struct {
+	height, sideW, perms, queue, tasks, todos int
+	model, mode, engine                       string
+	cost                                      float64
+	tokIn, tokOut, context                    int
+	busy                                      bool
+	sessionID, cwd, branch                    string
+	five, seven, month                        bool
 }
 
 func todoTasks(input map[string]any) []task {
@@ -455,8 +567,12 @@ func todoTasks(input map[string]any) []task {
 }
 
 func usageLine(name string, win *claude.Window, w int) []string {
+	// The name and its space are part of the row: leave room for them before
+	// asking the bar for the rest, or the row runs a cell wide and the
+	// percentage wraps onto a line of its own.
+	label := name + " "
 	pct := fmt.Sprintf(" %3.0f%%", win.Utilization*100)
-	lines := []string{sDim.Render(name+" ") + bar(win.Utilization, w-3-len(pct)) + sText.Render(pct)}
+	lines := []string{sDim.Render(label) + bar(win.Utilization, w-len(label)-len(pct)) + sText.Render(pct)}
 	if win.ResetsAt > 0 {
 		lines = append(lines, sFaint.Render("   resets "+time.Unix(win.ResetsAt, 0).Format("Mon 15:04")))
 	}
@@ -526,6 +642,15 @@ func (m *Model) queueView() string {
 // inputView draws the input box with the permission mode set into its bottom
 // border, so the mode sits right where you type without crowding the text.
 func (m *Model) inputView() string {
+	// The box only changes when its text, the cursor line, the height or the
+	// mode does. A scroll or a streamed chunk redraws the same box, and
+	// rendering it costs about a seventh of a frame (the textarea goes through
+	// lipgloss), so the last drawing is reused.
+	key := m.input.Value() + "\x00" + m.mode + "\x00" +
+		fmt.Sprint(m.w, "/", m.input.Line(), "/", m.input.Height())
+	if m.inputCache != "" && key == m.inputKey {
+		return m.inputCache
+	}
 	col := modeColor(m.mode)
 	bc := lipgloss.NewStyle().Foreground(cFaint)
 	label := " " + lipgloss.NewStyle().Foreground(col).Render("● "+modeLabel(m.mode)) + " "
@@ -546,7 +671,8 @@ func (m *Model) inputView() string {
 		// taller than the space layout gave it and shoves the hints and status
 		// bar off the bottom of the screen.
 		Render(fitWidth(m.input.View(), max(w-2, 1)))
-	return top + "\n" + body + "\n" + bottom
+	m.inputCache, m.inputKey = top+"\n"+body+"\n"+bottom, key
+	return m.inputCache
 }
 
 func (m *Model) permView() string {
@@ -673,20 +799,38 @@ func (m *Model) spendLine() string {
 }
 
 // shimmer paints text with a bright band sweeping across it.
+// shimmer lets a highlight run along the phase text while a turn runs. Only
+// three shades are ever used (the head of the sweep and its two neighbours),
+// and they are worked out once: a per-rune lipgloss style was 686 allocations
+// and 60 µs of every frame, an eighth of the whole redraw, for one line.
+var shimmerShades = func() [3]string {
+	var out [3]string
+	for d := 0; d < 3; d++ {
+		out[d] = lipgloss.NewStyle().
+			Foreground(mix(cAccent, lipgloss.Color("#FFFFFF"), 0.6-float64(d)*0.2)).
+			Render("\x00")
+	}
+	return out
+}()
+
 func shimmer(s string, frame int) string {
 	runes := []rune(s)
 	pos := frame%(len(runes)+10) - 3
 	var sb strings.Builder
+	sb.Grow(len(s) * 6)
 	for i, r := range runes {
 		d := i - pos
 		if d < 0 {
 			d = -d
 		}
-		t := 0.0
-		if d < 3 {
-			t = 0.6 - float64(d)*0.2
+		if d >= 3 {
+			sb.WriteRune(r)
+			continue
 		}
-		sb.WriteString(lipgloss.NewStyle().Foreground(mix(cAccent, lipgloss.Color("#FFFFFF"), t)).Render(string(r)))
+		sh := shimmerShades[d]
+		sb.WriteString(sh[:strings.Index(sh, "\x00")])
+		sb.WriteRune(r)
+		sb.WriteString(sh[strings.Index(sh, "\x00")+1:])
 	}
 	return sb.String()
 }

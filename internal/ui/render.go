@@ -142,31 +142,31 @@ func (r *renderer) render(b *block, width int) string {
 	if !b.needsPaint(width) {
 		return b.cache
 	}
-	b.text, b.result = termSafe(b.text), termSafe(b.result)
 	var out string
 	switch b.kind {
 	case kindUser:
-		out = sUser.Width(width - 2).Render(b.text)
+		out = sUser.Width(width - 2).Render(termSafe(b.text))
 	case kindAssistant:
 		if b.streaming {
 			// Raw text while streaming; markdown once the block is complete.
-			out = lipgloss.NewStyle().Width(width-2).PaddingLeft(2).Foreground(cText).Render(b.text) +
+			// Decompose first so the width counts like the terminal does.
+			out = lipgloss.NewStyle().Width(width-2).PaddingLeft(2).Foreground(cText).Render(streamText(termSafe(b.text))) +
 				sAccent.Render(" ▍")
 		} else {
-			out = r.markdown(b.text, width)
+			out = r.markdown(termSafe(b.text), width)
 		}
 	case kindTool:
 		out = r.tool(b, width)
 	case kindInfo:
-		out = sDim.Italic(true).Width(width - 2).PaddingLeft(2).Render(b.text)
+		out = sDim.Italic(true).Width(width - 2).PaddingLeft(2).Render(termSafe(b.text))
 	case kindError:
-		out = sRed.Width(width - 2).PaddingLeft(2).Render("✗ " + b.text)
+		out = sRed.Width(width - 2).PaddingLeft(2).Render("✗ " + termSafe(b.text))
 	case kindTurnEnd:
-		out = "  " + sGreen.Render("✓ ") + sDim.Render(b.text)
+		out = "  " + sGreen.Render("✓ ") + sDim.Render(termSafe(b.text))
 	case kindCmdOut:
 		// Command output is often Markdown (tables, lists): render it, set
 		// off by a gutter so it reads as output rather than a reply.
-		lines := strings.Split(r.markdown(strings.TrimSpace(b.text), width-4), "\n")
+		lines := strings.Split(r.markdown(strings.TrimSpace(termSafe(b.text)), width-4), "\n")
 		for i := range lines {
 			lines[i] = "  " + sFaint.Render("│") + lines[i]
 		}
@@ -447,14 +447,39 @@ func splitLines(s string) []string {
 	return strings.Split(strings.TrimRight(s, "\n"), "\n")
 }
 
-func wrapLines(s string, width int, st lipgloss.Style) []string {
-	s = strings.TrimRight(strings.ReplaceAll(s, "\t", "    "), "\n ")
-	if s == "" {
-		return nil
+// streamText drops code-fence lines from a reply that is still arriving. The
+// raw text has no markdown, so a fence would show as a line of backticks next
+// to nothing; the finished block gets them back from its unmodified text.
+func streamText(s string) string {
+	if !strings.Contains(s, "```") {
+		return s
 	}
 	var out []string
 	for _, l := range strings.Split(s, "\n") {
-		out = append(out, st.Render(truncate(l, width)))
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			continue
+		}
+		out = append(out, l)
+	}
+	return strings.Join(out, "\n")
+}
+
+// wrapLines wraps each line of s to width cells. Long words (URLs, paths,
+// minified output) break rather than get cut, so a wide tool result keeps its
+// text instead of turning into an ellipsis.
+func wrapLines(s string, width int, st lipgloss.Style) []string {
+	s = strings.TrimRight(strings.ReplaceAll(termSafe(s), "\t", "    "), "\n ")
+	if s == "" {
+		return nil
+	}
+	if width < 4 {
+		width = 4
+	}
+	var out []string
+	for _, l := range strings.Split(s, "\n") {
+		for _, w := range strings.Split(ansi.Wrap(l, width, ""), "\n") {
+			out = append(out, st.Render(w))
+		}
 	}
 	return out
 }

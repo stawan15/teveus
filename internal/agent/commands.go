@@ -21,15 +21,15 @@ import (
 //	.teveus/commands/review.md        /review  (a prompt; $ARGUMENTS, $1…$9 fill in what follows)
 //	.teveus/commands/git/sync.md      /git:sync
 //
-// teveus has its own directories and reads them first: .teveus in each
-// directory from the working directory up to the repository root (nearest
-// wins), the config directory (skills that apply to every project), and
-// ~/.config/teveus. The neutral .agents layout of the Agent Skills standard
-// and the .claude layout are read after it, so files already written for
-// other agents keep working. Like CLAUDE.md these are prompts, not programs:
-// nothing in them runs by itself, and the model's tool calls still go through
-// the permission checks. A file may start with front matter ("---", key:
-// value lines, "---") holding description, argument-hint,
+// teveus has its own directories and reads them first: .teveus (and the
+// neutral .agent spelling of it) in each directory from the working directory
+// up to the repository root (nearest wins), the config directory (skills that
+// apply to every project), and ~/.config/teveus. The neutral .agents layout of
+// the Agent Skills standard and the .claude layout are read after it, so files
+// already written for other agents keep working. Like CLAUDE.md these are
+// prompts, not programs: nothing in them runs by itself, and the model's tool
+// calls still go through the permission checks. A file may start with front
+// matter ("---", key: value lines, "---") holding description, argument-hint,
 // disable-model-invocation and user-invocable.
 
 type customCmd struct {
@@ -43,7 +43,13 @@ type customCmd struct {
 
 // loadCustom returns every custom command and skill visible from cwd, by name.
 // configDir is teveus's own settings directory, whose skills apply everywhere.
-func loadCustom(cwd, configDir string) []customCmd {
+func loadCustom(cwd, configDir string) []customCmd { return loadCustomIn(cwd, configDir, false) }
+
+// ownCustom returns only the ones in teveus's own layouts: the files no other
+// engine reads, which the UI has to fill in itself.
+func ownCustom(cwd, configDir string) []customCmd { return loadCustomIn(cwd, configDir, true) }
+
+func loadCustomIn(cwd, configDir string, own bool) []customCmd {
 	seen := map[string]bool{}
 	var out []customCmd
 	add := func(c customCmd) {
@@ -52,9 +58,10 @@ func loadCustom(cwd, configDir string) []customCmd {
 			out = append(out, c)
 		}
 	}
-	var own, others []string
+	var ownRoots, others []string
 	for dir := cwd; ; dir = filepath.Dir(dir) {
-		own = append(own, filepath.Join(dir, ".teveus"))
+		ownRoots = append(ownRoots,
+			filepath.Join(dir, ".teveus"), filepath.Join(dir, ".agent"))
 		others = append(others,
 			filepath.Join(dir, ".agents"), filepath.Join(dir, ".claude"))
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil || filepath.Dir(dir) == dir {
@@ -62,14 +69,19 @@ func loadCustom(cwd, configDir string) []customCmd {
 		}
 	}
 	if configDir != "" {
-		own = append(own, configDir)
+		ownRoots = append(ownRoots, configDir)
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		own = append(own, filepath.Join(home, ".config", "teveus"))
+		ownRoots = append(ownRoots,
+			filepath.Join(home, ".config", "teveus"), filepath.Join(home, ".agent"))
 		others = append(others,
 			filepath.Join(home, ".agents"), filepath.Join(home, ".claude"))
 	}
-	for _, root := range append(own, others...) {
+	roots := ownRoots
+	if !own {
+		roots = append(roots, others...)
+	}
+	for _, root := range roots {
 		for _, c := range readCommandDir(filepath.Join(root, "commands")) {
 			add(c)
 		}
@@ -213,6 +225,20 @@ func customCommands(cmds []customCmd) []claude.Command {
 		out = append(out, claude.Command{Name: c.name, Description: c.description, ArgumentHint: c.hint})
 	}
 	return out
+}
+
+// OwnCommands are the commands and skills in teveus's own ".agent" layout.
+// Only this app reads that layout, so the UI offers them in the slash menu;
+// the Direct API engine lists them itself.
+func OwnCommands(cwd, configDir string) []claude.Command {
+	return customCommands(ownCustom(cwd, configDir))
+}
+
+// ExpandOwn fills in a command or skill from teveus's own ".agent" layout, for
+// an engine that can't read those files. It reports false when text isn't one.
+func ExpandOwn(cwd, configDir, text string) (string, bool) {
+	out := expandCustom(ownCustom(cwd, configDir), text)
+	return out, out != text
 }
 
 // skillsPrompt tells the model which skills exist; it loads one with the Skill tool.

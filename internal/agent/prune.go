@@ -28,6 +28,7 @@ const (
 func (e *Engine) pruneResults(force bool) int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	skills := skillCallIDs(e.history)
 	var idx []int
 	total, seen := 0, 0
 	for i := len(e.history) - 1; i >= 0; i-- {
@@ -35,7 +36,7 @@ func (e *Engine) pruneResults(force bool) int {
 		if m.Role != "tool" {
 			continue
 		}
-		if seen++; seen > keepResults && !m.Pruned && len(m.Result) >= pruneMinChars {
+		if seen++; seen > keepResults && !m.Pruned && len(m.Result) >= pruneMinChars && !skills[m.ToolCallID] {
 			idx = append(idx, i)
 			total += len(m.Result)
 		}
@@ -48,6 +49,21 @@ func (e *Engine) pruneResults(force bool) int {
 	}
 	e.seen = map[string]readSig{} // those Reads' output is no longer in the conversation
 	return total
+}
+
+// skillCallIDs are the tool calls that loaded a skill. Their output is the
+// instructions the model is following, so it is never dropped: a note where
+// the steps used to be would cut the work short mid-way.
+func skillCallIDs(h []Message) map[string]bool {
+	ids := map[string]bool{}
+	for _, m := range h {
+		for _, tc := range m.ToolCalls {
+			if tc.Name == "Skill" {
+				ids[tc.ID] = true
+			}
+		}
+	}
+	return ids
 }
 
 // withoutPruned is the conversation as it is sent: dropped results become notes.

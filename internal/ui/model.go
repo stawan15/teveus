@@ -970,13 +970,21 @@ func (m *Model) submit(text string) tea.Cmd {
 		// A CLI command with enumerated arguments but none given: offer a
 		// picker instead of letting the CLI print its usage text.
 		if strings.TrimSpace(arg) == "" {
-			for _, c := range m.commands {
+			for _, c := range m.allCommands() {
 				if c.Name == name {
 					if opts := parseEnum(c.ArgumentHint); opts != nil {
 						m.openArgPicker(c, opts)
 						return nil
 					}
 				}
+			}
+		}
+		// Claude Code reads its own ".claude" files, not teveus's own layouts,
+		// so those commands are filled in here.
+		if m.engine != "api" {
+			if expanded, ok := agent.ExpandOwn(m.cwd, configDir(), text); ok {
+				m.sendShown = strings.TrimSpace(text)
+				text = expanded
 			}
 		}
 	}

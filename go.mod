@@ -1,6 +1,6 @@
 module github.com/stawan15/teveus
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1

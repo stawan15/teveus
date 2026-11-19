@@ -5,7 +5,42 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.32.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "teveus has its own layout for commands and skills: `.teveus/commands/<name>.md` and `.teveus/skills/<name>/SKILL.md`, in the project or in your home directory (the `.agent` spelling of both works too). A skill dropped there is `/<name>` in the `/` menu straight away, with no setup, on either engine — Claude Code doesn't read those directories, so the app fills the command in before sending and the transcript still shows what you typed.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Your skills and slash commands keep their own format and steps when the assistant-style savers are on. The concise answer style, minimal code levels and the private answer style now say they are only the default, so they no longer shorten a skill's checklist away.",
+              "items": []
+            },
+            {
+              "text": "A skill the model loaded no longer disappears from the conversation when old tool output is dropped to save context, so a long task doesn't lose its steps half way.",
+              "items": []
+            },
+            {
+              "text": "Subagents can load a skill and are told which ones exist, and they no longer run at a lower reasoning effort than you picked.",
+              "items": []
+            },
+            {
+              "text": "Tool output wider than the window wraps instead of ending in `…`, so a long command result or URL is readable without expanding. Fence markers no longer flash as bare backticks while a reply streams in.",
+              "items": []
+            },
+            {
+              "text": "Rendering no longer rewrites the transcript text, so copying a Thai reply (or saving the session) gives back the characters the model wrote.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.32.0",

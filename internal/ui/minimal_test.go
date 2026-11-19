@@ -40,6 +40,21 @@ func TestSaversAreOffUntilTurnedOn(t *testing.T) {
 	}
 }
 
+// A skill or command decides the steps and the format for its turn; the savers
+// may only set the default, or a review checklist arrives as three sentences.
+func TestSaversDeferToSkillsAndCommands(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.settings.Concise, m.settings.MinimalCode = true, "strict"
+	p := m.applySavers(claude.Options{}).AppendPrompt
+	if !strings.Contains(p, stylePrecedence) {
+		t.Fatalf("the style never gives way: %q", p)
+	}
+	if strings.Index(p, stylePrecedence) < strings.Index(p, minimalStrict) {
+		t.Fatal("the precedence line comes before the style it qualifies")
+	}
+}
+
 func TestMinimalSlider(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})

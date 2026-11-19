@@ -70,6 +70,33 @@ func TestPruneSkipsSmallResultsAndForceTakesAll(t *testing.T) {
 	}
 }
 
+// A skill's body arrives as a tool result and is the instructions the model is
+// following, so dropping it would cut the work short mid-way.
+func TestPruneKeepsLoadedSkills(t *testing.T) {
+	e := &Engine{seen: map[string]readSig{}}
+	var h []Message
+	for i := range 10 {
+		id := fmt.Sprintf("c%d", i)
+		name := "Read"
+		if i == 1 {
+			name = "Skill"
+		}
+		h = append(h,
+			Message{Role: "assistant", ToolCalls: []ToolCall{{ID: id, Name: name}}},
+			Message{Role: "tool", ToolCallID: id, Result: strings.Repeat("x", 3000)})
+	}
+	e.history = h
+	// The two oldest results are old enough to drop; the skill among them stays.
+	if got := e.pruneResults(true); got != 3000 || pruned(e.history) != 1 {
+		t.Fatalf("pruned %d characters, %d results (want 3000, 1)", got, pruned(e.history))
+	}
+	for _, m := range e.history {
+		if m.ToolCallID == "c1" && m.Pruned {
+			t.Fatal("the loaded skill was dropped")
+		}
+	}
+}
+
 func TestUnchangedReadIsNotSentTwice(t *testing.T) {
 	big := "first\n" + strings.Repeat("line\n", 100)
 	s := &script{replies: []string{

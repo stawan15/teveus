@@ -18,6 +18,11 @@ const concisePrompt = `Answer style: concise and direct.
 - When you finish a coding task, report what changed and the result in 1-3 sentences.
 - Reply in the language the user writes in.`
 
+// stylePrecedence keeps the savers from overriding a skill, a command or the
+// project's own instructions: those say what the work should look like and
+// which steps it takes, and this style is only the default for everything else.
+const stylePrecedence = `This is the default style only. When a skill, slash command, project instruction file or the user asks for a particular format, length, structure or set of steps, follow that instead.`
+
 // leanDisallowed are built-in tools this app rarely needs. Leaving them out
 // trims ~2.2k tokens from every request. AskUserQuestion is also one the
 // app cannot render, so Claude asks in plain text instead.
@@ -46,6 +51,9 @@ func (m *Model) applySavers(opts claude.Options) claude.Options {
 	}
 	if p := minimalPrompt(m.minimalLevel()); p != "" {
 		prompts = append(prompts, p)
+	}
+	if len(prompts) > 0 {
+		prompts = append(prompts, stylePrecedence)
 	}
 	opts.AppendPrompt = strings.Join(prompts, "\n\n")
 	if m.settings.LeanTools && m.engine == "claude" {

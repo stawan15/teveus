@@ -135,6 +135,44 @@ func TestSkillInvocationFlags(t *testing.T) {
 	t.Error("a skill the user can invoke is missing from the menu")
 }
 
+// teveus's own layouts (.teveus and its neutral .agent spelling) are read too,
+// and win over ".claude" (which belongs to another tool) on the same name.
+func TestLoadCustomReadsOwnLayout(t *testing.T) {
+	isolateHome(t)
+	root := t.TempDir()
+	os.Mkdir(filepath.Join(root, ".git"), 0o755)
+	writeFile(t, filepath.Join(root, ".agent/skills/review/SKILL.md"), "---\ndescription: My review\n---\nCheck every hunk.")
+	writeFile(t, filepath.Join(root, ".agent/commands/plan.md"), "Plan for $ARGUMENTS.")
+	writeFile(t, filepath.Join(root, ".teveus/commands/ship.md"), "Ship it.")
+	writeFile(t, filepath.Join(root, ".claude/skills/review/SKILL.md"), "---\ndescription: Claude's review\n---\nRead the diff.")
+	writeFile(t, filepath.Join(root, ".claude/commands/legacy.md"), "Old one.")
+
+	got := loadCustom(root, "")
+	names := map[string]customCmd{}
+	for _, c := range got {
+		names[c.name] = c
+	}
+	if len(names) != 4 {
+		t.Fatalf("commands = %v", got)
+	}
+	if c := names["review"]; c.body != "Check every hunk." || c.description != "My review" {
+		t.Errorf("review = %+v, want teveus's own file", c)
+	}
+	if names["plan"].body != "Plan for $ARGUMENTS." || names["legacy"].body != "Old one." {
+		t.Errorf("commands = %+v", got)
+	}
+	// A CLI engine can't read these layouts, so the app expands them itself.
+	if _, ok := ExpandOwn(root, "", "/legacy"); ok {
+		t.Error("ExpandOwn reached into .claude")
+	}
+	if out, ok := ExpandOwn(root, "", "/plan next week"); !ok || out != "Plan for next week." {
+		t.Errorf("ExpandOwn = %q, %v", out, ok)
+	}
+	if own := OwnCommands(root, ""); len(own) != 3 {
+		t.Errorf("OwnCommands = %v", own)
+	}
+}
+
 func TestCustomCommandReachesModel(t *testing.T) {
 	isolateHome(t)
 	s := &script{replies: []string{oaiText("ok")}}

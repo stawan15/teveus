@@ -881,15 +881,9 @@ func (e *Engine) loop(ctx context.Context, client Client, modelID string, conv c
 		if parent == "" {
 			e.pruneResults(false)
 		}
-		e.mu.Lock()
-		subagent := parent != "" && e.opts.Effort != ""
-		e.mu.Unlock()
 		// The engine clamps to what this model can do, so the clients just
 		// send what they are given and nothing is lowered in secret.
 		effort, effortWhy := e.effortFor(modelID)
-		if subagent {
-			effort = "low" // research subagents do simple, many-step work
-		}
 		e.sayEffortOnce(effortWhy)
 		req := Request{Model: modelID, System: conv.system(), Messages: withoutPruned(conv.messages()),
 			Tools: defsOf(toolset), Effort: effort, SessionID: e.sessionHeaderID()}

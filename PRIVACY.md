@@ -38,6 +38,7 @@ Everything lives in `~/.config/teveus/` (on Windows, `%AppData%\teveus\`; `TEVEU
 | `hooks.json` | Commands you set to run around tool calls (`/hooks`) | Always |
 | `trusted-folders.json` | Folders you said you trust | Always |
 | `mcp-approved.json` | Which projects' MCP servers you approved | Always |
+| `mcp.json` | The MCP servers you added yourself, including any token you entered for one (`/mcp`). Written 0600 in the config directory; a project's `.mcp.json` is never written to | Always |
 
 With a git worktree session, teveus also creates `.teveus/worktrees/` inside your repository and lists `.teveus/` in the repository's `.git/info/exclude`, so it stays out of `git status`. A clean worktree is removed when its session closes.
 

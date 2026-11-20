@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- An MCP server behind a redirect connects. Go's HTTP client turns a redirected POST into a GET and drops the body, so one whose address was moved — a trailing slash added, http→https, a proxy canonicalising the path — received an empty GET and answered `-32601: This MCP endpoint only accepts POST`. The redirect is followed with the same method and body now, everywhere teveus makes a request (the 10-redirect limit still applies, and a caller that asked for a GET still gets one).
 ## [0.34.2] - 2026-11-20
 
 ### Fixed

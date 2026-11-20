@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-11-20
+
 ### Fixed
 
 - `/mcp` no longer stacks a copy of the server list into the transcript every time it runs: it is one panel, replaced in place.
@@ -530,7 +532,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.34.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.34.2...HEAD
+[0.34.2]: https://github.com/stawan15/teveus/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/stawan15/teveus/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/stawan15/teveus/compare/v0.33.13...v0.34.0
 [0.33.13]: https://github.com/stawan15/teveus/compare/v0.33.12...v0.33.13

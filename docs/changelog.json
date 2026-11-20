@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.33.11...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "The sidebar's border no longer jumps a cell to the right on some lines. Two things did it: the transcript added its one-cell gutter without decomposing Thai SARA AM first (\"ทำ\" is measured as one cell, drawn as two), and `fitWidth` then wrapped a row that had fitted into two, pushing everything below it down; on top of that, joining the two panes concatenated them, so a row a cell short pulled the border left. The gutter decomposes now, a fitted row is trimmed rather than wrapped, and `joinSides` pads to the column.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.11",

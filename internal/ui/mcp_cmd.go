@@ -15,8 +15,10 @@ type mcpApprovedMsg struct{ err error }
 
 // mcpDoneMsg carries the result of adding or retrying a server.
 type mcpDoneMsg struct {
-	server string
-	err    error
+	server      string
+	err         error
+	switchedOn  bool
+	switchedOff bool
 }
 
 // showMCP lists the Direct API engine's MCP servers, and offers what each one
@@ -61,10 +63,12 @@ func (m *Model) reportMCP(st []agent.MCPServerStatus) {
 func mcpLine(s agent.MCPServerStatus) string {
 	mark := "✗"
 	switch {
+	case s.Disabled:
+		mark = "○"
 	case s.State == "connected":
 		mark = "●"
 	case s.State == "needs approval":
-		mark = "○"
+		mark = "◌"
 	case s.State == "starting":
 		mark = "…"
 	}
@@ -103,9 +107,20 @@ func shortMCPState(s string) string {
 	return s
 }
 
-// mcpChoices builds the per-server actions.
+// mcpChoices builds the list /mcp shows: every server with its state and an
+// on/off switch, then what only some servers need (sign in, approve, retry),
+// then the two housekeeping entries.
 func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choice {
 	var cs []choice
+	for _, s := range st {
+		s := s
+		// One row per server, in the same order as the panel above it.
+		cs = append(cs, choice{
+			label: mcpSwitch(s) + " " + s.Name,
+			desc:  mcpRow(s),
+			run:   func(m *Model) tea.Cmd { return m.toggleMCP(eng, s) },
+		})
+	}
 	for _, s := range st {
 		s := s
 		switch {
@@ -130,7 +145,7 @@ func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choi
 					}
 				},
 			})
-		case needsAuth(s.State):
+		case needsAuth(s.State) && !s.Disabled:
 			cs = append(cs, choice{
 				label: "Add a token for " + s.Name,
 				desc:  "the server answered " + authCode(s.State) + "; the token goes in its \"headers\"",
@@ -139,18 +154,7 @@ func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choi
 					return nil
 				},
 			})
-			cs = append(cs, choice{
-				label: "Retry " + s.Name,
-				desc:  "after its config or token changed on disk",
-				run:   func(m *Model) tea.Cmd { return m.retryMCP(eng, s.Name) },
-			})
-		case s.State == "connected":
-			cs = append(cs, choice{
-				label: "Reconnect " + s.Name,
-				desc:  fmt.Sprintf("connected, %d tools", len(s.Tools)),
-				run:   func(m *Model) tea.Cmd { return m.retryMCP(eng, s.Name) },
-			})
-		case s.Scope == "project":
+		case !s.Disabled && s.State != "connected" && s.Scope == "project":
 			cs = append(cs, choice{
 				label: "Retry " + s.Name,
 				desc:  "project server: " + shortMCPState(s.State),
@@ -175,6 +179,52 @@ func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choi
 			}},
 	)
 	return cs
+}
+
+// mcpSwitch is the on/off mark in front of a server: on is filled and coloured,
+// off is hollow and faint, so the column reads at a glance.
+func mcpSwitch(s agent.MCPServerStatus) string {
+	switch {
+	case s.Disabled:
+		return sFaint.Render("○")
+	case s.State == "connected":
+		return sGreen.Render("●")
+	case s.State == "starting":
+		return sAccent.Render("◐")
+	case s.State == "needs approval":
+		return sYellow.Render("◌")
+	default:
+		return sRed.Render("✗")
+	}
+}
+
+// mcpRow is a server's one-line description in the list: how many tools it
+// adds and where it points.
+func mcpRow(s agent.MCPServerStatus) string {
+	switch {
+	case s.Disabled:
+		out := "off · its tools aren't offered"
+		if len(s.Tools) > 0 {
+			out += fmt.Sprintf(" · %d tools when on", len(s.Tools))
+		}
+		return out
+	case s.State == "connected":
+		return fmt.Sprintf("%d tools · %s", len(s.Tools), s.Target)
+	}
+	return shortMCPState(s.State)
+}
+
+// toggleMCP flips one server on or off and says how it went.
+func (m *Model) toggleMCP(eng *agent.Engine, s agent.MCPServerStatus) tea.Cmd {
+	return func() tea.Msg {
+		if err := eng.SetMCPEnabled(s.Name, s.Disabled); err != nil {
+			return mcpDoneMsg{server: s.Name, err: err}
+		}
+		if s.Disabled {
+			return mcpDoneMsg{server: s.Name, switchedOn: true}
+		}
+		return mcpDoneMsg{server: s.Name, switchedOff: true}
+	}
 }
 
 // needsAuth reports a server that refused the connection for lack of a token.
@@ -316,7 +366,14 @@ func (m *Model) handleMCPDone(msg mcpDoneMsg) tea.Cmd {
 		m.note("MCP "+msg.server+": "+msg.err.Error(), false)
 		return nil
 	}
-	m.note(msg.server+" reconnecting…", true)
+	switch {
+	case msg.switchedOff:
+		m.note(msg.server+" off: its tools aren't offered", true)
+	case msg.switchedOn:
+		m.note(msg.server+" on, starting…", true)
+	default:
+		m.note(msg.server+" reconnecting…", true)
+	}
 	return nil
 }
 

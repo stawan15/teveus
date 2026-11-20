@@ -32,12 +32,16 @@ import (
 const mcpProtocol = "2025-06-18"
 
 type MCPConfig struct {
-	Type    string            `json:"type,omitempty"` // "stdio" (default) or "http"
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-	URL     string            `json:"url,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
+	Type string `json:"type,omitempty"` // "stdio" (default) or "http"
+	// Disabled keeps a server's settings without offering its tools: 25 tools
+	// from one server crowd the context of every request, and a server you
+	// use once a week shouldn't cost that on the days you don't.
+	Disabled bool              `json:"disabled,omitempty"`
+	Command  string            `json:"command,omitempty"`
+	Args     []string          `json:"args,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
+	URL      string            `json:"url,omitempty"`
+	Headers  map[string]string `json:"headers,omitempty"`
 }
 
 // Describe is a one-line summary of what the server runs or connects to.
@@ -74,6 +78,16 @@ type MCPServerStatus struct {
 	NeedsOAuth bool
 	// OAuthURL is where that challenge pointed, when it said.
 	OAuthURL string
+	// Disabled is a server the user switched off: it stays configured and
+	// keeps its token, but its tools aren't offered.
+	Disabled bool
+}
+
+// disabledServer is a server the user switched off: kept so it can come back
+// without re-entering its command or its token.
+type disabledServer struct {
+	cfg   MCPConfig
+	scope string
 }
 
 // mcpManager owns the engine's MCP servers.
@@ -82,12 +96,16 @@ type mcpManager struct {
 
 	mu      sync.Mutex
 	servers map[string]*mcpServer
-	pending map[string]MCPConfig // project servers awaiting approval
-	errs    []string             // config files that couldn't be read
+	// disabled are servers the user switched off, by name, with the config
+	// they would run with when switched on again.
+	disabled map[string]disabledServer
+	pending  map[string]MCPConfig // project servers awaiting approval
+	errs     []string             // config files that couldn't be read
 }
 
 func newMCPManager(cwd, configDir string) *mcpManager {
-	return &mcpManager{cwd: cwd, configDir: configDir, servers: map[string]*mcpServer{}, pending: map[string]MCPConfig{}}
+	return &mcpManager{cwd: cwd, configDir: configDir, servers: map[string]*mcpServer{},
+		pending: map[string]MCPConfig{}, disabled: map[string]disabledServer{}}
 }
 
 func (m *mcpManager) projectFile() string { return filepath.Join(m.cwd, ".mcp.json") }
@@ -101,6 +119,12 @@ func (m *mcpManager) start(user bool) {
 	}
 	var wg sync.WaitGroup
 	launch := func(name, scope string, cfg MCPConfig) {
+		if cfg.Disabled {
+			m.mu.Lock()
+			m.disabled[name] = disabledServer{cfg: cfg, scope: scope}
+			m.mu.Unlock()
+			return
+		}
 		s := &mcpServer{name: name, scope: scope, cfg: cfg, cwd: m.cwd, state: "starting"}
 		m.mu.Lock()
 		if old := m.servers[name]; old != nil {
@@ -213,7 +237,13 @@ func (m *mcpManager) status() []MCPServerStatus {
 		st := s.snapshot()
 		out = append(out, st)
 	}
+	for name, c := range m.disabled {
+		out = append(out, MCPServerStatus{Name: name, Scope: c.scope, Target: c.cfg.Describe(), State: "off", Disabled: true})
+	}
 	for name, c := range m.pending {
+		if _, off := m.disabled[name]; off {
+			continue
+		}
 		out = append(out, MCPServerStatus{Name: name, Scope: "project", Target: c.Describe(), State: "needs approval"})
 	}
 	for _, e := range m.errs {
@@ -277,7 +307,7 @@ func (s *mcpServer) snapshot() MCPServerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := MCPServerStatus{Name: s.name, Scope: s.scope, Target: s.cfg.Describe(), State: s.state,
-		NeedsOAuth: s.oauthURL != "", OAuthURL: s.oauthURL}
+		NeedsOAuth: s.oauthURL != "", OAuthURL: s.oauthURL, Disabled: s.cfg.Disabled}
 	for _, t := range s.tools {
 		st.Tools = append(st.Tools, t.Name)
 	}
@@ -956,6 +986,61 @@ func (e *Engine) MCPLoginOAuth(ctx context.Context, name string, open func(strin
 	return e.mcp.reconnect(name)
 }
 
+// SetMCPEnabled turns one server on or off. Off means its tools stop being
+// offered and it stops running; its settings and token are kept, so switching
+// it back on costs nothing. The choice is written to the file the server came
+// from, so it survives a restart.
+func (e *Engine) SetMCPEnabled(name string, on bool) error {
+	if e.mcp == nil {
+		return errors.New("MCP is off")
+	}
+	return e.mcp.setEnabled(name, on)
+}
+
+func (m *mcpManager) setEnabled(name string, on bool) error {
+	cfg, ok, scope := m.configFor(name)
+	if !ok {
+		return errors.New("no server named " + name)
+	}
+	cfg.Disabled = !on
+	if err := m.saveConfig(name, scope, cfg); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	if !on {
+		if s := m.servers[name]; s != nil {
+			s.close()
+			delete(m.servers, name)
+		}
+		m.disabled[name] = disabledServer{cfg: cfg, scope: scope}
+		delete(m.pending, name)
+		m.mu.Unlock()
+		return nil
+	}
+	delete(m.disabled, name)
+	m.mu.Unlock()
+	return m.reconnect(name)
+}
+
+// saveConfig writes a server back to the file its scope names.
+func (m *mcpManager) saveConfig(name, scope string, cfg MCPConfig) error {
+	if scope == "project" {
+		path := m.projectFile()
+		cfgs, _, err := readMCPFile(path)
+		if err != nil {
+			return err
+		}
+		cfgs[name] = cfg
+		return writeMCPFile(path, cfgs)
+	}
+	cfgs, err := UserMCPConfig(m.configDir)
+	if err != nil {
+		return err
+	}
+	cfgs[name] = cfg
+	return SaveUserMCPConfig(m.configDir, cfgs)
+}
+
 // ReconnectMCP retries one server, which is how a token added after a 401
 // takes effect: the engine was started with the config as it was then.
 func (e *Engine) ReconnectMCP(name string) error {
@@ -1015,6 +1100,9 @@ func (m *mcpManager) configFor(name string) (MCPConfig, bool, string) {
 	defer m.mu.Unlock()
 	if c, ok := m.pending[name]; ok {
 		return c, true, "project"
+	}
+	if d, ok := m.disabled[name]; ok {
+		return d.cfg, true, d.scope
 	}
 	return MCPConfig{}, false, ""
 }

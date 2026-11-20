@@ -26,10 +26,11 @@ func TestMCPChoicesPerState(t *testing.T) {
 	}
 	got := strings.Join(labels, " | ")
 	for _, want := range []string{
+		// Every server is a row you can switch on or off; the switch is the
+		// first column, so the label is the mark and then the name.
+		"shared", "api", "files", "broken",
 		"Approve shared",       // a project server waits for approval
 		"Add a token for api",  // 401 gets a token prompt
-		"Retry api",            // and a retry
-		"Reconnect files",      // connected servers offer reconnect
 		"Add a server",         // always possible
 		"Show the config path", // where it lives
 	} {

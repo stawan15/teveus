@@ -183,3 +183,46 @@ func TestMCPAddKeepsExisting(t *testing.T) {
 		t.Errorf("lost servers: %+v", cfgs)
 	}
 }
+
+// Enabling and disabling from the command line writes the same flag the app
+// and the engine read.
+func TestMCPEnableDisableFromCLI(t *testing.T) {
+	cfg := t.TempDir()
+	dir := t.TempDir()
+	MCPAdd(MCPAddOptions{Transport: "http", Scope: "user", Name: "p", Target: "https://x/mcp", Cwd: dir, ConfigDir: cfg})
+
+	if err := MCPSetEnabled("p", false, dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfgs, _ := UserMCPConfig(cfg)
+	if !cfgs["p"].Disabled || cfgs["p"].URL != "https://x/mcp" {
+		t.Fatalf("disabled=%v url=%q", cfgs["p"].Disabled, cfgs["p"].URL)
+	}
+	for _, e := range MCPList(dir, cfg) {
+		if e.Name == "p" && !e.Disabled {
+			t.Error("list doesn't show it as off")
+		}
+	}
+	if err := MCPSetEnabled("p", true, dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfgs, _ = UserMCPConfig(cfg)
+	if cfgs["p"].Disabled {
+		t.Error("still disabled")
+	}
+
+	// A project server is updated in its own file.
+	if _, err := MCPAdd(MCPAddOptions{Scope: "project", Name: "proj", Target: "npx x", Cwd: dir, ConfigDir: cfg}); err != nil {
+		t.Fatal(err)
+	}
+	if err := MCPSetEnabled("proj", false, dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	proj, _, _ := readMCPFile(filepath.Join(dir, ".mcp.json"))
+	if !proj["proj"].Disabled {
+		t.Error("the project file wasn't updated")
+	}
+	if err := MCPSetEnabled("nope", true, dir, cfg); err == nil {
+		t.Error("an unknown server was accepted")
+	}
+}

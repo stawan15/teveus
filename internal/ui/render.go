@@ -101,7 +101,66 @@ func (r *renderer) markdown(s string, width int) string {
 	if err != nil {
 		return s
 	}
-	return strings.Trim(out, "\n")
+	return listGap(strings.Trim(out, "\n"))
+}
+
+// listGap puts a blank line between the items of a list whose items wrap. A
+// bullet that runs onto a second line used to sit a single space from the next
+// bullet, so six wrapped points read as one paragraph; the gap marks where each
+// item ends. A list of single-line bullets needs none — it already reads as a
+// list — so those are left dense.
+func listGap(out string) string {
+	if !strings.Contains(out, "\n") {
+		return out
+	}
+	lines := strings.Split(out, "\n")
+	gapped := make([]string, 0, len(lines))
+	inList, itemWraps, inFence := false, false, false
+	for _, l := range lines {
+		plain := ansi.Strip(l)
+		if strings.HasPrefix(strings.TrimSpace(plain), "```") {
+			inFence = !inFence
+		}
+		switch {
+		case inFence:
+			// Code is shown as written, bullets inside it included.
+			gapped = append(gapped, l)
+		case strings.TrimSpace(plain) == "":
+			// A blank line ends the list; glamour already put one here.
+			inList, itemWraps = false, false
+			gapped = append(gapped, l)
+		case isBullet(plain):
+			if inList && itemWraps {
+				gapped = append(gapped, "")
+			}
+			inList, itemWraps = true, false
+			gapped = append(gapped, l)
+		case inList && wrapped(plain):
+			// The tail of the item above.
+			itemWraps = true
+			gapped = append(gapped, l)
+		default:
+			inList, itemWraps = false, false
+			gapped = append(gapped, l)
+		}
+	}
+	return strings.Join(gapped, "\n")
+}
+
+func isBullet(s string) bool {
+	t := strings.TrimLeft(s, " ")
+	return strings.HasPrefix(t, "• ") || strings.HasPrefix(t, "- ") || strings.HasPrefix(t, "* ")
+}
+
+// wrapped reports whether l continues the list item above it rather than
+// starting something of its own.
+func wrapped(plain string) bool {
+	for _, mark := range []string{"#", "|", "```", ">", "---"} {
+		if strings.HasPrefix(strings.TrimLeft(plain, " "), mark) {
+			return false
+		}
+	}
+	return true
 }
 
 // markdownStyle keeps replies in the same palette as the rest of the UI.
@@ -124,10 +183,28 @@ func markdownStyle() glamansi.StyleConfig {
 	st.Heading.Margin = &zero
 	st.Table.Indent, st.Table.Margin = &zero, &zero
 	st.CodeBlock.Indent, st.CodeBlock.Margin = &zero, &zero
-	st.List.LevelIndent = 0
+	// Nesting is the one indent worth keeping: a sub-point set flush with its
+	// parent reads as another top-level point. glamour has no hanging indent
+	// for a wrapped bullet, so the continuation line is marked instead, below.
+	st.List.LevelIndent = 2
 	st.Heading.Color = str(theme.Accent2)
+	// The rank of a heading has to be visible without reading the text. H1 is
+	// a filled band; H2 is the accent colour; H3 and below are dim, and the
+	// "## " glamour prints in front of each is dropped because the weight and
+	// colour already say it — the marks only added noise to every line.
 	st.H1.Color = str(theme.OnAccent)
 	st.H1.BackgroundColor = str(theme.Accent)
+	st.H2.Color = str(theme.Accent)
+	st.H2.Upper = boolPtr(true)
+	st.H3.Color = str(theme.Dim)
+	st.H4.Color = str(theme.Dim)
+	st.H5.Color = str(theme.Dim)
+	st.H6.Color = str(theme.Dim)
+	st.H2.Prefix = ""
+	st.H3.Prefix = ""
+	st.H4.Prefix = ""
+	st.H5.Prefix = ""
+	st.H6.Prefix = ""
 	st.Link.Color = str(theme.Accent2)
 	st.LinkText.Color = str(theme.Accent)
 	st.Code.Color = str(theme.Accent)

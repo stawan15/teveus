@@ -107,7 +107,7 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/commit` | Let the AI stage the work, write the message and commit it (`/commit only the parser` steers it) |
 | `/init` | Let the AI write notes about your project so it works better |
 | `/settings` | All preferences in one place |
-| `/mcp` | See MCP servers, and approve a project's `.mcp.json` |
+| `/mcp` | See MCP servers and fix what they need: approve a project's `.mcp.json`, add a token for one that answered 401, retry, or add a server |
 | `/permissions` | Saved allow/deny rules for tools |
 | `/phone` | Prompt and approve from your phone: turns the phone page on or off, or shows its link |
 | `/update` | Check for a new version and install it |
@@ -140,6 +140,15 @@ Run `/login` inside teveus and pick one:
 
 `teveus -p "your prompt"` runs one prompt without the UI and prints the reply; add `-json` for the cost and token counts.
 Tools that need approval are refused unless you pass `-mode acceptEdits` or `-mode auto`.
+
+MCP servers can be added from the terminal too, in the same shape Claude Code uses:
+
+```sh
+teveus mcp add --transport http --scope user pastel https://host/api/mcp
+teveus mcp add --scope project notes npx -y @modelcontextprotocol/server-filesystem ~/notes
+teveus mcp list
+teveus mcp remove --scope user pastel
+```
 
 ## Questions
 

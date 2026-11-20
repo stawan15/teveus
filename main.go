@@ -18,6 +18,11 @@ import (
 var version = "dev"
 
 func main() {
+	// A subcommand comes before the flags: `teveus mcp add …`, `teveus mcp list`.
+	// Everything else is the interactive app.
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		os.Exit(mcpCommand(os.Args[2:]))
+	}
 	var opts claude.Options
 	flag.StringVar(&opts.Model, "model", "", "model alias or ID (e.g. opus, sonnet, haiku)")
 	flag.StringVar(&opts.PermissionMode, "mode", "", "permission mode: default, acceptEdits, plan, auto")

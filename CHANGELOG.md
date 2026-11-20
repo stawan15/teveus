@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- MCP servers from the terminal, in the same shape Claude Code uses: `teveus mcp add --transport http --scope user pastel https://host/api/mcp`, `teveus mcp add --scope project notes npx -y some-server`, `teveus mcp list`, `teveus mcp remove --scope user pastel`. `--header "Authorization: Bearer …"`, `--env KEY=value` and `--approve` work too. `--scope user` writes your own `mcp.json` (no approval needed); `--scope project` writes `.mcp.json` here, which starts only once approved — pass `--approve` to trust it in the same call, and any later edit withdraws that.
 ## [0.34.0] - 2026-11-20
 
 ### Added

@@ -7,6 +7,15 @@
       "url": "https://github.com/stawan15/teveus/compare/v0.34.2...HEAD",
       "sections": [
         {
+          "title": "Added",
+          "items": [
+            {
+              "text": "MCP servers that sign you in with your browser work: when one answers 401 with an OAuth challenge (the `WWW-Authenticate: … resource_metadata=\"…\"` most hosted servers use), `/mcp` offers **Sign in** instead of a token box. teveus registers itself as a public client with that server, opens your browser, and exchanges the code from a localhost callback for a token using PKCE, which it stores in your own `mcp.json` (0600) and sends only to that server.",
+              "items": []
+            }
+          ]
+        },
+        {
           "title": "Fixed",
           "items": [
             {

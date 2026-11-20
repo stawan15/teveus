@@ -69,6 +69,11 @@ type MCPServerStatus struct {
 	Name, Scope, Target string
 	State               string // "connected", "starting", "needs approval", or an error
 	Tools               []string
+	// NeedsOAuth is set when the server answered 401 with an OAuth challenge:
+	// a pasted token won't do, the user has to sign in.
+	NeedsOAuth bool
+	// OAuthURL is where that challenge pointed, when it said.
+	OAuthURL string
 }
 
 // mcpManager owns the engine's MCP servers.
@@ -252,10 +257,11 @@ type mcpServer struct {
 	name, scope, cwd string
 	cfg              MCPConfig
 
-	mu    sync.Mutex
-	state string
-	tools []mcpTool
-	conn  mcpConn
+	mu       sync.Mutex
+	state    string
+	oauthURL string // set when the 401 asked for OAuth, not a pasted token
+	tools    []mcpTool
+	conn     mcpConn
 }
 
 type mcpTool struct {
@@ -270,7 +276,8 @@ type mcpTool struct {
 func (s *mcpServer) snapshot() MCPServerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := MCPServerStatus{Name: s.name, Scope: s.scope, Target: s.cfg.Describe(), State: s.state}
+	st := MCPServerStatus{Name: s.name, Scope: s.scope, Target: s.cfg.Describe(), State: s.state,
+		NeedsOAuth: s.oauthURL != "", OAuthURL: s.oauthURL}
 	for _, t := range s.tools {
 		st.Tools = append(st.Tools, t.Name)
 	}
@@ -280,6 +287,9 @@ func (s *mcpServer) snapshot() MCPServerStatus {
 func (s *mcpServer) fail(err error) {
 	s.mu.Lock()
 	s.state = err.Error()
+	if hc, ok := s.conn.(*httpConn); ok {
+		s.oauthURL = hc.oauthURL()
+	}
 	s.mu.Unlock()
 	s.close()
 }
@@ -676,11 +686,22 @@ func (t *tailBuffer) String() string {
 // httpConn is the Streamable HTTP transport: each message is a POST, and the
 // reply is JSON or a short SSE stream.
 type httpConn struct {
-	url     string
-	headers map[string]string
-	mu      sync.Mutex
-	nextID  int
-	session string
+	url       string
+	headers   map[string]string
+	mu        sync.Mutex
+	nextID    int
+	session   string
+	oauthHint string // the resource metadata a 401 pointed at
+}
+
+// oauthURL is where the server's OAuth challenge pointed, if it made one.
+func (c *httpConn) oauthURL() string {
+	if c == nil {
+		return ""
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.oauthHint
 }
 
 func (c *httpConn) post(ctx context.Context, body any) (*http.Response, error) {
@@ -712,6 +733,14 @@ func (c *httpConn) post(ctx context.Context, body any) (*http.Response, error) {
 	if resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			// An OAuth challenge is a different fix from a missing token, and
+			// the client has to remember which: a pasted token can't satisfy
+			// "sign in with your browser".
+			if MCPNeedsOAuth(resp.Header) {
+				c.mu.Lock()
+				c.oauthHint = resourceMetadataURL(resp.Header.Get("WWW-Authenticate"), c.url)
+				c.mu.Unlock()
+			}
 			// Short: the UI follows this up with what to do (/mcp offers a
 			// token prompt), and a long sentence here wrapped under every row.
 			return nil, fmt.Errorf("%s: needs authorization", resp.Status)
@@ -873,6 +902,58 @@ func SaveUserMCPConfig(configDir string, cfgs map[string]MCPConfig) error {
 	// WriteFile's mode only applies when it creates the file, so an existing
 	// one keeps whatever it had; this is a token-bearing file.
 	return os.Chmod(path, 0o600)
+}
+
+// MCPLoginOAuth signs in to one server with the browser and stores the token
+// as its Authorization header, then reconnects it.
+func (e *Engine) MCPLoginOAuth(ctx context.Context, name string, open func(string)) error {
+	if e.mcp == nil {
+		return errors.New("MCP is off")
+	}
+	st := e.mcp.status()
+	var target *MCPServerStatus
+	for i := range st {
+		if st[i].Name == name {
+			target = &st[i]
+		}
+	}
+	if target == nil {
+		return errors.New("no server named " + name)
+	}
+	// The resource document: what the 401 named, or the standard location.
+	metaURL := target.OAuthURL
+	if metaURL == "" {
+		cfg, ok, _ := e.mcp.configFor(name)
+		if !ok {
+			return errors.New("no server named " + name)
+		}
+		metaURL = resourceMetadataURL("", expandEnv(cfg.URL))
+	}
+	cfg, ok, _ := e.mcp.configFor(name)
+	if !ok || cfg.URL == "" {
+		return errors.New(name + " is not an http server")
+	}
+	token, err := MCPLogin(ctx, expandEnv(cfg.URL), metaURL, open)
+	if err != nil {
+		return err
+	}
+	cfgs, err := UserMCPConfig(e.opts.ConfigDir)
+	if err != nil {
+		return err
+	}
+	entry, ok := cfgs[name]
+	if !ok {
+		entry = cfg // a project server: the user file gains only its token
+	}
+	if entry.Headers == nil {
+		entry.Headers = map[string]string{}
+	}
+	entry.Headers["Authorization"] = "Bearer " + token
+	cfgs[name] = entry
+	if err := SaveUserMCPConfig(e.opts.ConfigDir, cfgs); err != nil {
+		return err
+	}
+	return e.mcp.reconnect(name)
 }
 
 // ReconnectMCP retries one server, which is how a token added after a 401

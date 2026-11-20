@@ -825,3 +825,100 @@ func PendingProjectMCP(cwd, configDir string) []string {
 	sort.Strings(names)
 	return names
 }
+
+// UserMCPConfig is what this machine's own mcp.json holds, for the UI to show
+// and to write back. It returns the file's servers and whether the file
+// existed, so a first server doesn't have to know the format.
+func UserMCPConfig(configDir string) (map[string]MCPConfig, error) {
+	if configDir == "" {
+		return nil, errors.New("no config directory")
+	}
+	cfgs, _, err := readMCPFile(filepath.Join(configDir, "mcp.json"))
+	if os.IsNotExist(err) {
+		return map[string]MCPConfig{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return cfgs, nil
+}
+
+// SaveUserMCPConfig writes the machine's own mcp.json. It is written as the
+// user's file (0600, in the config directory) and is never a project's, so a
+// server added here needs no approval: it is the user's own choice.
+func SaveUserMCPConfig(configDir string, cfgs map[string]MCPConfig) error {
+	if configDir == "" {
+		return errors.New("no config directory")
+	}
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(mcpFile{MCPServers: cfgs}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(configDir, "mcp.json"), append(b, '\n'), 0o600)
+}
+
+// ReconnectMCP retries one server, which is how a token added after a 401
+// takes effect: the engine was started with the config as it was then.
+func (e *Engine) ReconnectMCP(name string) error {
+	if e.mcp == nil {
+		return errors.New("MCP is off")
+	}
+	return e.mcp.reconnect(name)
+}
+
+func (m *mcpManager) reconnect(name string) error {
+	// The config on disk is the truth: a token or a URL the user just added
+	// lives there, not in the copy this server started with. Falling back to
+	// the running server's own config only when the file no longer names it.
+	cfg, ok, scope := m.configFor(name)
+	if !ok {
+		m.mu.Lock()
+		old := m.servers[name]
+		m.mu.Unlock()
+		if old == nil {
+			return errors.New("no server named " + name)
+		}
+		cfg, scope = old.cfg, old.scope
+		ok = true
+	}
+	if !ok || (cfg.Command == "" && cfg.URL == "") {
+		return errors.New("no server named " + name)
+	}
+	s := &mcpServer{name: name, scope: scope, cfg: cfg, cwd: m.cwd, state: "starting"}
+	m.mu.Lock()
+	if old := m.servers[name]; old != nil {
+		old.close()
+	}
+	delete(m.pending, name)
+	m.servers[name] = s
+	m.mu.Unlock()
+	go s.connect()
+	return nil
+}
+
+// configFor finds a server's current config: the user's file first, then the
+// project's (which is the user's own choice once approved), and says which
+// scope it came from.
+func (m *mcpManager) configFor(name string) (MCPConfig, bool, string) {
+	if m.configDir != "" {
+		if cs, _, err := readMCPFile(filepath.Join(m.configDir, "mcp.json")); err == nil {
+			if c, ok := cs[name]; ok {
+				return c, true, "user"
+			}
+		}
+	}
+	if cs, _, err := readMCPFile(m.projectFile()); err == nil {
+		if c, ok := cs[name]; ok {
+			return c, true, "project"
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if c, ok := m.pending[name]; ok {
+		return c, true, "project"
+	}
+	return MCPConfig{}, false, ""
+}

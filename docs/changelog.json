@@ -5,7 +5,26 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.33.13...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "`/mcp` is now a menu, one entry per server, and it offers what each server actually needs: **Approve** for a project's `.mcp.json`, **Add a token** when a server answered 401 (the prompt is masked and writes an Authorization header to your own `mcp.json`, never the project's), **Retry** for one that failed or whose config changed, and **Add a server** by hand — pick stdio or http, then type the command or URL. Failing servers show their error on one line instead of a header dump.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Retrying an MCP server now reads its config from disk. It reused the copy the server started with, so a token added after a 401 never took effect.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.13",

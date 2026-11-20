@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.33.10...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Replies are easier to read. Heading levels now look different without reading the words: an h2 is set in capitals in the accent colour, h3 and below are dim, and the \"## \" marks glamour printed in front of every heading are gone. Nested list items are indented again (a sub-point used to sit flush with its parent). A bullet that wraps no longer runs straight into the next bullet — a gap marks where each wrapped item ends, while a list of one-line bullets stays dense.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.10",

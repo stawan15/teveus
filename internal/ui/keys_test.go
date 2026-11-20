@@ -26,7 +26,19 @@ func TestCSIKeys(t *testing.T) {
 		"\x1b[127;3u":   "alt+backspace",
 		"\x1b[106;5:1u": "ctrl+j", // with an event type
 		"\x1b[99;9u":    "",       // super+c: the terminal's, not ours
-		"\x1b[1;5A":     "",
+		// The kitty protocol sends the arrows as "CSI 1;mods C", which Bubble
+		// Tea can no longer decode once the protocol is on: without these the
+		// arrow keys did nothing in the input.
+		"\x1b[1;1C": "right",
+		"\x1b[1;1D": "left",
+		"\x1b[1;1A": "up",
+		"\x1b[1;1B": "down",
+		"\x1b[1;2A": "shift+up",
+		"\x1b[1;5A": "alt+up", // ctrl+arrow: the input moves by a word
+		"\x1b[1;1H": "home",
+		"\x1b[1;1F": "end",
+		"\x1b[Z":    "shift+tab",
+		"\x1b[D":    "", // the legacy arrow Bubble Tea decodes itself
 	} {
 		k, ok := csiKey([]byte(seq))
 		got := ""

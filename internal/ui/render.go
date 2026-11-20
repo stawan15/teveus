@@ -112,6 +112,19 @@ func markdownStyle() glamansi.StyleConfig {
 	}
 	str := func(s string) *string { return &s }
 	st.Document.Color = str(theme.Text)
+	// One left edge for the whole reply. glamour indents each block by its own
+	// margin on top of the document's, so a heading started at column 2, prose
+	// at 2, a table at 3 and code at 4 — the reply looked torn away from the
+	// edge, and a table pulled away from the prose above it. Zeroing them puts
+	// every block on the same column; the transcript's own gutter supplies the
+	// inset.
+	zero := uint(0)
+	st.Document.Margin = &zero
+	st.Paragraph.Margin = &zero
+	st.Heading.Margin = &zero
+	st.Table.Indent, st.Table.Margin = &zero, &zero
+	st.CodeBlock.Indent, st.CodeBlock.Margin = &zero, &zero
+	st.List.LevelIndent = 0
 	st.Heading.Color = str(theme.Accent2)
 	st.H1.Color = str(theme.OnAccent)
 	st.H1.BackgroundColor = str(theme.Accent)
@@ -172,11 +185,11 @@ func (r *renderer) render(b *block, width int) string {
 	case kindTool:
 		out = r.tool(b, width)
 	case kindInfo:
-		out = sDim.Italic(true).Width(width - 2).PaddingLeft(2).Render(termSafe(b.text))
+		out = sDim.Italic(true).Width(width).Render(termSafe(b.text))
 	case kindError:
-		out = sRed.Width(width - 2).PaddingLeft(2).Render("✗ " + termSafe(b.text))
+		out = sRed.Width(width).Render("✗ " + termSafe(b.text))
 	case kindTurnEnd:
-		out = "  " + sGreen.Render("✓ ") + sDim.Render(termSafe(b.text))
+		out = sGreen.Render("✓ ") + sDim.Render(termSafe(b.text))
 	case kindCmdOut:
 		// Command output is often Markdown (tables, lists): render it, set
 		// off by a gutter so it reads as output rather than a reply.
@@ -274,7 +287,10 @@ func stripPaddingColour(s string) string {
 var paddingRuns = regexp.MustCompile(`\x1b\[(?:38;[0-9;]*|3[0-9]|9[0-9])m( +)\x1b\[0m`)
 
 func (r *renderer) tool(b *block, width int) string {
-	indent := "  "
+	// No indent of its own: the transcript's one-cell gutter already sets the
+	// left edge, so a tool call starts in the same column as prose and code.
+	// Only a nested subagent call steps in, under the Task call that spawned it.
+	indent := ""
 	if b.nested {
 		indent = "      "
 	}

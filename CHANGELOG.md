@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.11] - 2026-11-20
+
 ### Changed
 
 - Replies are easier to read. Heading levels now look different without reading the words: an h2 is set in capitals in the accent colour, h3 and below are dim, and the "## " marks glamour printed in front of every heading are gone. Nested list items are indented again (a sub-point used to sit flush with its parent). A bullet that wraps no longer runs straight into the next bullet — a gap marks where each wrapped item ends, while a list of one-line bullets stays dense.
@@ -498,7 +500,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.10...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.11...HEAD
+[0.33.11]: https://github.com/stawan15/teveus/compare/v0.33.10...v0.33.11
 [0.33.10]: https://github.com/stawan15/teveus/compare/v0.33.9...v0.33.10
 [0.33.9]: https://github.com/stawan15/teveus/compare/v0.33.8...v0.33.9
 [0.33.8]: https://github.com/stawan15/teveus/compare/v0.33.7...v0.33.8

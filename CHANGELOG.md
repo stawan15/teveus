@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.12] - 2026-11-20
+
 ### Fixed
 
 - The sidebar's border no longer jumps a cell to the right on some lines. Two things did it: the transcript added its one-cell gutter without decomposing Thai SARA AM first ("ทำ" is measured as one cell, drawn as two), and `fitWidth` then wrapped a row that had fitted into two, pushing everything below it down; on top of that, joining the two panes concatenated them, so a row a cell short pulled the border left. The gutter decomposes now, a fitted row is trimmed rather than wrapped, and `joinSides` pads to the column.
@@ -503,7 +505,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.11...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.12...HEAD
+[0.33.12]: https://github.com/stawan15/teveus/compare/v0.33.11...v0.33.12
 [0.33.11]: https://github.com/stawan15/teveus/compare/v0.33.10...v0.33.11
 [0.33.10]: https://github.com/stawan15/teveus/compare/v0.33.9...v0.33.10
 [0.33.9]: https://github.com/stawan15/teveus/compare/v0.33.8...v0.33.9

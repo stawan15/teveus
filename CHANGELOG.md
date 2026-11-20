@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.10] - 2026-11-20
+
 ### Fixed
 
 - Moving the cursor with the arrow keys redraws the message box. The box's drawing is cached, and the cache key covered the text, the mode and the cursor's line but not its column, so an arrow along a line left the old frame on screen until the next keystroke.
@@ -493,7 +495,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.9...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.10...HEAD
+[0.33.10]: https://github.com/stawan15/teveus/compare/v0.33.9...v0.33.10
 [0.33.9]: https://github.com/stawan15/teveus/compare/v0.33.8...v0.33.9
 [0.33.8]: https://github.com/stawan15/teveus/compare/v0.33.7...v0.33.8
 [0.33.7]: https://github.com/stawan15/teveus/compare/v0.33.6...v0.33.7

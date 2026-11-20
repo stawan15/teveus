@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -115,6 +116,18 @@ func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choi
 				run: func(m *Model) tea.Cmd {
 					m.note("starting MCP servers…", true)
 					return func() tea.Msg { return mcpApprovedMsg{eng.ApproveProjectMCP()} }
+				},
+			})
+		case s.NeedsOAuth:
+			cs = append(cs, choice{
+				label: "Sign in to " + s.Name,
+				desc:  "opens your browser: this server uses OAuth, so a pasted token won't do",
+				run: func(m *Model) tea.Cmd {
+					m.note("opening the browser to sign in to "+s.Name+"…", true)
+					return func() tea.Msg {
+						return mcpDoneMsg{server: s.Name,
+							err: eng.MCPLoginOAuth(context.Background(), s.Name, agent.OpenBrowserFor)}
+					}
 				},
 			})
 		case needsAuth(s.State):

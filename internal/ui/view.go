@@ -642,12 +642,16 @@ func (m *Model) queueView() string {
 // inputView draws the input box with the permission mode set into its bottom
 // border, so the mode sits right where you type without crowding the text.
 func (m *Model) inputView() string {
-	// The box only changes when its text, the cursor line, the height or the
-	// mode does. A scroll or a streamed chunk redraws the same box, and
-	// rendering it costs about a seventh of a frame (the textarea goes through
-	// lipgloss), so the last drawing is reused.
+	// The box only changes when its text, the cursor, the height or the mode
+	// does. A scroll or a streamed chunk redraws the same box, and rendering it
+	// costs about a seventh of a frame (the textarea goes through lipgloss), so
+	// the last drawing is reused. The cursor's column is part of the key: an
+	// arrow along a line changes neither the value nor the line, and leaving it
+	// out drew the box from before the move, so the text stayed where it was
+	// until the next keystroke.
+	li := m.input.LineInfo()
 	key := m.input.Value() + "\x00" + m.mode + "\x00" +
-		fmt.Sprint(m.w, "/", m.input.Line(), "/", m.input.Height())
+		fmt.Sprint(m.w, "/", m.input.Line(), "/", li.CharOffset, "/", li.ColumnOffset, "/", m.input.Height())
 	if m.inputCache != "" && key == m.inputKey {
 		return m.inputCache
 	}

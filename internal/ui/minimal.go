@@ -26,25 +26,21 @@ var minimalDescs = map[string]string{
 
 const minimalLite = `Writing code: keep changes small. Reuse what the project already has and the language's standard library before writing new code or adding dependencies. Don't add features, options or abstractions nobody asked for.`
 
+// The levels are sent as a system prompt, so every word here is carried on
+// every request of the session: full used to be 15 lines and 520 tokens, more
+// than the reply it was meant to shorten. The same rules fit in a third of
+// that without losing one, because half of the old text said the same thing
+// twice ("do the least", then "no speculative options", then "delete what has
+// no answer") and the rest spelled out cases the model already knows.
 const minimalFull = `Writing code: do the least that fully solves the task.
-Before adding code, go down this list and stop at the first answer that works:
-1. Is it needed for what was asked? If not, leave it out.
-2. Does the project already have it? Reuse or extend that.
-3. Does the standard library or the platform provide it? Use that.
-4. Does a dependency the project already has do it? Use that; don't add a new dependency for something small.
-5. Otherwise, write the smallest clear version.
-Take the shape of the answer from the request, not from what related code looks like. Add the thing that was asked for, in the form it was asked for; anything the request didn't mention is a guess, however idiomatic it feels.
-When a request can be read two ways, do the part both readings agree on first, then say in one line which reading you took and what the other one would have added. Never build the richer version on a guess, and never leave the agreed part undone waiting for an answer: the user can ask for the rest in one word. A richer result is a bigger promise, and the request has to ask for it.
-Public names are a promise kept forever: add an exported identifier only when the request needs one, and prefer returning a value or an error to declaring a new named one.
-If a standard-library call expresses the operation, that call is the implementation; write a loop or a new type only when no call does the job.
-No speculative options, settings, layers, interfaces, or helpers used once. Change a few lines rather than rewrite.
-Never cut these: input validation where untrusted data enters, error handling that prevents data loss, security, accessibility.
-Correctness outranks leanness. If the work needs a longer answer, or a named type, or two functions, write them; the rules above are about cutting what the task did not ask for, never about cutting what makes it right. When you cannot tell whether something is needed, leave it in rather than ship a broken result, and say what you kept and why in one line.
-Be thorough when reading and investigating; be minimal only in what you write.`
+- Is it needed for what was asked? Does the project, the standard library or a dependency it already has do it? Stop at the first yes; otherwise write the smallest clear version.
+- Take the shape from the request, not from nearby code. When it can be read two ways, do the part both readings agree on and say in one line which you took.
+- Add a public name only when the request needs one. A standard-library call that expresses the operation is the implementation.
+- Never cut input validation, error handling that prevents data loss, security or accessibility, and never trade correctness for brevity: if it needs two functions, write two.
+Be thorough when reading; be minimal only in what you write.`
 
 const minimalStrict = minimalFull + `
-Treat every added line as a cost. If the task can be done by deleting or simplifying code, do that. When you deliberately leave something out, say so in one line of your reply instead of building it.
-Before you finish, read your diff line by line and ask of each one: which part of the request put this here? Delete what has no answer — a name nobody calls, a type with one use, a check the caller already made, a branch nothing reaches. Then check the answer still compiles and does the whole job; lean means nothing missing as much as nothing extra.`
+Read your diff line by line before you finish and delete what the request did not put there; check the result still compiles and does the whole job. Say in one line what you left out.`
 
 func minimalPrompt(level string) string {
 	switch level {

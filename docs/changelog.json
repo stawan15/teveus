@@ -5,7 +5,30 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.33.9...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Moving the cursor with the arrow keys redraws the message box. The box's drawing is cached, and the cache key covered the text, the mode and the cursor's line but not its column, so an arrow along a line left the old frame on screen until the next keystroke.",
+              "items": []
+            },
+            {
+              "text": "The minimal-code prompt is a third of its size. Strict went from 659 tokens to 221, and every rule is still there; the text was restating itself three times. It is sent with every request, so it was costing more than the replies it was meant to shorten.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Benchmarks for the things a person actually feels — a keystroke, an arrow, a wheel notch, a streamed chunk — in `internal/ui/render_bench_test.go`.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.9",

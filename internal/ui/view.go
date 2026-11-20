@@ -171,11 +171,15 @@ func appendText(lines []string, rest, text string) ([]string, string) {
 	parts := strings.Split(rest+text, "\n")
 	// A one-cell margin, added by hand: lipgloss would measure and pad every
 	// line of the whole transcript on each streamed chunk. Tabs are replaced
-	// because the terminal's tab stops would skew widths.
+	// because the terminal's tab stops would skew widths, and SARA AM is
+	// decomposed here rather than later: every width the transcript uses to
+	// pad a row is taken in this form, and decomposing after the rows were
+	// fitted widened the rows holding Thai, which pushed the sidebar's border
+	// a cell to the right on just those lines.
 	for _, p := range parts[:len(parts)-1] {
-		lines = append(lines, " "+strings.ReplaceAll(p, "\t", "    "))
+		lines = append(lines, " "+strings.ReplaceAll(termSafe(p), "\t", "    "))
 	}
-	return lines, parts[len(parts)-1]
+	return lines, termSafe(parts[len(parts)-1])
 }
 
 func (m *Model) View() string {
@@ -191,7 +195,7 @@ func (m *Model) View() string {
 		// the scroller, the sidebar by its own frame), so joining the rows is a
 		// string concat: measuring them again through lipgloss on every
 		// streamed chunk was most of a frame's work.
-		main = joinSides(main, m.sidebar(m.vp.Height))
+		main = joinSides(main, m.sidebar(m.vp.Height), m.chatW)
 	}
 	rows := []string{m.header()}
 	if t := m.tabStrip(); t != "" {
@@ -202,14 +206,25 @@ func (m *Model) View() string {
 }
 
 // joinSides puts the transcript and the sidebar on the same rows, left to
-// right.
-func joinSides(left, right string) string {
+// right. Each side is already fitted to its column, so this is a concat — but
+// a row can still come out a cell or two short (a block whose border makes it
+// narrower than the pane), and joining it as it is pulls the sidebar's border
+// left on just that line. Padding to the column here keeps the border straight
+// without measuring the whole frame again.
+func joinSides(left, right string, leftW int) string {
 	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
 	out := make([]string, max(len(l), len(r)))
+	pad := ""
 	for i := range out {
 		var a, b string
 		if i < len(l) {
 			a = l[i]
+			if hold := leftW - lineWidth(a); hold > 0 && hold < 8 {
+				if len(pad) < hold {
+					pad = strings.Repeat(" ", hold)
+				}
+				a += pad[:hold]
+			}
 		}
 		if i < len(r) {
 			b = r[i]

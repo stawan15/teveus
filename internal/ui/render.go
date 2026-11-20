@@ -755,18 +755,28 @@ func fitWidth(s string, w int) string {
 	if w < 1 {
 		return s
 	}
-	s = termSafe(s)
 	lines := strings.Split(s, "\n")
 	// Not lines[:0]: wrapping one line appends more entries than it consumes,
 	// and reusing the array would overwrite lines that haven't been read yet,
 	// dropping them from the result.
 	out := make([]string, 0, len(lines))
 	for _, l := range lines {
-		if ansi.StringWidth(l) <= w {
-			out = append(out, l)
-			continue
+		// Measured before decomposition, which is how the caller measured the
+		// row it fitted to. Decomposition can turn a row that fitted into one a
+		// cell too wide ("ทำ" is measured as one cell, drawn as two), and
+		// wrapping it here would add a line and push the whole frame down by
+		// one — that is what made the sidebar's border jump row by row. Cut the
+		// last cell instead: the row count is what the layout depends on.
+		rawW := ansi.StringWidth(l)
+		safe := termSafe(l)
+		switch safeW := ansi.StringWidth(safe); {
+		case rawW <= w && safeW > w:
+			out = append(out, ansi.Truncate(safe, w, ""))
+		case safeW <= w:
+			out = append(out, safe)
+		default:
+			out = append(out, strings.Split(ansi.Hardwrap(safe, w, false), "\n")...)
 		}
-		out = append(out, strings.Split(ansi.Hardwrap(l, w, false), "\n")...)
 	}
 	return strings.Join(out, "\n")
 }

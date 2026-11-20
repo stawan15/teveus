@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-20
+
 ### Added
 
 - MCP servers from the terminal, in the same shape Claude Code uses: `teveus mcp add --transport http --scope user pastel https://host/api/mcp`, `teveus mcp add --scope project notes npx -y some-server`, `teveus mcp list`, `teveus mcp remove --scope user pastel`. `--header "Authorization: Bearer …"`, `--env KEY=value` and `--approve` work too. `--scope user` writes your own `mcp.json` (no approval needed); `--scope project` writes `.mcp.json` here, which starts only once approved — pass `--approve` to trust it in the same call, and any later edit withdraws that.
@@ -522,7 +524,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/stawan15/teveus/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/stawan15/teveus/compare/v0.33.13...v0.34.0
 [0.33.13]: https://github.com/stawan15/teveus/compare/v0.33.12...v0.33.13
 [0.33.12]: https://github.com/stawan15/teveus/compare/v0.33.11...v0.33.12

@@ -5,10 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.9] - 2026-11-20
+
 ### Fixed
 
 - The arrow keys move the cursor in the message box again. With the kitty keyboard protocol on, the terminal sends them as "CSI 1;mods A", which the key decoder didn't know and dropped. Home, End and ctrl+arrow (a word at a time) decode now too.
 - A reply's left edge is straight. Each block used to be indented by its own margin, so a heading started further left than a table and code sat further right still, while tool calls and rules added a gap of their own; now every block starts in the same column as the text around it.
+
 ## [0.33.8] - 2026-11-20
 
 ### Fixed
@@ -482,7 +485,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.8...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.9...HEAD
+[0.33.9]: https://github.com/stawan15/teveus/compare/v0.33.8...v0.33.9
 [0.33.8]: https://github.com/stawan15/teveus/compare/v0.33.7...v0.33.8
 [0.33.7]: https://github.com/stawan15/teveus/compare/v0.33.6...v0.33.7
 [0.33.6]: https://github.com/stawan15/teveus/compare/v0.33.5...v0.33.6

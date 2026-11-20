@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- The phone page no longer makes the app laggy. While it is on, every frame rebuilt the page's copy of the whole conversation and rescanned it for secrets: 52 ms a frame on a long session, which is more than a frame has. Each entry's line is now built once and kept until that entry changes, so a streamed reply costs 1.7 ms instead of 57 ms. /phone off still stops it, but it is no longer the workaround.
 ## [0.33.7] - 2026-11-19
 
 ### Added

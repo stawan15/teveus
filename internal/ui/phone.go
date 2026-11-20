@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -511,7 +512,28 @@ func (m *Model) answerPhonePopup(index int, text string) tea.Cmd {
 // phoneBlock is one transcript entry as a line the page can style. Everything
 // shown goes through Redact: the phone draws on a screen other people can see,
 // and a key printed by a tool has no business there.
+//
+// The result is cached on the block because a snapshot runs on every frame
+// while a reply streams. The key covers everything the line is built from, so
+// a changed block is redacted again and an unchanged one costs a comparison.
 func phoneBlock(b *block, m *Model) (phoneLine, bool) {
+	key := phoneKey(b, m)
+	if b.phoneOK && b.phoneKey == key {
+		return b.phone, true
+	}
+	line, ok := phoneLineOf(b, m)
+	b.phone, b.phoneOK, b.phoneKey = line, ok, key
+	return line, ok
+}
+
+// phoneKey is everything phoneLineOf reads. The tool summary depends on the
+// expand setting and the working directory, so both are in it.
+func phoneKey(b *block, m *Model) string {
+	return strings.Join([]string{fmt.Sprint(int(b.kind)), b.name, fmt.Sprint(int(b.state)),
+		m.r.cwd, fmt.Sprint(m.r.expand), b.text, b.result}, "\x00")
+}
+
+func phoneLineOf(b *block, m *Model) (phoneLine, bool) {
 	switch b.kind {
 	case kindUser:
 		return phoneLine{Role: "you", Text: agent.Redact(termSafe(b.text))}, true

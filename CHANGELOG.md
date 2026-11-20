@@ -5,9 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.8] - 2026-11-20
+
 ### Fixed
 
 - The phone page no longer makes the app laggy. While it is on, every frame rebuilt the page's copy of the whole conversation and rescanned it for secrets: 52 ms a frame on a long session, which is more than a frame has. Each entry's line is now built once and kept until that entry changes, so a streamed reply costs 1.7 ms instead of 57 ms. /phone off still stops it, but it is no longer the workaround.
+
 ## [0.33.7] - 2026-11-19
 
 ### Added
@@ -475,7 +478,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.7...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.8...HEAD
+[0.33.8]: https://github.com/stawan15/teveus/compare/v0.33.7...v0.33.8
 [0.33.7]: https://github.com/stawan15/teveus/compare/v0.33.6...v0.33.7
 [0.33.6]: https://github.com/stawan15/teveus/compare/v0.33.5...v0.33.6
 [0.33.5]: https://github.com/stawan15/teveus/compare/v0.33.4...v0.33.5

@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Changed
+
+- Replies are easier to read. Heading levels now look different without reading the words: an h2 is set in capitals in the accent colour, h3 and below are dim, and the "## " marks glamour printed in front of every heading are gone. Nested list items are indented again (a sub-point used to sit flush with its parent). A bullet that wraps no longer runs straight into the next bullet — a gap marks where each wrapped item ends, while a list of one-line bullets stays dense.
 ## [0.33.10] - 2026-11-20
 
 ### Fixed

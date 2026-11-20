@@ -712,7 +712,9 @@ func (c *httpConn) post(ctx context.Context, body any) (*http.Response, error) {
 	if resp.StatusCode >= 300 {
 		defer resp.Body.Close()
 		if resp.StatusCode == 401 || resp.StatusCode == 403 {
-			return nil, fmt.Errorf("%s: the server needs authorization; set its token in \"headers\" in the MCP config", resp.Status)
+			// Short: the UI follows this up with what to do (/mcp offers a
+			// token prompt), and a long sentence here wrapped under every row.
+			return nil, fmt.Errorf("%s: needs authorization", resp.Status)
 		}
 		return nil, apiError(resp)
 	}

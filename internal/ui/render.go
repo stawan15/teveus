@@ -269,10 +269,17 @@ func (r *renderer) render(b *block, width int) string {
 		out = sGreen.Render("✓ ") + sDim.Render(termSafe(b.text))
 	case kindCmdOut:
 		// Command output is often Markdown (tables, lists): render it, set
-		// off by a gutter so it reads as output rather than a reply.
-		lines := strings.Split(r.markdown(strings.TrimSpace(termSafe(b.text)), width-4), "\n")
-		for i := range lines {
-			lines[i] = "  " + sFaint.Render("│") + lines[i]
+		// off by a gutter so it reads as output rather than a reply. A line
+		// markdown couldn't break — a long path or URL with no spaces — is
+		// broken here, before the gutter goes on: left to the frame's final
+		// fit, it would be split without its "│" and the output would look
+		// like it had leaked out of the box.
+		inner := max(width-4, 4)
+		var lines []string
+		for _, l := range strings.Split(r.markdown(strings.TrimSpace(termSafe(b.text)), width-4), "\n") {
+			for _, piece := range strings.Split(ansi.Hardwrap(l, inner, false), "\n") {
+				lines = append(lines, "  "+sFaint.Render("│")+piece)
+			}
 		}
 		out = strings.Join(lines, "\n")
 	}

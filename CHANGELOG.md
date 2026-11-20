@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- `/mcp` no longer stacks a copy of the server list into the transcript every time it runs: it is one panel, replaced in place.
+- The "add a token" prompt names the code the server answered with (401, 403) instead of the call it failed on, which read as "the server answered initialize".
+- A server's address and tools sit on their own lines under its name and state, so a long error no longer runs into the URL and the list is scannable. Output from a command keeps its `│` gutter when a path or URL is too long to wrap — it used to break without it and look like it had leaked out of the box.
+- An MCP server that needs authorization says so in three words instead of a sentence that wrapped under every row; the menu offers the fix.
 ## [0.34.1] - 2026-11-20
 
 ### Added

@@ -28,6 +28,14 @@ func (m *Model) showMCP() tea.Cmd {
 		return m.send("/mcp")
 	}
 	st := eng.MCPStatus()
+	m.reportMCP(st)
+	m.openPicker("MCP servers", m.mcpChoices(eng, st), 0)
+	return nil
+}
+
+// reportMCP writes the server list into the transcript, replacing the last one
+// so opening /mcp repeatedly doesn't stack identical panels.
+func (m *Model) reportMCP(st []agent.MCPServerStatus) {
 	var sb strings.Builder
 	sb.WriteString("**MCP servers**\n\n")
 	if len(st) == 0 {
@@ -38,11 +46,14 @@ func (m *Model) showMCP() tea.Cmd {
 	}
 	fmt.Fprintf(&sb, "\n`%s` holds yours; `.mcp.json` in the project is shared with the repo.\n",
 		filepath.Join(configDir(), "mcp.json"))
-	m.add(&block{kind: kindCmdOut, text: sb.String()})
+	// One summary, not one per run: /mcp is a panel, and opening it five times
+	// used to print the same list five times into the transcript.
+	if m.mcpBlock != nil {
+		m.removeBlock(m.mcpBlock)
+	}
+	m.mcpBlock = &block{kind: kindCmdOut, text: sb.String()}
+	m.add(m.mcpBlock)
 	m.refresh()
-
-	m.openPicker("MCP servers", m.mcpChoices(eng, st), 0)
-	return nil
 }
 
 // mcpLine is one server as a list row: its state, what it runs, and its tools.
@@ -56,16 +67,25 @@ func mcpLine(s agent.MCPServerStatus) string {
 	case s.State == "starting":
 		mark = "…"
 	}
+	// Two lines per server: the name and how it stands, then what it runs.
+	// One long line wrapped into the state half-way through, which made the
+	// list hard to scan and pushed the target under the error text.
 	line := fmt.Sprintf("- %s **%s**", mark, s.Name)
 	if s.Scope != "" {
 		line += " (" + s.Scope + ")"
 	}
 	line += " · " + shortMCPState(s.State)
 	if len(s.Tools) > 0 {
-		line += fmt.Sprintf(" · %d tools: %s", len(s.Tools), strings.Join(s.Tools, ", "))
+		line += fmt.Sprintf(" · %d tools", len(s.Tools))
 	}
+	// A markdown hard break (two spaces) keeps these on their own lines;
+	// markdown joins a plain newline into the same paragraph, which is what
+	// put the target in the middle of the error text.
 	if s.Target != "" {
-		line += "\n  `" + s.Target + "`"
+		line += "  \n  `" + s.Target + "`"
+	}
+	if len(s.Tools) > 0 {
+		line += "  \n  " + strings.Join(s.Tools, ", ")
 	}
 	return line
 }
@@ -100,7 +120,7 @@ func (m *Model) mcpChoices(eng *agent.Engine, st []agent.MCPServerStatus) []choi
 		case needsAuth(s.State):
 			cs = append(cs, choice{
 				label: "Add a token for " + s.Name,
-				desc:  "the server answered " + firstWord(s.State) + "; the token goes in its \"headers\"",
+				desc:  "the server answered " + authCode(s.State) + "; the token goes in its \"headers\"",
 				run: func(m *Model) tea.Cmd {
 					m.askMCPToken(eng, s)
 					return nil
@@ -151,11 +171,15 @@ func needsAuth(state string) bool {
 		strings.Contains(s, "needs authorization") || strings.Contains(s, "unauthorized")
 }
 
-func firstWord(s string) string {
-	if f := strings.Fields(s); len(f) > 0 {
-		return f[0]
+// authCode is the number a server answered with, which is what the user needs
+// to look up: the state begins with the call ("initialize: 401 …").
+func authCode(state string) string {
+	for _, code := range []string{"401", "403"} {
+		if strings.Contains(state, code) {
+			return code
+		}
 	}
-	return "401"
+	return "an authorization error"
 }
 
 // askMCPAdd walks through adding a server to the user's own config: a name,

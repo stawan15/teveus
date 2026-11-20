@@ -46,6 +46,7 @@ type Model struct {
 	imageN     int
 	outImages  []claude.Image // pictures going with the next sent user turn
 	mcpNoted   bool
+	mcpBlock   *block // the /mcp summary, replaced on each run so it doesn't pile up
 	settings   Settings
 	client     claude.Backend
 	phone      *phoneServer

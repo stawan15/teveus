@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- `/mcp` is now a menu, one entry per server, and it offers what each server actually needs: **Approve** for a project's `.mcp.json`, **Add a token** when a server answered 401 (the prompt is masked and writes an Authorization header to your own `mcp.json`, never the project's), **Retry** for one that failed or whose config changed, and **Add a server** by hand — pick stdio or http, then type the command or URL. Failing servers show their error on one line instead of a header dump.
+
+### Fixed
+
+- Retrying an MCP server now reads its config from disk. It reused the copy the server started with, so a token added after a 401 never took effect.
 ## [0.33.13] - 2026-11-20
 
 ### Fixed

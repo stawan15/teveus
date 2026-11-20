@@ -438,6 +438,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case mcpApprovedMsg:
 		return m, m.handleMCPApproved(msg)
 
+	case mcpDoneMsg:
+		return m, m.handleMCPDone(msg)
+
 	case clipImageMsg:
 		if msg.err != nil {
 			m.note(msg.err.Error(), false)

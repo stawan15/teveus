@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.33.13] - 2026-11-20
+
 ### Fixed
 
 - A skill called as `/<skill>` now says where the skill lives. Its text links files beside it (`references/discovery.md`), and those are relative to the skill rather than to the project, so the model looked for them in the wrong directory and reported them missing — with the tech-me skill, every playbook. The Skill tool already did this; the slash command did not, and returned early whenever the skill filled in `$ARGUMENTS`.
@@ -508,7 +510,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.12...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.13...HEAD
+[0.33.13]: https://github.com/stawan15/teveus/compare/v0.33.12...v0.33.13
 [0.33.12]: https://github.com/stawan15/teveus/compare/v0.33.11...v0.33.12
 [0.33.11]: https://github.com/stawan15/teveus/compare/v0.33.10...v0.33.11
 [0.33.10]: https://github.com/stawan15/teveus/compare/v0.33.9...v0.33.10

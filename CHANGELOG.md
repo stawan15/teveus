@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- The arrow keys move the cursor in the message box again. With the kitty keyboard protocol on, the terminal sends them as "CSI 1;mods A", which the key decoder didn't know and dropped. Home, End and ctrl+arrow (a word at a time) decode now too.
+- A reply's left edge is straight. Each block used to be indented by its own margin, so a heading started further left than a table and code sat further right still, while tool calls and rules added a gap of their own; now every block starts in the same column as the text around it.
 ## [0.33.8] - 2026-11-20
 
 ### Fixed

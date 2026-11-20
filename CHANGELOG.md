@@ -8,9 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 ### Added
 
 - MCP servers that sign you in with your browser work: when one answers 401 with an OAuth challenge (the `WWW-Authenticate: … resource_metadata="…"` most hosted servers use), `/mcp` offers **Sign in** instead of a token box. teveus registers itself as a public client with that server, opens your browser, and exchanges the code from a localhost callback for a token using PKCE, which it stores in your own `mcp.json` (0600) and sends only to that server.
+
 ### Fixed
 
 - An MCP server behind a redirect connects. Go's HTTP client turns a redirected POST into a GET and drops the body, so one whose address was moved — a trailing slash added, http→https, a proxy canonicalising the path — received an empty GET and answered `-32601: This MCP endpoint only accepts POST`. The redirect is followed with the same method and body now, everywhere teveus makes a request (the 10-redirect limit still applies, and a caller that asked for a GET still gets one).
+
 ## [0.34.2] - 2026-11-20
 
 ### Fixed

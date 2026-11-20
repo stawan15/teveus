@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Fixed
+
+- A skill called as `/<skill>` now says where the skill lives. Its text links files beside it (`references/discovery.md`), and those are relative to the skill rather than to the project, so the model looked for them in the wrong directory and reported them missing — with the tech-me skill, every playbook. The Skill tool already did this; the slash command did not, and returned early whenever the skill filled in `$ARGUMENTS`.
 ## [0.33.12] - 2026-11-20
 
 ### Fixed

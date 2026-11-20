@@ -94,6 +94,10 @@ type run struct {
 }
 
 func startEngine(t *testing.T, provider string, cred Credential, model, mode string) (*run, string) {
+	// Skills and commands are read from the home directory too, so a machine
+	// with its own installed skills would otherwise change what these tests
+	// see (a subagent's tool list, for one).
+	isolateHome(t)
 	dir := t.TempDir()
 	store := NewStore(t.TempDir())
 	store.Save(provider, cred)

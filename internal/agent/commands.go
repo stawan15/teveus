@@ -205,10 +205,16 @@ func expandCustom(cmds []customCmd, text string) string {
 			return ""
 		})
 		if strings.Contains(body, "$ARGUMENTS") {
-			return strings.ReplaceAll(body, "$ARGUMENTS", args)
-		}
-		if args != "" && !positional.MatchString(c.body) {
+			body = strings.ReplaceAll(body, "$ARGUMENTS", args)
+		} else if args != "" && !positional.MatchString(c.body) {
 			body += "\n\nARGUMENTS: " + args
+		}
+		// A skill's text links files beside it ("references/foo.md"), which are
+		// relative to where the skill lives rather than to the project. Say
+		// where that is, as the Skill tool does, or the model looks in the
+		// wrong place and reports the files missing.
+		if c.skill && c.dir != "" {
+			body = "Directory: " + c.dir + "\n\n" + body
 		}
 		return body
 	}

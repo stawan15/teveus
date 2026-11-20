@@ -72,7 +72,11 @@ func TestOwnLayoutCommandIsExpandedForClaudeCode(t *testing.T) {
 	m.client, m.engine = rec, "claude"
 	writeSkill(t, dir, "review", "Read every hunk twice.")
 	m.submit("/review only the parser")
-	if len(rec.sent) != 1 || rec.sent[0] != "Read every hunk twice.\n\nARGUMENTS: only the parser" {
+	// A skill's own files are relative to the skill, so its directory comes
+	// first; the transcript still shows the command the user typed.
+	want := "Directory: " + filepath.Join(dir, ".agent/skills/review") +
+		"\n\nRead every hunk twice.\n\nARGUMENTS: only the parser"
+	if len(rec.sent) != 1 || rec.sent[0] != want {
 		t.Fatalf("sent %q", rec.sent)
 	}
 	if last := m.blocks[len(m.blocks)-1]; last.text != "/review only the parser" {

@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-20
+
 ### Added
 
 - `/mcp` is now a menu, one entry per server, and it offers what each server actually needs: **Approve** for a project's `.mcp.json`, **Add a token** when a server answered 401 (the prompt is masked and writes an Authorization header to your own `mcp.json`, never the project's), **Retry** for one that failed or whose config changed, and **Add a server** by hand — pick stdio or http, then type the command or URL. Failing servers show their error on one line instead of a header dump.
@@ -517,7 +519,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.33.13...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/stawan15/teveus/compare/v0.33.13...v0.34.0
 [0.33.13]: https://github.com/stawan15/teveus/compare/v0.33.12...v0.33.13
 [0.33.12]: https://github.com/stawan15/teveus/compare/v0.33.11...v0.33.12
 [0.33.11]: https://github.com/stawan15/teveus/compare/v0.33.10...v0.33.11

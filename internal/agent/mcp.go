@@ -162,7 +162,12 @@ func (m *mcpManager) trusted(raw []byte) bool {
 }
 
 // approve records the current .mcp.json as approved and starts its servers.
-func (m *mcpManager) approve() error {
+func (m *mcpManager) approve() error { return m.trust(true) }
+
+// trust records the project's file as approved. start says whether to connect
+// its servers now: the app does, a command-line `mcp add --approve` does not,
+// where a server that takes its time would hold the prompt.
+func (m *mcpManager) trust(start bool) error {
 	if m.configDir == "" {
 		return errors.New("no config directory")
 	}
@@ -186,7 +191,9 @@ func (m *mcpManager) approve() error {
 	m.mu.Lock()
 	m.pending = map[string]MCPConfig{}
 	m.mu.Unlock()
-	m.start(false)
+	if start {
+		m.start(false)
+	}
 	return nil
 }
 

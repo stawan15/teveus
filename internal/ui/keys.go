@@ -53,11 +53,21 @@ func csiBytes(msg tea.Msg) ([]byte, bool) {
 // newline binding.
 var newlineKey = tea.KeyMsg{Type: tea.KeyCtrlJ}
 
-// csiKey decodes a kitty "CSI code[:alt] ; mods u" key, or the xterm
-// modifyOtherKeys form "CSI 27 ; mods ; code ~".
+// csiKey decodes a kitty "CSI code[:alt] ; mods u" key, the xterm
+// modifyOtherKeys form "CSI 27 ; mods ; code ~", and the CSI letter forms the
+// kitty protocol uses for the arrows and navigation keys ("CSI 1;mods D").
+// Bubble Tea decodes the plain arrows itself, but with the protocol on it
+// can't tell "CSI 1;1D" from anything else and hands the whole sequence up:
+// dropping those left the arrow keys doing nothing in the input.
 func csiKey(seq []byte) (tea.KeyMsg, bool) {
 	s := string(seq)
-	if !strings.HasPrefix(s, "\x1b[") || len(s) < 4 {
+	if !strings.HasPrefix(s, "\x1b[") || len(s) < 3 {
+		return tea.KeyMsg{}, false
+	}
+	if k, ok := csiLetterKey(s); ok {
+		return k, true
+	}
+	if len(s) < 4 {
 		return tea.KeyMsg{}, false
 	}
 	params := strings.Split(s[2:len(s)-1], ";")
@@ -137,6 +147,77 @@ func csiKey(seq []byte) (tea.KeyMsg, bool) {
 		r = unicode.ToUpper(r)
 	}
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}, Alt: alt}, true
+}
+
+// csiLetterKey decodes the CSI sequences that end in a letter: the arrows
+// ("A" up, "B" down, "C" right, "D" left), Home and End ("H", "F"), and the
+// shifted tab ("CSI Z"). The field before the letter is the modifier, so
+// "CSI 1;5C" is ctrl+right. A bare "CSI D" is the legacy form Bubble Tea
+// decodes itself, so it is left alone here.
+func csiLetterKey(s string) (tea.KeyMsg, bool) {
+	last := s[len(s)-1]
+	if last == 'Z' {
+		if s != "\x1b[Z" {
+			return tea.KeyMsg{}, false
+		}
+		return tea.KeyMsg{Type: tea.KeyShiftTab}, true
+	}
+	switch last {
+	case 'A', 'B', 'C', 'D', 'H', 'F':
+	default:
+		return tea.KeyMsg{}, false
+	}
+	num, mods, ok := strings.Cut(s[2:len(s)-1], ";")
+	if !ok || num != "1" {
+		return tea.KeyMsg{}, false
+	}
+	n, err := strconv.Atoi(strings.SplitN(mods, ":", 2)[0])
+	if err != nil || n < 1 {
+		return tea.KeyMsg{}, false
+	}
+	n--
+	if n&^7 != 0 {
+		return tea.KeyMsg{}, false // super/hyper/meta: not ours
+	}
+	shift, alt, ctrl := n&1 != 0, n&2 != 0, n&4 != 0
+
+	// Home and End have no modified form of their own, so a modifier leaves
+	// them as they are rather than turning them into an arrow.
+	if last == 'H' {
+		return tea.KeyMsg{Type: tea.KeyHome, Alt: alt}, true
+	}
+	if last == 'F' {
+		return tea.KeyMsg{Type: tea.KeyEnd, Alt: alt}, true
+	}
+	var typ tea.KeyType
+	switch last {
+	case 'A':
+		typ = tea.KeyUp
+	case 'B':
+		typ = tea.KeyDown
+	case 'C':
+		typ = tea.KeyRight
+	default:
+		typ = tea.KeyLeft
+	}
+	if shift {
+		switch typ {
+		case tea.KeyUp:
+			typ = tea.KeyShiftUp
+		case tea.KeyDown:
+			typ = tea.KeyShiftDown
+		case tea.KeyRight:
+			typ = tea.KeyShiftRight
+		case tea.KeyLeft:
+			typ = tea.KeyShiftLeft
+		}
+	} else if ctrl {
+		// word-wise motion in the input; Bubble Tea's own ctrl+arrow types
+		// don't exist, so the same key with Alt set is what other terminals
+		// send for it, and the textarea already moves by a word on those.
+		alt = true
+	}
+	return tea.KeyMsg{Type: typ, Alt: alt}, true
 }
 
 // Long pastes collapse to a placeholder in the input, like Claude Code; the

@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.35.0...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "MCP servers can be switched on and off from `/mcp`: each one is a row with a switch, and turning it off stops its tools being offered without losing its settings or its token. With two servers adding 38 tools between them, that is 38 tools of context on every request you may not want. The choice is saved to the file the server came from, so it survives a restart. `teveus mcp enable NAME` and `teveus mcp disable NAME` do the same from the terminal, and `teveus mcp list` shows which are off.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.35.0",

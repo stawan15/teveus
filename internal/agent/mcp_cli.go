@@ -110,6 +110,34 @@ func mcpConfigFrom(o MCPAddOptions) (MCPConfig, error) {
 	return MCPConfig{}, fmt.Errorf("unknown transport %q (use stdio or http)", o.Transport)
 }
 
+// MCPSetEnabled turns a server off or on from the command line. Off keeps the
+// entry (and any token) but stops its tools being offered.
+func MCPSetEnabled(name string, on bool, cwd, configDir string) error {
+	if cwd == "" {
+		cwd, _ = filepath.Abs(".")
+	}
+	// The user's file first, then the project's: whichever names it.
+	if cfgs, err := UserMCPConfig(configDir); err == nil {
+		if c, ok := cfgs[name]; ok {
+			c.Disabled = !on
+			cfgs[name] = c
+			return SaveUserMCPConfig(configDir, cfgs)
+		}
+	}
+	path := filepath.Join(cwd, ".mcp.json")
+	cfgs, _, err := readMCPFile(path)
+	if err != nil {
+		return fmt.Errorf("no server named %s", name)
+	}
+	c, ok := cfgs[name]
+	if !ok {
+		return fmt.Errorf("no server named %s", name)
+	}
+	c.Disabled = !on
+	cfgs[name] = c
+	return writeMCPFile(path, cfgs)
+}
+
 // MCPRemove deletes a server from the file its scope names.
 func MCPRemove(name, scope, cwd, configDir string) error {
 	switch scope {
@@ -163,6 +191,7 @@ func MCPList(cwd, configDir string) []MCPEntry {
 type MCPEntry struct {
 	Name, Scope, Transport, Target string
 	Approved                       bool // project files only
+	Disabled                       bool
 }
 
 func mcpEntries(cfgs map[string]MCPConfig, scope string, approved bool) []MCPEntry {
@@ -173,7 +202,7 @@ func mcpEntries(cfgs map[string]MCPConfig, scope string, approved bool) []MCPEnt
 			transport = "http"
 		}
 		out = append(out, MCPEntry{Name: name, Scope: scope, Transport: transport,
-			Target: c.Describe(), Approved: approved})
+			Target: c.Describe(), Approved: approved, Disabled: c.Disabled})
 	}
 	return out
 }

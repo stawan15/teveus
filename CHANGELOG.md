@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- MCP servers can be switched on and off from `/mcp`: each one is a row with a switch, and turning it off stops its tools being offered without losing its settings or its token. With two servers adding 38 tools between them, that is 38 tools of context on every request you may not want. The choice is saved to the file the server came from, so it survives a restart. `teveus mcp enable NAME` and `teveus mcp disable NAME` do the same from the terminal, and `teveus mcp list` shows which are off.
 ## [0.35.0] - 2026-11-20
 
 ### Added

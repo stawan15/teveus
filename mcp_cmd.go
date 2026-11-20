@@ -118,6 +118,28 @@ func mcpCommand(args []string) int {
 		}
 		fmt.Println("removed", name)
 
+	case "enable", "on", "disable", "off":
+		on := verb == "enable" || verb == "on"
+		name := ""
+		for _, a := range rest {
+			if !strings.HasPrefix(a, "-") {
+				name = a
+			}
+		}
+		if name == "" {
+			fmt.Fprintf(os.Stderr, "teveus mcp: %s needs a server name\n", verb)
+			return 2
+		}
+		if err := agent.MCPSetEnabled(name, on, cwd, cfgDir); err != nil {
+			fmt.Fprintln(os.Stderr, "teveus mcp:", err)
+			return 1
+		}
+		if on {
+			fmt.Println(name, "on: its tools are offered again")
+		} else {
+			fmt.Println(name, "off: its tools aren't offered, its settings kept")
+		}
+
 	case "list", "ls":
 		entries := agent.MCPList(cwd, cfgDir)
 		if len(entries) == 0 {
@@ -131,11 +153,15 @@ func mcpCommand(args []string) int {
 		}
 		for _, e := range entries {
 			note := ""
+			if e.Disabled {
+				note = "  (off)"
+			}
 			if e.Scope == "project" {
-				if e.Approved {
-					note = "  (approved)"
-				} else {
-					note = "  (needs approval: /mcp, or --approve on add)"
+				switch {
+				case e.Approved:
+					note += "  (approved)"
+				default:
+					note += "  (needs approval: /mcp, or --approve on add)"
 				}
 			}
 			fmt.Printf("%-*s  %-7s %-5s %s%s\n", w, e.Name, e.Scope, e.Transport, e.Target, note)
@@ -153,6 +179,8 @@ const mcpUsage = `teveus mcp — MCP servers for the Direct API engine
   teveus mcp add [--transport stdio|http] [--scope user|project] [--env K=V] [--header "Name: value"] [--approve] NAME <command…|URL>
   teveus mcp list
   teveus mcp remove [--scope user|project] NAME
+  teveus mcp enable NAME      offer its tools again
+  teveus mcp disable NAME     stop offering them, keeping its settings
 
   user     your own file (~/.config/teveus/mcp.json), every project, no approval
   project  .mcp.json in this directory, shared with the repo, needs approval

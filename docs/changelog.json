@@ -5,7 +5,17 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.33.12...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "A skill called as `/<skill>` now says where the skill lives. Its text links files beside it (`references/discovery.md`), and those are relative to the skill rather than to the project, so the model looked for them in the wrong directory and reported them missing — with the tech-me skill, every playbook. The Skill tool already did this; the slash command did not, and returned early whenever the skill filled in `$ARGUMENTS`.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.33.12",

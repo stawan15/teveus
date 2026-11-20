@@ -63,6 +63,15 @@ type block struct {
 	wrapped    string
 	wrappedLen int
 	wrappedW   int
+
+	// phone is the line this block becomes on the phone page, kept until the
+	// block changes the way the drawn text is. A snapshot runs on every frame
+	// while a reply streams and has to redact the text to build one; the
+	// pattern scan over a long conversation came to 52 ms a frame, which is
+	// the whole budget and then some.
+	phone    phoneLine
+	phoneOK  bool
+	phoneKey string
 }
 
 func (b *block) invalidate() { b.dirty = true }

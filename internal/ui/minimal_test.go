@@ -28,7 +28,7 @@ func TestSaversAreOffUntilTurnedOn(t *testing.T) {
 	if got := m.saverLabel(); got != "concise · lean · minimal" {
 		t.Fatalf("label %q", got)
 	}
-	for level, want := range map[string]string{"lite": minimalLite, "strict": "Treat every added line"} {
+	for level, want := range map[string]string{"lite": minimalLite, "strict": "what you left out"} {
 		m.settings.MinimalCode = level
 		if p := m.applySavers(claude.Options{}).AppendPrompt; !strings.Contains(p, want) {
 			t.Errorf("%s: %s", level, p)
@@ -131,8 +131,8 @@ func TestMinimalPromptStatesPrinciplesNotCases(t *testing.T) {
 	for _, level := range []string{"full", "strict"} {
 		p := strings.ToLower(minimalPrompt(level))
 		for _, want := range []string{
-			"as asked",         // add what the request asks for, in that form
-			"exported",         // public names are a promise
+			"asked",            // add what the request asks for
+			"public name",      // a public name is a promise
 			"standard-library", // a library call beats a hand-written shape
 		} {
 			if !strings.Contains(p, want) {

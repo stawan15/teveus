@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -139,7 +140,11 @@ func TestUserMCPConfigRoundTrip(t *testing.T) {
 	if cs["one"].Command != "uvx" || len(cs["one"].Args) != 1 || cs["two"].URL == "" {
 		t.Errorf("round trip lost data: %+v", cs)
 	}
-	if fi, err := os.Stat(filepath.Join(dir, "mcp.json")); err != nil || fi.Mode().Perm() != 0o600 {
+	// Windows has no owner-only bit to set, so the mode there is whatever the
+	// filesystem reports; the check is for the platforms that do honour it.
+	if fi, err := os.Stat(filepath.Join(dir, "mcp.json")); err != nil {
+		t.Error(err)
+	} else if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v", fi.Mode().Perm())
 	}
 

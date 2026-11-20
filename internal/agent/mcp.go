@@ -857,7 +857,13 @@ func SaveUserMCPConfig(configDir string, cfgs map[string]MCPConfig) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(configDir, "mcp.json"), append(b, '\n'), 0o600)
+	path := filepath.Join(configDir, "mcp.json")
+	if err := os.WriteFile(path, append(b, '\n'), 0o600); err != nil {
+		return err
+	}
+	// WriteFile's mode only applies when it creates the file, so an existing
+	// one keeps whatever it had; this is a token-bearing file.
+	return os.Chmod(path, 0o600)
 }
 
 // ReconnectMCP retries one server, which is how a token added after a 401

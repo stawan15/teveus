@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -282,16 +281,6 @@ func (m *Model) handleMCPDone(msg mcpDoneMsg) tea.Cmd {
 	}
 	m.note(msg.server+" reconnecting…", true)
 	return nil
-}
-
-// mcpNames is the sorted list of servers, for tests and for the picker.
-func mcpNames(st []agent.MCPServerStatus) []string {
-	var out []string
-	for _, s := range st {
-		out = append(out, s.Name)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // noteProjectMCP says once when the project has MCP servers that are waiting

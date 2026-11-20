@@ -59,15 +59,39 @@ func isPlatformVerifierFailure(err error) bool {
 		strings.Contains(s, "SecTrustEvaluateWithError") && strings.Contains(s, "error: 0")
 }
 
+// keepMethodOnRedirect stops Go's client from turning a redirected POST into a
+// GET. Its default does that for 301/302/303 and drops the body, so an MCP
+// endpoint behind a redirect — a trailing slash added, http→https, a proxy
+// canonicalising the path — gets an empty GET and answers "this endpoint only
+// accepts POST". Following the redirect with the same method and body is what
+// the caller meant.
+func keepMethodOnRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if len(via) > 0 && req.Method == http.MethodGet {
+		prev := via[len(via)-1]
+		// Only when Go made this GET: a caller that asked for a GET keeps one.
+		if prev.Method != http.MethodGet && prev.GetBody != nil {
+			if body, err := prev.GetBody(); err == nil {
+				req.Method, req.Body = prev.Method, body
+				req.ContentLength = prev.ContentLength
+				req.GetBody = prev.GetBody
+			}
+		}
+	}
+	return nil
+}
+
 // httpDo sends a request, falling back to the CA bundle when the platform
 // verifier breaks. Requests built with a bytes body can be replayed.
 func httpDo(req *http.Request) (*http.Response, error) {
+	resp, err := sending(http.DefaultClient, req)
 	if useBundle.Load() {
 		if c, ok := bundleHTTPClient(); ok {
-			return c.Do(req)
+			return sending(c, req)
 		}
 	}
-	resp, err := http.DefaultClient.Do(req)
 	if !isPlatformVerifierFailure(err) {
 		return resp, err
 	}
@@ -83,11 +107,19 @@ func httpDo(req *http.Request) (*http.Response, error) {
 		}
 		retry.Body = body
 	}
-	resp, err2 := c.Do(retry)
+	resp, err2 := sending(c, retry)
 	if err2 == nil {
 		useBundle.Store(true)
 	}
 	return resp, err2
+}
+
+// sending runs one request through a copy of the client that keeps its method
+// across redirects.
+func sending(c *http.Client, req *http.Request) (*http.Response, error) {
+	cp := *c
+	cp.CheckRedirect = keepMethodOnRedirect
+	return cp.Do(req)
 }
 
 // Retries: requests to the model (POSTs) that hit a rate limit (429),

@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-20
+
 ### Added
 
 - MCP servers can be switched on and off from `/mcp`: each one is a row with a switch, and turning it off stops its tools being offered without losing its settings or its token. With two servers adding 38 tools between them, that is 38 tools of context on every request you may not want. The choice is saved to the file the server came from, so it survives a restart. `teveus mcp enable NAME` and `teveus mcp disable NAME` do the same from the terminal, and `teveus mcp list` shows which are off.
@@ -545,7 +547,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/stawan15/teveus/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/stawan15/teveus/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/stawan15/teveus/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/stawan15/teveus/compare/v0.34.0...v0.34.1

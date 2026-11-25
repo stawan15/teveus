@@ -35,21 +35,21 @@ type session struct {
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
 
-	sessionID, model, mode   string
-	cost, prevCost           float64
-	context                  int
-	commands                 []claude.Command
-	models                   []claude.ModelInfo
-	warnedCtx, promptedModel bool
-	noProvider               *block
-	tokIn, tokOut, tokCache       int
-	turnIn, turnOut, turnCache    int
-	turnTools                     int
-	lastTurnIn, lastTurnOut       int
-	lastTurnCache                 int
-	lastTurnCost                  float64
-	subagents                     []*subagentState
-	touchedFiles                  []touchedFile
+	sessionID, model, mode     string
+	cost, prevCost             float64
+	context                    int
+	commands                   []claude.Command
+	models                     []claude.ModelInfo
+	warnedCtx, promptedModel   bool
+	noProvider                 *block
+	tokIn, tokOut, tokCache    int
+	turnIn, turnOut, turnCache int
+	turnTools                  int
+	lastTurnIn, lastTurnOut    int
+	lastTurnCache              int
+	lastTurnCost               float64
+	subagents                  []*subagentState
+	touchedFiles               []touchedFile
 
 	cwd, branch string
 	files       []string

@@ -120,11 +120,11 @@ type Model struct {
 	project    projectInfo
 	starters   []string
 
-	pop           popup
-	warnedCtx     bool
-	promptedModel bool
-	claudeAuth    claudeAuthMsg
-	authChecked   bool // the Claude Code login check has answered
+	pop             popup
+	warnedCtx       bool
+	promptedModel   bool
+	claudeAuth      claudeAuthMsg
+	authChecked     bool // the Claude Code login check has answered
 	noProvider      *block
 	tokIn, tokOut   int
 	tokCache        int // cumulative cache-read tokens across the session
@@ -138,22 +138,22 @@ type Model struct {
 	subagents       []*subagentState
 	touchedFiles    []touchedFile
 	history         []string
-	histIdx       int
-	draft         string
-	ctrlC         time.Time
-	escAt         time.Time
-	notice        string
-	noticeOK      bool
-	noticeAt      time.Time
-	updated       string // a version just installed; lets the caller restart cleanly
-	commitArg     string // the /commit argument, carried to the message it sends
-	sendShown     string // what to put in the transcript instead of the text sent
-	permFullDiff  bool   // user pressed 'd' to expand the full diff inside permView
-	skillCount    int    // local skills/commands detected in this project, cached for sidebar
-	ruleCache     string // cached hairline divider between header and workspace
-	ruleCacheW    int
-	ruleCacheSide int
-	ruleCacheThm  string
+	histIdx         int
+	draft           string
+	ctrlC           time.Time
+	escAt           time.Time
+	notice          string
+	noticeOK        bool
+	noticeAt        time.Time
+	updated         string // a version just installed; lets the caller restart cleanly
+	commitArg       string // the /commit argument, carried to the message it sends
+	sendShown       string // what to put in the transcript instead of the text sent
+	permFullDiff    bool   // user pressed 'd' to expand the full diff inside permView
+	skillCount      int    // local skills/commands detected in this project, cached for sidebar
+	ruleCache       string // cached hairline divider between header and workspace
+	ruleCacheW      int
+	ruleCacheSide   int
+	ruleCacheThm    string
 }
 
 type eventMsg struct {

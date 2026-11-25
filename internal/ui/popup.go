@@ -345,7 +345,7 @@ func (m *Model) popupView() string {
 		metaW = max(metaW, lipgloss.Width(termSafe(c.key)))
 		groups[c.group]++
 	}
-	labelW = min(labelW, inner*2/5)
+	labelW = min(labelW, max(inner/2, min(28, inner-8)))
 	metaW = min(metaW, inner/4)
 	grouped := p.query == "" && len(groups) > 1 && !p.flat
 

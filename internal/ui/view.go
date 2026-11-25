@@ -48,7 +48,7 @@ func (m *Model) layout() {
 		return
 	}
 	m.sideW = 0
-	if !m.settings.HideSide && m.w >= 100 {
+	if !m.settings.HideSide && m.w >= 112 {
 		m.sideW = sidebarWidth
 	}
 	m.chatW = m.w - m.sideW
@@ -935,18 +935,6 @@ func todoTasks(input map[string]any) []task {
 		out = append(out, task{subject: content, status: status})
 	}
 	return out
-}
-
-func usageLine(name string, win *claude.Window, w int) []string {
-	// Fixed 3-char label width aligns 5h, 7d and 30d bars on the exact same column.
-	label := fmt.Sprintf("%-3s ", name)
-	pct := fmt.Sprintf(" %3.0f%%", win.Utilization*100)
-	barW := max(w-len(label)-len(pct), 4)
-	lines := []string{sDim.Render(label) + bar(win.Utilization, barW) + sText.Render(pct)}
-	if win.ResetsAt > 0 {
-		lines = append(lines, sFaint.Render("    resets "+time.Unix(win.ResetsAt, 0).Format("Mon 15:04")))
-	}
-	return lines
 }
 
 // usageLineCompact keeps the Left Rail airy: shows reset time only when a

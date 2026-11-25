@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-11-20
+
 ### Fixed
 
 - A free-tier quota no longer ends the turn. A per-minute limit (Google's "input tokens per minute exceeded") clears over a minute, but the retries waited 2 s, 5 s and 12 s and gave up at 19 s. The wait the server asks for is now read from the reply body when it isn't in a header (Google puts `retryDelay` there), the delays add up past a minute, and the error says what to do — wait, pick another model with `/model`, or enable billing — in one line instead of pasting the whole quota paragraph.
@@ -550,7 +552,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.36.1...HEAD
+[0.36.1]: https://github.com/stawan15/teveus/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/stawan15/teveus/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/stawan15/teveus/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/stawan15/teveus/compare/v0.34.1...v0.34.2

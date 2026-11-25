@@ -8,22 +8,24 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Thai rows used to gain a cell when SARA AM was decomposed after the row was
-// fitted, and a row short of its column was joined as-is, so the sidebar's
-// border sat a cell to the right on those lines only.
+// With the Left Architectural Rail drawn before the transcript, Thai SARA AM,
+// emoji and failed-tool badges on the right can never shift or tear the │ border.
 func TestBorderStaysOnItsColumn(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})
 	m.Update(tea.WindowSizeMsg{Width: 160, Height: 45})
-	m.add(&block{kind: kindUser, text: "ทำ playbook ใหม่"})
-	m.add(&block{kind: kindAssistant, text: "## สิ่งที่ควรทำ\n\n| สิ่งที่สร้าง | ค่า |\n|---|---|\n| user | logstash UID 984 |\n\nเนื้อความยาว ๆ ที่ต้อง wrap หลายบรรทัด"})
-	m.add(&block{kind: kindTool, name: "Bash", input: map[string]any{"command": "ls"}, state: toolDone})
+	m.add(&block{kind: kindUser, text: "ทำ playbook ใหม่ ⚠ ทดสอบคำสั่งและสำรวจ"})
+	m.add(&block{kind: kindAssistant, text: "## สิ่งที่ควรทำ\n\n| สิ่งที่สร้าง | ค่า |\n|---|---|\n| user | logstash UID 984 ⚠ |\n\nเนื้อความยาว ๆ ที่ต้อง wrap หลายบรรทัด ทำ คำ สำ"})
+	m.add(&block{kind: kindTool, name: "Bash", input: map[string]any{"command": "ls ~/.gemini/bin 2>/dev/null | head; find /opt/homebrew/bin /usr/local/bin ~/.local/bin -maxdepth 1 -name agy"}, result: "exit code 1", state: toolFailed})
 	m.refresh()
 	lines := strings.Split(m.View(), "\n")
-	top := 1 + m.tabsHeight()
-	for i := top; i < top+m.vp.Height && i < len(lines); i++ {
-		if got := ansi.Strip(ansi.Cut(lines[i], m.chatW, m.chatW+1)); got != "│" {
-			t.Errorf("row %d: the sidebar border is not in its column (%q)", i, got)
+	for i := 0; i < len(lines); i++ {
+		want := "│"
+		if i == 1 {
+			want = "┼"
+		}
+		if got := ansi.Strip(ansi.Cut(lines[i], m.sideW-1, m.sideW)); got != want {
+			t.Errorf("row %d: rail divider is %q, want %q", i, got, want)
 		}
 	}
 }

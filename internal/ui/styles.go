@@ -8,40 +8,56 @@ import (
 )
 
 // Theme is a complete palette. Backgrounds are left to the terminal except
-// for diff lines, pills and the selected row.
+// for diff lines, pills, user turns and the selected row so frames stay tiny.
 type Theme struct {
-	Name     string
-	Dark     bool
-	Accent   string
-	Accent2  string
-	Text     string
-	Dim      string
-	Faint    string
-	Surface  string // selected rows, keycaps
-	Green    string
-	Red      string
-	Yellow   string
-	Blue     string
-	DiffAdd  string
-	DiffDel  string
-	OnAccent string // text drawn on top of accent-coloured pills
+	Name      string
+	Dark      bool
+	Accent    string
+	Accent2   string
+	Text      string
+	Dim       string
+	Faint     string
+	Border    string // quiet hairlines for dividers and resting frames
+	Surface   string // user prompt cards, soft containers
+	SurfaceHi string // elevated badges, inline code chips, keycaps, search bar
+	Green     string
+	Red       string
+	Yellow    string
+	Blue      string
+	DiffAdd   string
+	DiffAddHi string // intra-line added token emphasis
+	DiffDel   string
+	DiffDelHi string // intra-line removed token emphasis
+	OnAccent  string // text drawn on top of accent-coloured pills
 }
 
 var themes = []Theme{
-	{Name: "claude", Dark: true, Accent: "#5EEAD4", Accent2: "#A78BFA", Text: "#E8EEF5", Dim: "#9AA7B5", Faint: "#586474", Surface: "#202832",
-		Green: "#7EE787", Red: "#FF8B8B", Yellow: "#E8C06A", Blue: "#7CC7FF", DiffAdd: "#143026", DiffDel: "#3A1D24", OnAccent: "#07110F"},
-	{Name: "tokyo-night", Dark: true, Accent: "#7AA2F7", Accent2: "#BB9AF7", Text: "#C0CAF5", Dim: "#6B7394", Faint: "#3B4261", Surface: "#292E42",
-		Green: "#9ECE6A", Red: "#F7768E", Yellow: "#E0AF68", Blue: "#7DCFFF", DiffAdd: "#1F3326", DiffDel: "#3B2230", OnAccent: "#16161E"},
-	{Name: "catppuccin", Dark: true, Accent: "#CBA6F7", Accent2: "#F5C2E7", Text: "#CDD6F4", Dim: "#7F849C", Faint: "#45475A", Surface: "#313244",
-		Green: "#A6E3A1", Red: "#F38BA8", Yellow: "#F9E2AF", Blue: "#89B4FA", DiffAdd: "#243A2E", DiffDel: "#3E2633", OnAccent: "#1E1E2E"},
-	{Name: "gruvbox", Dark: true, Accent: "#FE8019", Accent2: "#D3869B", Text: "#EBDBB2", Dim: "#928374", Faint: "#504945", Surface: "#3C3836",
-		Green: "#B8BB26", Red: "#FB4934", Yellow: "#FABD2F", Blue: "#83A598", DiffAdd: "#32361A", DiffDel: "#3C1F1E", OnAccent: "#1D2021"},
+	{Name: "claude", Dark: true, Accent: "#4FE3C1", Accent2: "#A594FF", Text: "#ECEFF4", Dim: "#8B98AA", Faint: "#4E5B6E",
+		Border: "#232D3D", Surface: "#121821", SurfaceHi: "#1B2432",
+		Green: "#6EE7B7", Red: "#FB7185", Yellow: "#F5C451", Blue: "#7CC7FF",
+		DiffAdd: "#102921", DiffAddHi: "#1B4B39", DiffDel: "#2D141C", DiffDelHi: "#542030", OnAccent: "#05110E"},
+	{Name: "tokyo-night", Dark: true, Accent: "#7AA2F7", Accent2: "#BB9AF7", Text: "#C8D3F5", Dim: "#737AA2", Faint: "#444B6A",
+		Border: "#292E42", Surface: "#1B1E2E", SurfaceHi: "#262B42",
+		Green: "#9ECE6A", Red: "#F7768E", Yellow: "#E0AF68", Blue: "#7DCFFF",
+		DiffAdd: "#1B2E24", DiffAddHi: "#284B36", DiffDel: "#331D29", DiffDelHi: "#55283C", OnAccent: "#13141C"},
+	{Name: "catppuccin", Dark: true, Accent: "#CBA6F7", Accent2: "#F5C2E7", Text: "#CDD6F4", Dim: "#8C92AC", Faint: "#585B70",
+		Border: "#313244", Surface: "#232334", SurfaceHi: "#313244",
+		Green: "#A6E3A1", Red: "#F38BA8", Yellow: "#F9E2AF", Blue: "#89B4FA",
+		DiffAdd: "#1E3328", DiffAddHi: "#2E523D", DiffDel: "#38212E", DiffDelHi: "#5B2D41", OnAccent: "#181825"},
+	{Name: "gruvbox", Dark: true, Accent: "#FE8019", Accent2: "#D3869B", Text: "#EBDBB2", Dim: "#A89984", Faint: "#665C54",
+		Border: "#3C3836", Surface: "#282625", SurfaceHi: "#3C3836",
+		Green: "#B8BB26", Red: "#FB4934", Yellow: "#FABD2F", Blue: "#83A598",
+		DiffAdd: "#2B3018", DiffAddHi: "#444D22", DiffDel: "#381C1B", DiffDelHi: "#5E2825", OnAccent: "#1D2021"},
 	// High contrast: pure white text and saturated accents for low vision
 	// or bright rooms.
-	{Name: "high-contrast", Dark: true, Accent: "#FFB86B", Accent2: "#7FD7FF", Text: "#FFFFFF", Dim: "#D0D0D0", Faint: "#8A8A8A", Surface: "#303030",
-		Green: "#5CFF8A", Red: "#FF6B6B", Yellow: "#FFE45C", Blue: "#6BB8FF", DiffAdd: "#0F4020", DiffDel: "#4A1010", OnAccent: "#000000"},
-	{Name: "light", Dark: false, Accent: "#C15F3C", Accent2: "#7C4DFF", Text: "#2B2622", Dim: "#81776E", Faint: "#D3CBC2", Surface: "#EEE8E1",
-		Green: "#2E8B57", Red: "#C0392B", Yellow: "#A86B00", Blue: "#2B6CB0", DiffAdd: "#DFF3E5", DiffDel: "#FBE2DE", OnAccent: "#FFFFFF"},
+	{Name: "high-contrast", Dark: true, Accent: "#FFB86B", Accent2: "#7FD7FF", Text: "#FFFFFF", Dim: "#D4D4D4", Faint: "#8A8A8A",
+		Border: "#525252", Surface: "#1E1E1E", SurfaceHi: "#303030",
+		Green: "#5CFF8A", Red: "#FF6B6B", Yellow: "#FFE45C", Blue: "#6BB8FF",
+		DiffAdd: "#0F3D1E", DiffAddHi: "#1B6B34", DiffDel: "#471010", DiffDelHi: "#7A1B1B", OnAccent: "#000000"},
+	{Name: "light", Dark: false, Accent: "#C15F3C", Accent2: "#6D4AFF", Text: "#1F1C19", Dim: "#6F665E", Faint: "#ACA39A",
+		Border: "#D9D1C7", Surface: "#F3EEE7", SurfaceHi: "#E6DFD6",
+		Green: "#227A4B", Red: "#C0392B", Yellow: "#9E6300", Blue: "#235FA4",
+		DiffAdd: "#DFF3E5", DiffAddHi: "#B9E5C7", DiffDel: "#FBE2DE", DiffDelHi: "#F4BDB5", OnAccent: "#FFFFFF"},
 }
 
 func themeByName(name string) (Theme, bool) {
@@ -56,36 +72,61 @@ func themeByName(name string) (Theme, bool) {
 var (
 	theme Theme
 
-	cAccent, cAccent2, cText, cDim, cFaint, cSurface, cSel lipgloss.Color
-	cGreen, cRed, cYellow, cBlue, cOnAccent                lipgloss.Color
+	cAccent, cAccent2, cText, cDim, cFaint, cBorder, cSurface, cSurfaceHi, cSel lipgloss.Color
+	cGreen, cRed, cYellow, cBlue, cOnAccent                                     lipgloss.Color
+	cDiffAdd, cDiffAddHi, cDiffDel, cDiffDelHi                                  lipgloss.Color
 
-	sText, sDim, sFaint, sAccent, sAccent2, sBold lipgloss.Style
-	sGreen, sRed, sYellow, sTool                  lipgloss.Style
-	sUser, sDiffAdd, sDiffDel, sKey               lipgloss.Style
+	sText, sDim, sFaint, sBorder, sAccent, sAccent2, sBold lipgloss.Style
+	sGreen, sRed, sYellow, sTool                           lipgloss.Style
+	sUser, sDiffAdd, sDiffAddHi, sDiffDel, sDiffDelHi      lipgloss.Style
+	sKey                                                   lipgloss.Style
+
+	// shimmerShades holds the three pre-baked ANSI templates for the status-bar
+	// sweep. Rebuilt inside applyTheme so switching themes updates the sweep
+	// colour immediately while keeping per-frame animation zero-allocation.
+	shimmerShades [3]string
 )
+
+var userBarBorder = lipgloss.Border{Left: "▌"}
 
 func applyTheme(t Theme) {
 	theme = t
 	c := func(s string) lipgloss.Color { return lipgloss.Color(s) }
-	cAccent, cAccent2, cText, cDim, cFaint, cSurface = c(t.Accent), c(t.Accent2), c(t.Text), c(t.Dim), c(t.Faint), c(t.Surface)
+	cAccent, cAccent2, cText = c(t.Accent), c(t.Accent2), c(t.Text)
+	cDim, cFaint, cBorder = c(t.Dim), c(t.Faint), c(t.Border)
+	cSurface, cSurfaceHi = c(t.Surface), c(t.SurfaceHi)
 	cGreen, cRed, cYellow, cBlue, cOnAccent = c(t.Green), c(t.Red), c(t.Yellow), c(t.Blue), c(t.OnAccent)
-	cSel = mix(cSurface, cAccent, 0.18)
+	cDiffAdd, cDiffAddHi = c(t.DiffAdd), c(t.DiffAddHi)
+	cDiffDel, cDiffDelHi = c(t.DiffDel), c(t.DiffDelHi)
+	cSel = mix(cSurfaceHi, cAccent, 0.16)
 
 	fg := func(col lipgloss.Color) lipgloss.Style { return lipgloss.NewStyle().Foreground(col) }
-	sText, sDim, sFaint = fg(cText), fg(cDim), fg(cFaint)
+	sText, sDim, sFaint, sBorder = fg(cText), fg(cDim), fg(cFaint), fg(cBorder)
 	sAccent, sAccent2 = fg(cAccent), fg(cAccent2)
 	sBold = fg(cText).Bold(true)
 	sGreen, sRed, sYellow = fg(cGreen), fg(cRed), fg(cYellow)
 	sTool = fg(cBlue).Bold(true)
 	sUser = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, false, true).
+		Border(userBarBorder, false, false, false, true).
 		BorderForeground(cAccent).
 		Background(cSurface).
 		Padding(0, 1).
 		Foreground(cText)
-	sDiffAdd = lipgloss.NewStyle().Background(c(t.DiffAdd)).Foreground(cGreen)
-	sDiffDel = lipgloss.NewStyle().Background(c(t.DiffDel)).Foreground(cRed)
-	sKey = lipgloss.NewStyle().Background(cSel).Foreground(cText).Bold(true).Padding(0, 1)
+	sDiffAdd = lipgloss.NewStyle().Background(cDiffAdd).Foreground(cGreen)
+	sDiffAddHi = lipgloss.NewStyle().Background(cDiffAddHi).Foreground(cGreen).Bold(true)
+	sDiffDel = lipgloss.NewStyle().Background(cDiffDel).Foreground(cRed)
+	sDiffDelHi = lipgloss.NewStyle().Background(cDiffDelHi).Foreground(cRed).Bold(true)
+	sKey = lipgloss.NewStyle().Background(cSurfaceHi).Foreground(cText).Bold(true).Padding(0, 1)
+
+	peak := lipgloss.Color("#FFFFFF")
+	if !t.Dark {
+		peak = lipgloss.Color("#1A1412")
+	}
+	for d := 0; d < 3; d++ {
+		shimmerShades[d] = lipgloss.NewStyle().
+			Foreground(mix(cAccent, peak, 0.65-float64(d)*0.22)).
+			Render("\x00")
+	}
 }
 
 func init() { applyTheme(themes[0]) }
@@ -142,6 +183,16 @@ func modeHelp(mode, engine string) string {
 
 func pill(text string, bg lipgloss.Color) string {
 	return lipgloss.NewStyle().Background(bg).Foreground(cOnAccent).Bold(true).Padding(0, 1).Render(text)
+}
+
+// chip renders a quiet elevated badge (engine pill, stack tag, saver tag).
+func chip(text string, fg lipgloss.Color) string {
+	return lipgloss.NewStyle().Background(cSurfaceHi).Foreground(fg).Padding(0, 1).Render(text)
+}
+
+// softPill renders a low-glare tinted status pill (e.g. active saver, exit code).
+func softPill(text string, bg, fg lipgloss.Color) string {
+	return lipgloss.NewStyle().Background(bg).Foreground(fg).Padding(0, 1).Render(text)
 }
 
 // key renders a keycap such as "ctrl+k".

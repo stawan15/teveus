@@ -206,3 +206,75 @@ func (m *Model) toggleLean() tea.Cmd {
 	}
 	return m.restart("lean tools on (~2.2k fewer tokens per request)")
 }
+
+// saverPresetName names the active preset when the three savers match one.
+func (m *Model) saverPresetName() string {
+	lvl := m.minimalLevel()
+	switch {
+	case !m.settings.Concise && !m.settings.LeanTools && lvl == "off":
+		return "full power"
+	case m.settings.Concise && m.settings.LeanTools && lvl == "lite":
+		return "balanced"
+	case m.settings.Concise && m.settings.LeanTools && lvl == "strict":
+		return "max saver"
+	default:
+		return "custom"
+	}
+}
+
+// openSaverPresets applies Hick's Law: one choice sets concise, lean and
+// minimal together, while individual toggles remain available.
+func (m *Model) openSaverPresets() {
+	cs := []choice{
+		{label: "Full power", value: "full", desc: "all tools, normal replies, standard code style", key: "0 tok saved",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("full") }},
+		{label: "Balanced", value: "balanced", desc: "concise answers + lean tools + minimal lite", badge: "recommended", key: "-2.2k in · -60% out",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("balanced") }},
+		{label: "Max saver", value: "max", desc: "concise answers + lean tools + minimal strict", key: "max economy",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("max") }},
+	}
+	sel := 1
+	switch m.saverPresetName() {
+	case "full power":
+		sel = 0
+	case "max saver":
+		sel = 2
+	}
+	m.openPicker("Token saver preset", cs, sel)
+	m.pop.flat = true
+}
+
+func (m *Model) applySaverPreset(preset string) tea.Cmd {
+	preset = strings.ToLower(strings.TrimSpace(preset))
+	if preset == "" {
+		m.openSaverPresets()
+		return nil
+	}
+	var concise, lean bool
+	var minimal string
+	switch preset {
+	case "full", "off":
+		concise, lean, minimal = false, false, "off"
+	case "balanced", "default":
+		concise, lean, minimal = true, true, "lite"
+	case "max", "strict":
+		concise, lean, minimal = true, true, "strict"
+	default:
+		m.note("saver presets: full, balanced, max", false)
+		return nil
+	}
+	m.settings.Concise = concise
+	m.settings.LeanTools = lean
+	m.settings.MinimalCode = minimal
+	saveSettings(m.settings)
+	if eng, ok := m.client.(*agent.Engine); ok {
+		eng.SetStyle(m.applySavers(claude.Options{}).AppendPrompt)
+		m.note("token saver → "+m.saverPresetName(), true)
+		return nil
+	}
+	if m.client == nil {
+		m.note("token saver → "+m.saverPresetName(), true)
+		return nil
+	}
+	return m.restart("token saver → " + m.saverPresetName())
+}

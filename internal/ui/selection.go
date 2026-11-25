@@ -78,8 +78,9 @@ func (m *Model) plainLine(i int) string {
 // handleMouse: wheel scrolls; left button selects; a click without a drag
 // toggles the tool card under it.
 func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
-	row := msg.Y - 1 // header line
-	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && len(m.queue) > 0 && !m.pop.open() && len(m.perms) == 0 {
+	row := msg.Y - m.topHeight() // header + hairline divider + optional tab strip
+	col := msg.X - m.sideW       // editorial canvas starts after the left architectural rail
+	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && col >= 0 && len(m.queue) > 0 && !m.pop.open() && len(m.perms) == 0 {
 		lines := strings.Count(m.bottomFitted(), "\n") + 1
 		qLines := strings.Count(m.queueView(), "\n") + 1
 		if i := msg.Y - (m.h - 1 - lines); i >= 0 && i < qLines {
@@ -100,18 +101,18 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		return cmd
 
 	case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft:
-		if row < 0 || row >= m.vp.Height || msg.X >= m.chatW {
+		if row < 0 || row >= m.vp.Height || col < 0 || col >= m.chatW {
 			m.clearSelection()
 			return nil
 		}
-		p := m.pointAt(msg.X, row)
+		p := m.pointAt(col, row)
 		if time.Since(m.sel.lastPress) < 400*time.Millisecond && p == m.sel.lastPoint {
 			m.sel.clicks++
 		} else {
 			m.sel.clicks = 1
 		}
 		m.sel.lastPress, m.sel.lastPoint = time.Now(), p
-		m.sel.dragging, m.sel.has, m.sel.anchor, m.sel.head, m.sel.row, m.sel.x = true, false, p, p, row, msg.X
+		m.sel.dragging, m.sel.has, m.sel.anchor, m.sel.head, m.sel.row, m.sel.x = true, false, p, p, row, col
 		switch m.sel.clicks {
 		case 2:
 			m.selectWord(p)
@@ -128,8 +129,8 @@ func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 
 	case msg.Action == tea.MouseActionMotion && m.sel.dragging:
-		m.sel.row, m.sel.x = row, msg.X
-		m.sel.head = m.pointAt(msg.X, row)
+		m.sel.row, m.sel.x = row, col
+		m.sel.head = m.pointAt(col, row)
 		if m.sel.clicks == 1 && m.sel.head != m.sel.anchor {
 			m.sel.has = true
 		}
@@ -168,8 +169,22 @@ func (m *Model) toggleToolAt(line int) {
 	for i := len(m.blockStart) - 1; i >= 0; i-- {
 		if m.blockStart[i] <= line {
 			if b := m.blocks[i]; b.kind == kindTool {
-				b.open = !b.open
-				b.invalidate()
+				// Folded read-tool chains share the same blockStart: clicking the
+				// summary row expands every block in that chain together.
+				start := m.blockStart[i]
+				j := i
+				for j > 0 && m.blockStart[j-1] == start {
+					j--
+				}
+				if j < i {
+					for k := j; k <= i; k++ {
+						m.blocks[k].open = true
+						m.blocks[k].invalidate()
+					}
+				} else {
+					b.open = !b.open
+					b.invalidate()
+				}
 				m.refresh()
 			}
 			return

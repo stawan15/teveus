@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/stawan15/teveus/internal/agent"
 )
 
 // projectInfo is what the welcome screen can learn from the folder without
@@ -30,6 +32,7 @@ func defaultStarters() []string {
 func (m *Model) setProject(cwd string) {
 	m.project = detectProject(cwd)
 	m.starters = starterPrompts(m.project)
+	m.skillCount = len(agent.OwnCommands(cwd, configDir()))
 }
 
 func (m *Model) starterList() []string {

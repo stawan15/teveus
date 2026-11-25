@@ -225,8 +225,13 @@ func parseEnum(hint string) []string {
 
 func (m *Model) popupView() string {
 	p := &m.pop
-	width := m.w - 2
-	inner := width - 4
+	pw := m.paneW()
+	mg := m.paneMargin()
+	if pw < 24 {
+		mg = 0
+	}
+	width := max(pw-mg*2-2, 16)
+	inner := max(width-4, 8)
 	if p.mode == popSlider {
 		return m.sliderView()
 	}
@@ -241,8 +246,12 @@ func (m *Model) popupView() string {
 		}
 		lines = append(lines, "", sAccent.Render("› ")+sText.Render(v)+sAccent.Render("▏"),
 			"", sFaint.Render("enter confirm · esc cancel · ctrl+u clear"))
-		return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cAccent).
-			Padding(0, 1).Width(width).Render(strings.Join(lines, "\n"))
+		inBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cAccent).
+			Padding(0, 1).Width(width)
+		if mg > 0 {
+			inBox = inBox.MarginLeft(mg)
+		}
+		return inBox.Render(strings.Join(lines, "\n"))
 	}
 
 	rows := 8
@@ -254,6 +263,7 @@ func (m *Model) popupView() string {
 	}
 
 	var lines []string
+	searchable := p.mode == popPalette || (p.mode == popPicker && (len(p.all) > 8 || p.query != ""))
 	if p.title != "" || p.mode == popPalette || p.mode == popPicker || p.mode == popReview {
 		title := termSafe(p.title)
 		if title == "" {
@@ -266,6 +276,8 @@ func (m *Model) popupView() string {
 		if p.tag != "" {
 			head += "   " + termSafe(p.tag)
 		}
+		countText := ""
+		countTag := ""
 		if len(p.all) > 12 {
 			unique := map[string]bool{}
 			for _, c := range p.all {
@@ -281,26 +293,44 @@ func (m *Model) popupView() string {
 					n++
 				}
 			}
-			head += sDim.Render(fmt.Sprintf("  %d", n))
+			countText = fmt.Sprintf("%d", n)
 			if p.query != "" {
-				head += sDim.Render(fmt.Sprintf(" · %d match", len(p.list)))
+				countText = fmt.Sprintf("%d/%d", len(p.list), n)
 			}
+			countTag = chip(countText, cDim)
 		}
-		if p.mode == popPalette || (p.mode == popPicker && (len(p.all) > 8 || p.query != "")) {
-			q := sFaint.Render("type to filter…")
+		if searchable && inner >= 28 {
+			q := sDim.Background(cSurfaceHi).Render("type to filter…")
 			if p.query != "" {
-				q = sText.Render(p.query)
+				q = sText.Background(cSurfaceHi).Render(termSafe(p.query))
 			}
-			head += "   " + sAccent.Render("⌕ ") + q + sAccent.Render("▏")
+			barStyle := lipgloss.NewStyle().Background(cSurfaceHi)
+			barLeft := barStyle.Foreground(cAccent).Bold(true).Render(" ⌕ ") + q + barStyle.Foreground(cAccent).Render("▏")
+			if p.mode == popPicker && title != "" {
+				barLeft = barStyle.Foreground(cText).Bold(true).Render(" "+title) + barStyle.Render("   ") + barLeft
+			}
+			barRight := ""
+			if countText != "" {
+				barRight = barStyle.Foreground(cDim).Render(" " + countText + " ")
+			}
+			gap := max(inner-lipgloss.Width(barLeft)-lipgloss.Width(barRight), 1)
+			lines = append(lines, barLeft+barStyle.Render(strings.Repeat(" ", gap))+barRight)
+			lines = append(lines, sBorder.Render(strings.Repeat("─", max(inner, 1))))
+		} else {
+			if countTag != "" {
+				head += "  " + countTag
+			}
+			lines = append(lines, head)
 		}
-		lines = append(lines, head)
 		if p.hint != "" && (p.mode == popPicker || p.mode == popReview) {
 			lines = append(lines, sDim.Width(inner).Render(truncate(termSafe(p.hint), inner)))
 		}
 		for _, b := range p.body {
 			lines = append(lines, lipgloss.NewStyle().Width(inner).Render(termSafe(b)))
 		}
-		lines = append(lines, "")
+		if !searchable || len(p.body) > 0 || p.hint != "" {
+			lines = append(lines, "")
+		}
 	}
 
 	if len(p.list) == 0 {
@@ -356,12 +386,12 @@ func (m *Model) popupView() string {
 
 		marker, lab, dsc := st(sText).Render("  "), st(sText), st(sDim)
 		if sel {
-			marker, lab, dsc = st(sAccent).Render("› "), st(sAccent).Bold(true), st(sText)
+			marker, lab, dsc = st(sAccent).Render("▌ "), st(sAccent).Bold(true), st(sText)
 		}
 		if c.color != "" {
 			lab = st(lipgloss.NewStyle().Foreground(c.color))
 			if sel {
-				marker, lab = st(lipgloss.NewStyle().Foreground(c.color)).Render("› "), lab.Bold(true)
+				marker, lab = st(lipgloss.NewStyle().Foreground(c.color)).Render("▌ "), lab.Bold(true)
 			}
 		}
 		if held {
@@ -376,7 +406,11 @@ func (m *Model) popupView() string {
 			meta = strings.TrimSpace(meta + "  " + c.group)
 		}
 		if c.badge != "" {
-			right += st(lipgloss.NewStyle().Foreground(cGreen).Bold(true)).Render(termSafe(c.badge))
+			if sel {
+				right += st(lipgloss.NewStyle().Foreground(cGreen).Bold(true)).Render(termSafe(c.badge))
+			} else {
+				right += softPill(termSafe(c.badge), cDiffAdd, cGreen)
+			}
 			if meta != "" {
 				right += st(sText).Render("  ")
 			}
@@ -395,20 +429,27 @@ func (m *Model) popupView() string {
 		lines = append(lines, row)
 	}
 	if len(p.list) > rows {
-		lines = append(lines, "", sFaint.Render(fmt.Sprintf("  %d/%d", p.sel+1, len(p.list)))+
-			sFaint.Render("   ↑↓ scroll · type to filter"))
+		lines = append(lines, sBorder.Render(strings.Repeat("─", max(inner, 1))),
+			sFaint.Render(fmt.Sprintf(" %d/%d", p.sel+1, len(p.list)))+
+				sDim.Render("   ↑↓ select · enter run · esc close"))
 	}
-	frame := cFaint
+	frame := cBorder
+	if p.mode == popPalette {
+		frame = cAccent
+	}
 	if p.accent != "" {
 		frame = p.accent
 	}
 	// Fit the rows inside the frame: lipgloss counts Thai and Lao SARA AM as
 	// one cell and terminals draw two, so a row can draw past the border and
 	// wrap, which splits the box in two.
-	return lipgloss.NewStyle().
+	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(frame).
 		Padding(0, 1).
-		Width(width).
-		Render(fitWidth(strings.Join(lines, "\n"), inner))
+		Width(width)
+	if mg > 0 {
+		box = box.MarginLeft(mg)
+	}
+	return box.Render(fitWidth(strings.Join(lines, "\n"), inner))
 }

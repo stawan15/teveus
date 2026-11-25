@@ -56,8 +56,8 @@ func (m *Model) handleSliderKey(k tea.KeyMsg) tea.Cmd {
 
 func (m *Model) sliderView() string {
 	p := &m.pop
-	width := m.w - 2
-	inner := width - 4
+	width := max(m.paneW()-2, 16)
+	inner := max(width-4, 8)
 	n := len(p.list)
 	colors := p.colors
 	if len(colors) != n {

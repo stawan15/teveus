@@ -166,7 +166,7 @@ func (m *Model) openRewindPicker(eng *agent.Engine, points []agent.RewindPoint, 
 	}
 	m.openPicker("Rewind to before…", cs, sel)
 	if m.h >= 20 {
-		m.pop.hint = truncate("Pick a turn to review; nothing changes yet", max(m.w-6, 20))
+		m.pop.hint = truncate("Pick a turn to review; nothing changes yet", max(m.paneW()-6, 20))
 		m.layout()
 	}
 }
@@ -179,7 +179,7 @@ func (m *Model) reviewRewind(eng *agent.Engine, p agent.RewindPoint, points []ag
 		m.note(err.Error(), false)
 		return nil
 	}
-	inner := max(m.w-6, 20)
+	inner := max(m.paneW()-6, 20)
 	maxDiffLines := max(3, min(10, m.h-16))
 	cs := make([]choice, 0, len(prev.Files)+1)
 	byPath := map[string]agent.RewindFile{}

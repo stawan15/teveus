@@ -54,6 +54,11 @@ type block struct {
 	started  time.Time
 	finished time.Time
 
+	// subagent telemetry (populated on Task / Agent parent blocks)
+	subTools  int
+	subTokIn  int
+	subTokOut int
+
 	cache  string
 	cacheW int
 	dirty  bool
@@ -192,8 +197,9 @@ func markdownStyle() glamansi.StyleConfig {
 	// a filled band; H2 is the accent colour; H3 and below are dim, and the
 	// "## " glamour prints in front of each is dropped because the weight and
 	// colour already say it — the marks only added noise to every line.
-	st.H1.Color = str(theme.OnAccent)
-	st.H1.BackgroundColor = str(theme.Accent)
+	st.H1.Color = str(theme.Accent)
+	st.H1.BackgroundColor = str(theme.SurfaceHi)
+	st.H1.Bold = boolPtr(true)
 	st.H2.Color = str(theme.Accent)
 	st.H2.Upper = boolPtr(true)
 	st.H3.Color = str(theme.Dim)
@@ -208,9 +214,9 @@ func markdownStyle() glamansi.StyleConfig {
 	st.Link.Color = str(theme.Accent2)
 	st.LinkText.Color = str(theme.Accent)
 	st.Code.Color = str(theme.Accent)
-	st.Code.BackgroundColor = str(theme.Surface)
+	st.Code.BackgroundColor = str(theme.SurfaceHi)
 	st.CodeBlock.Color = str(theme.Text)
-	st.HorizontalRule.Color = str(theme.Faint)
+	st.HorizontalRule.Color = str(theme.Border)
 	st.CodeBlock.Chroma = &glamansi.Chroma{
 		Text:                glamansi.StylePrimitive{Color: str(theme.Text)},
 		Error:               glamansi.StylePrimitive{Color: str(theme.OnAccent), BackgroundColor: str(theme.Red)},
@@ -266,7 +272,7 @@ func (r *renderer) render(b *block, width int) string {
 	case kindError:
 		out = sRed.Width(width).Render("✗ " + termSafe(b.text))
 	case kindTurnEnd:
-		out = sGreen.Render("✓ ") + sDim.Render(termSafe(b.text))
+		out = renderTurnReceipt(termSafe(b.text), width)
 	case kindCmdOut:
 		// Command output is often Markdown (tables, lists): render it, set
 		// off by a gutter so it reads as output rather than a reply. A line
@@ -366,9 +372,10 @@ func stripPaddingColour(s string) string {
 	return strings.Join(lines, "\n")
 }
 
-// paddingRuns matches a foreground colour set, a run of spaces, and the reset
-// that closes it.
-var paddingRuns = regexp.MustCompile(`\x1b\[(?:38;[0-9;]*|3[0-9]|9[0-9])m( +)\x1b\[0m`)
+// paddingRuns matches a foreground-only colour set, a run of spaces, and the
+// reset that closes it. Sequences that also set a background (e.g. ;48;2;…) are
+// intentionally excluded so tinted bars and diff lines keep their fill.
+var paddingRuns = regexp.MustCompile(`\x1b\[(?:38;(?:5;[0-9]+|2;[0-9]+;[0-9]+;[0-9]+)|3[0-9]|9[0-9])m( +)\x1b\[0m`)
 
 func (r *renderer) tool(b *block, width int) string {
 	// No indent of its own: the transcript's one-cell gutter already sets the
@@ -379,31 +386,176 @@ func (r *renderer) tool(b *block, width int) string {
 		indent = "      "
 	}
 	var icon string
+	isSub := !b.nested && (b.name == "Task" || b.name == "Agent")
 	switch b.state {
 	case toolRunning:
-		icon = sAccent.Render(r.spin)
+		if isSub {
+			icon = sAccent2.Render(r.spin)
+		} else {
+			icon = sAccent.Render(r.spin)
+		}
 	case toolDone:
-		icon = sGreen.Render("●")
+		if isSub {
+			icon = sAccent2.Render("◇")
+		} else {
+			icon = sGreen.Render("●")
+		}
 	case toolFailed:
 		icon = sRed.Render("✗")
 	}
 
-	head := icon + " " + sTool.Render(displayName(b.name))
-	if s := r.summary(b.name, b.input); s != "" {
-		head += " " + sDim.Render(truncate(s, width-len(indent)-len(b.name)-8))
+	var tail string
+	if isSub && (b.subTools > 0 || b.subTokIn+b.subTokOut > 0) {
+		var meta []string
+		if b.subTools > 0 {
+			meta = append(meta, plural(b.subTools, "%d tool"))
+		}
+		if tot := b.subTokIn + b.subTokOut; tot > 0 {
+			meta = append(meta, fmtTokens(tot)+" tok")
+		}
+		tail += sFaint.Render("  · " + strings.Join(meta, " · "))
+	}
+	if b.state == toolFailed {
+		tail += "  " + softPill("failed", cDiffDel, cRed)
 	}
 	if !b.finished.IsZero() {
 		if d := b.finished.Sub(b.started); d > time.Second {
-			head += sFaint.Render(fmt.Sprintf("  %.1fs", d.Seconds()))
+			tail += sFaint.Render(fmt.Sprintf("  %.1fs", d.Seconds()))
 		}
 	}
+	toolStyle := sTool
+	if isSub {
+		toolStyle = sAccent2.Bold(true)
+	}
+	headPrefix := icon + " " + toolStyle.Render(displayName(b.name))
+	head := headPrefix
+	if s := r.summary(b.name, b.input); s != "" {
+		// Budget summary width against the full prefix AND trailing badges/duration
+		// so long commands with a "failed" pill never overflow or smear colour.
+		avail := max(width-len(indent)-ansi.StringWidth(headPrefix)-ansi.StringWidth(tail)-2, 6)
+		head += " " + r.styleSummary(b.name, truncate(s, avail))
+	}
+	head += tail
 
 	lines := []string{indent + head}
 	body := r.toolBody(b, width-len(indent)-4)
+	rail := sBorder.Render("  │ ")
+	if b.state == toolRunning && isSub {
+		rail = sAccent2.Render("  │ ")
+	} else if b.state == toolRunning && (b.name == "Edit" || b.name == "MultiEdit" || b.name == "Write") {
+		rail = sYellow.Render("  ▌ ")
+	} else if b.state == toolFailed {
+		rail = sRed.Render("  ▌ ")
+	}
 	for _, l := range body {
-		lines = append(lines, indent+sFaint.Render("  │ ")+l)
+		lines = append(lines, indent+rail+l)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// renderTurnReceipt draws a whisper-quiet hairline receipt at the end of a turn
+// (Peak-End Rule): duration, tokens used, cache efficiency, cost and tools.
+func renderTurnReceipt(text string, width int) string {
+	parts := strings.Split(text, " · ")
+	styled := make([]string, 0, len(parts))
+	for _, p := range parts {
+		switch {
+		case strings.Contains(p, "% cached"):
+			styled = append(styled, sAccent.Render(p))
+		case strings.HasPrefix(p, "$"):
+			styled = append(styled, sText.Render(p))
+		default:
+			styled = append(styled, sDim.Render(p))
+		}
+	}
+	core := sBorder.Render("── ") + sGreen.Render("✓ ") + strings.Join(styled, sFaint.Render(" · "))
+	target := min(width, 80)
+	if pad := target - ansi.StringWidth(core) - 1; pad >= 4 {
+		core += " " + sBorder.Render(strings.Repeat("─", pad))
+	}
+	return core
+}
+
+// styleSummary highlights the filename while dimming the parent directory path
+// so file-oriented tool calls scan faster (Law of Figure-Ground).
+func (r *renderer) styleSummary(name, s string) string {
+	switch name {
+	case "Read", "Write", "Edit", "MultiEdit", "NotebookEdit":
+		if i := strings.LastIndexAny(s, "/\\"); i >= 0 && i+1 < len(s) {
+			return sFaint.Render(s[:i+1]) + sText.Render(s[i+1:])
+		}
+		return sText.Render(s)
+	}
+	return sDim.Render(s)
+}
+
+// isReadTool reports whether b is a completed, collapsed read-only inspection
+// call that can fold into a single scannable chain with its neighbours.
+func isReadTool(b *block) bool {
+	if b.kind != kindTool || b.nested || b.state != toolDone || b.open {
+		return false
+	}
+	switch b.name {
+	case "Read", "Grep", "Glob":
+		return true
+	}
+	return false
+}
+
+// renderReadChain folds consecutive read-only calls into one compact row
+// (client-side only; agent history and prompt caches are untouched).
+func (r *renderer) renderReadChain(chain []*block, width int) string {
+	label := chain[0].name
+	for _, b := range chain[1:] {
+		if b.name != label {
+			label = "Inspected"
+			break
+		}
+	}
+	head := sGreen.Render("●") + " " + sTool.Render(fmt.Sprintf("%s ×%d", label, len(chain)))
+	var items []string
+	var totalDur time.Duration
+	for _, b := range chain {
+		if !b.finished.IsZero() && !b.started.IsZero() && b.finished.After(b.started) {
+			totalDur += b.finished.Sub(b.started)
+		}
+		s := r.summary(b.name, b.input)
+		if b.name == "Read" {
+			base := filepath.Base(s)
+			n := strings.Count(b.result, "\n") + 1
+			items = append(items, sText.Render(base)+sFaint.Render(fmt.Sprintf(" (%dL)", n)))
+		} else if s != "" {
+			items = append(items, sDim.Render(truncate(s, 22)))
+		}
+	}
+	suffix := sFaint.Render("  [^O]")
+	if totalDur >= 200*time.Millisecond {
+		suffix = sFaint.Render(fmt.Sprintf("  %.1fs  [^O]", totalDur.Seconds()))
+	}
+	avail := width - ansi.StringWidth(head) - ansi.StringWidth(suffix) - 2
+	var shown []string
+	used := 0
+	for i, it := range items {
+		w := ansi.StringWidth(it)
+		sepW := 0
+		if i > 0 {
+			sepW = 3
+		}
+		if used+sepW+w > avail {
+			rem := len(items) - i
+			if rem > 0 && avail-used >= 8 {
+				shown = append(shown, sFaint.Render(fmt.Sprintf("+%d more", rem)))
+			}
+			break
+		}
+		shown = append(shown, it)
+		used += sepW + w
+	}
+	mid := ""
+	if len(shown) > 0 {
+		mid = "  " + strings.Join(shown, sFaint.Render(" · "))
+	}
+	return fitWidth(head+mid+suffix, width)
 }
 
 // toolBody renders the details under a tool call: diffs for edits, todo
@@ -499,7 +651,8 @@ func (r *renderer) editDiff(input map[string]any, width int) []string {
 }
 
 // diffLines shows removed then added lines with a trimmed common prefix and
-// suffix, which is how most edits read naturally.
+// suffix, highlighting intra-line changed spans on 1-to-1 replacements so the
+// eye lands directly on what changed (Von Restorff Effect).
 func diffLines(old, nw string, width int) []string {
 	a, b := splitLines(old), splitLines(nw)
 	pre := 0
@@ -514,16 +667,67 @@ func diffLines(old, nw string, width int) []string {
 	if pre > 0 {
 		out = append(out, sDim.Render("  "+truncate(a[pre-1], width-2)))
 	}
-	for _, l := range a[pre : len(a)-suf] {
-		out = append(out, sDiffDel.Width(width).Render("- "+truncate(l, width-2)))
-	}
-	for _, l := range b[pre : len(b)-suf] {
-		out = append(out, sDiffAdd.Width(width).Render("+ "+truncate(l, width-2)))
+	delRows := a[pre : len(a)-suf]
+	addRows := b[pre : len(b)-suf]
+	if len(delRows) == len(addRows) && len(delRows) > 0 && len(delRows) <= 8 {
+		dels := make([]string, len(delRows))
+		adds := make([]string, len(addRows))
+		for i := range delRows {
+			dels[i], adds[i] = renderInlineDiff(delRows[i], addRows[i], width)
+		}
+		out = append(out, dels...)
+		out = append(out, adds...)
+	} else {
+		for _, l := range delRows {
+			out = append(out, sDiffDel.Width(width).Render("- "+truncate(l, width-2)))
+		}
+		for _, l := range addRows {
+			out = append(out, sDiffAdd.Width(width).Render("+ "+truncate(l, width-2)))
+		}
 	}
 	if suf > 0 {
 		out = append(out, sDim.Render("  "+truncate(a[len(a)-suf], width-2)))
 	}
 	return out
+}
+
+// renderInlineDiff paints a paired removed/added line with brighter emphasis
+// on the exact differing span. Runs only during cached block rendering.
+func renderInlineDiff(oldLine, newLine string, width int) (string, string) {
+	w := max(width-2, 4)
+	clean := func(s string) string { return strings.ReplaceAll(termSafe(s), "\t", "    ") }
+	oa, ob := []rune(truncate(clean(oldLine), w)), []rune(truncate(clean(newLine), w))
+	cp := 0
+	for cp < len(oa) && cp < len(ob) && oa[cp] == ob[cp] {
+		cp++
+	}
+	cs := 0
+	for cs < len(oa)-cp && cs < len(ob)-cp && oa[len(oa)-1-cs] == ob[len(ob)-1-cs] {
+		cs++
+	}
+	if cp == 0 && cs == 0 {
+		return sDiffDel.Width(width).Render("- " + string(oa)),
+			sDiffAdd.Width(width).Render("+ " + string(ob))
+	}
+	paint := func(mark string, rs []rune, base, hi lipgloss.Style) string {
+		pre := string(rs[:cp])
+		mid := string(rs[cp : len(rs)-cs])
+		suf := string(rs[len(rs)-cs:])
+		var sb strings.Builder
+		sb.WriteString(base.Render(mark + pre))
+		if mid != "" {
+			sb.WriteString(hi.Render(mid))
+		}
+		if suf != "" {
+			sb.WriteString(base.Render(suf))
+		}
+		row := sb.String()
+		if pad := width - ansi.StringWidth(row); pad > 0 {
+			row += base.Render(strings.Repeat(" ", pad))
+		}
+		return row
+	}
+	return paint("- ", oa, sDiffDel, sDiffDelHi), paint("+ ", ob, sDiffAdd, sDiffAddHi)
 }
 
 type task struct{ id, subject, status string }

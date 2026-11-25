@@ -5,7 +5,43 @@
       "version": "Unreleased",
       "date": null,
       "url": "https://github.com/stawan15/teveus/compare/v0.36.1...HEAD",
-      "sections": []
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Refreshed the interface with a new Atelier layout: a full-height Left Architectural Rail (keeping the vertical `│` divider immune to Thai/emoji width drift across terminals), an editorial monogram with a 2×2 Bento Quick Start grid and project stack chips, a floating composer aligned to the reading canvas, aligned `5h`/`7d`/`30d` quota bars, intra-line diff highlights, automatic folding of consecutive read-only tool calls (`Read ×N`, click or press `ctrl+o` to expand), a compact non-duplicated approval bar (press `d` to toggle full diff), a cleaner command palette search bar, and synced dark tokens with coloured diffs on the `/phone` page.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Live functional telemetry in the Left Rail and transcript: an **AGENTS** monitor showing active subagents, their current tool step and token burn (with a `◇` header pill and `◇ Task` card), a **FILES** ledger listing edited/created files with `+add -del` line counts, a live session token & cache-hit % meter, and a quiet hairline per-turn receipt (`Worked for … · in/out tokens · % cached · cost · tools`) after every reply.",
+              "items": []
+            },
+            {
+              "text": "`/saver` (and **Settings → Token saver preset**) lets you switch between `full`, `balanced` and `max` token-saving presets in one step.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Status bar shimmer animation now adapts its colours whenever you switch themes instead of staying on the initial theme's accent.",
+              "items": []
+            },
+            {
+              "text": "Trailing background tint on inline-highlighted diff lines is preserved when stripping blank foreground padding codes.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.36.1",

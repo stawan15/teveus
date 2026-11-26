@@ -1,11 +1,36 @@
 {
-  "latest": "0.37.1",
+  "latest": "0.37.2",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.37.1...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.2...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.37.2",
+      "date": "2026-11-26",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.1...v0.37.2",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Normal **Google (Antigravity CLI)** replies no longer end with a false `✗ end turn` error: ACP's `end_turn` stop reason now maps to `success` (and `cancelled` to an interruption).",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Moved the sidebar rail back to the right side while keeping `joinSides` padded/clamped to exact pane width so the `│` / `┼` border stays straight on Thai, emoji and badge lines.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.37.1",

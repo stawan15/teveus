@@ -261,6 +261,20 @@ func (c *Client) handleNotification(msg rpcMessage) {
 				Type: "tool_result", ToolUseID: u.ToolCallID, Text: text, IsError: status == "failed",
 			}}})
 		}
+
+	case "usage_update":
+		var usage struct {
+			Used int `json:"used"`
+			Size int `json:"size"`
+		}
+		if json.Unmarshal(msg.Params, &struct {
+			Update *struct {
+				Used int `json:"used"`
+				Size int `json:"size"`
+			} `json:"update"`
+		}{&usage}) == nil && (usage.Used > 0 || usage.Size > 0) {
+			c.emit(claude.ContextUsage{Used: usage.Used, Size: usage.Size})
+		}
 	}
 }
 

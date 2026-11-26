@@ -132,3 +132,20 @@ func TestAntigravityModelEffortAndSessionHistory(t *testing.T) {
 		t.Fatalf("resume picker = %+v", m.pop.list)
 	}
 }
+
+func TestAntigravityContextUsageRendersSidebarBar(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{
+		Dark:     true,
+		Settings: Settings{Engine: "antigravity", AgyNotice: true, Onboarded: true},
+		Agy:      AgyOptions{Binary: "/nonexistent/agy"},
+	})
+	m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m.handleEvent(claude.ContextUsage{Used: 9863, Size: 1048576, Tier: "Google AI Pro"})
+	side := ansi.Strip(m.sidebar(30))
+	for _, want := range []string{"USAGE", "Google AI Pro", "ctx", "1%", "9.9k"} {
+		if !strings.Contains(side, want) {
+			t.Fatalf("sidebar missing %q:\n%s", want, side)
+		}
+	}
+}

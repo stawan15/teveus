@@ -626,7 +626,8 @@ func (m *Model) sidebar(height int) string {
 		engine: m.engine, cost: m.cost, tokIn: m.tokIn, tokOut: m.tokOut,
 		tokCache: m.tokCache, turnIn: m.turnIn, turnOut: m.turnOut,
 		lastTurnCost: m.lastTurnCost,
-		context:      m.context, busy: m.busy, perms: len(m.perms),
+		context:      m.context, contextMax: m.contextMax, planTier: m.planTier,
+		busy: m.busy, perms: len(m.perms),
 		queue: len(m.queue), tasks: len(m.tasks), todos: len(m.todos),
 		sessionID: m.sessionID, cwd: m.cwd, branch: m.branch,
 		five: m.fiveHour != nil, seven: m.sevenDay != nil, month: m.monthly != nil,
@@ -705,10 +706,14 @@ func (m *Model) sidebar(height int) string {
 	}
 	if m.context > 0 {
 		ctxCol := sDim
-		if m.context > contextWarn {
+		ctxLimit := 200000.0
+		if m.contextMax > 0 {
+			ctxLimit = float64(m.contextMax)
+		}
+		frac := float64(m.context) / ctxLimit
+		if m.context > contextWarn || frac >= 0.75 {
 			ctxCol = sYellow
 		}
-		frac := float64(m.context) / 200000.0
 		right := ctxCol.Render(fmt.Sprintf("%.1fk", float64(m.context)/1000)) + sFaint.Render(fmt.Sprintf(" %2.0f%%", min(frac*100, 100)))
 		barW := max(w-4-ansi.StringWidth(right)-2, 4)
 		s = append(s, sDim.Render("ctx ")+bar(frac, barW)+" "+right)
@@ -851,6 +856,25 @@ func (m *Model) sidebar(height int) string {
 		if m.monthly != nil {
 			s = append(s, usageLineCompact("30d", m.monthly, w)...)
 		}
+	} else if m.planTier != "" || m.contextMax > 0 {
+		section("USAGE", sFaint.Render(truncate(m.planTier, max(w-7, 4))))
+		ctxLimit := 200000.0
+		if m.contextMax > 0 {
+			ctxLimit = float64(m.contextMax)
+		}
+		frac := float64(m.context) / ctxLimit
+		pct := fmt.Sprintf(" %3.0f%%", min(frac*100, 100))
+		barW := max(w-4-len(pct), 4)
+		s = append(s, sDim.Render("ctx ")+bar(frac, barW)+sText.Render(pct))
+		if m.contextMax > 0 {
+			s = append(s, sFaint.Render(fmt.Sprintf("    %s / %s", fmtTokens(m.context), fmtTokens(m.contextMax))))
+		}
+		if liveIn > 0 && liveCache > 0 {
+			cFrac := min(float64(liveCache)/float64(liveIn), 1.0)
+			cPct := fmt.Sprintf(" %3.0f%%", cFrac*100)
+			cBarW := max(w-4-len(cPct), 4)
+			s = append(s, sDim.Render("hit ")+bar(cFrac, cBarW)+sAccent.Render(cPct))
+		}
 	}
 
 	var recent []*block
@@ -913,19 +937,20 @@ func (m *Model) sidebar(height int) string {
 
 // sideKey is what the sidebar depends on: everything its sections print.
 type sideKey struct {
-	height, sideW, perms, queue, tasks, todos int
-	model, mode, engine                       string
-	cost, lastTurnCost                        float64
-	tokIn, tokOut, tokCache, context          int
-	turnIn, turnOut                           int
-	busy                                      bool
-	sessionID, cwd, branch                    string
-	five, seven, month                        bool
-	theme, saver, effort                      string
-	skills, mcpActive, mcpTools, blocks       int
-	projLang, projTest                        string
-	subCount, subActive, subToks              int
-	subStep, touchedSig                       string
+	height, sideW, perms, queue, tasks, todos    int
+	model, mode, engine                          string
+	cost, lastTurnCost                           float64
+	tokIn, tokOut, tokCache, context, contextMax int
+	planTier                                     string
+	turnIn, turnOut                              int
+	busy                                         bool
+	sessionID, cwd, branch                       string
+	five, seven, month                           bool
+	theme, saver, effort                         string
+	skills, mcpActive, mcpTools, blocks          int
+	projLang, projTest                           string
+	subCount, subActive, subToks                 int
+	subStep, touchedSig                          string
 }
 
 func todoTasks(input map[string]any) []task {

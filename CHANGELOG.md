@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.37.2] - 2026-11-26
+
+### Fixed
+
+- Normal **Google (Antigravity CLI)** replies no longer end with a false `✗ end turn` error: ACP's `end_turn` stop reason now maps to `success` (and `cancelled` to an interruption).
+
+### Changed
+
+- Moved the sidebar rail back to the right side while keeping `joinSides` padded/clamped to exact pane width so the `│` / `┼` border stays straight on Thai, emoji and badge lines.
+
 ## [0.37.1] - 2026-11-26
 
 ### Added
@@ -580,7 +590,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.2...HEAD
+[0.37.2]: https://github.com/stawan15/teveus/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/stawan15/teveus/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/stawan15/teveus/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/stawan15/teveus/compare/v0.36.0...v0.36.1

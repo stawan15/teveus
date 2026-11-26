@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.37.1] - 2026-11-26
+
+### Added
+
+- **Google (Antigravity CLI)** now has full feature parity with Direct API and Claude Code:
+  - **Grouped `/model` picker & persistence**: reads ACP `configOptions[id="model"]` (clean base models grouped by `Gemini 4`, `Gemini`, `Claude`, `Orchestrator`, `OpenAI` with reasoning ranges instead of duplicated effort variants), shows the active model in the Left Rail from startup, and persists your choice in `agyModel`.
+  - **Live `/effort` switching & ceilings**: switches `thought_level` live via `session/set_config_option` without restarting `agy` and displays accurate per-model effort caps on the `/effort` slider.
+  - **Teveus session history (`/resume` & `/search`)**: saves redacted Antigravity transcripts to teveus's session store after each turn, replays them on `/resume`, and continues the CLI session via ACP `session/resume`.
+
 ## [0.37.0] - 2026-11-26
 
 ### Added
@@ -571,7 +580,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/stawan15/teveus/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/stawan15/teveus/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/stawan15/teveus/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/stawan15/teveus/compare/v0.35.0...v0.36.0

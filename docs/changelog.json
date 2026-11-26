@@ -1,11 +1,40 @@
 {
-  "latest": "0.37.0",
+  "latest": "0.37.1",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.37.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.1...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.37.1",
+      "date": "2026-11-26",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.0...v0.37.1",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "**Google (Antigravity CLI)** now has full feature parity with Direct API and Claude Code:",
+              "items": [
+                {
+                  "text": "**Grouped `/model` picker & persistence**: reads ACP `configOptions[id=\"model\"]` (clean base models grouped by `Gemini 4`, `Gemini`, `Claude`, `Orchestrator`, `OpenAI` with reasoning ranges instead of duplicated effort variants), shows the active model in the Left Rail from startup, and persists your choice in `agyModel`.",
+                  "items": []
+                },
+                {
+                  "text": "**Live `/effort` switching & ceilings**: switches `thought_level` live via `session/set_config_option` without restarting `agy` and displays accurate per-model effort caps on the `/effort` slider.",
+                  "items": []
+                },
+                {
+                  "text": "**Teveus session history (`/resume` & `/search`)**: saves redacted Antigravity transcripts to teveus's session store after each turn, replays them on `/resume`, and continues the CLI session via ACP `session/resume`.",
+                  "items": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.37.0",

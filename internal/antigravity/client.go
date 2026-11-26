@@ -186,6 +186,13 @@ func (c *Client) handshake(opts Options) error {
 			CurrentModelID  string           `json:"currentModelId"`
 		} `json:"models"`
 		ConfigOptions []configOption `json:"configOptions"`
+		Meta          *struct {
+			Antigravity *struct {
+				Tier *struct {
+					Name string `json:"name"`
+				} `json:"tier"`
+			} `json:"antigravity"`
+		} `json:"_meta"`
 	}
 	if err := json.Unmarshal(res, &out); err != nil {
 		return err
@@ -238,6 +245,9 @@ func (c *Client) handshake(opts Options) error {
 	c.emit(claude.Ready{Models: modelsCopy, PermissionMode: permissionModeLabel(opts.PermissionMode)})
 	c.emit(claude.Init{SessionID: out.SessionID, Model: activeModel, Cwd: opts.Cwd,
 		PermissionMode: permissionModeLabel(opts.PermissionMode)})
+	if out.Meta != nil && out.Meta.Antigravity != nil && out.Meta.Antigravity.Tier != nil && out.Meta.Antigravity.Tier.Name != "" {
+		c.emit(claude.ContextUsage{Tier: out.Meta.Antigravity.Tier.Name})
+	}
 	return nil
 }
 

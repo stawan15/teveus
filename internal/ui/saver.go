@@ -139,6 +139,7 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 		m.model = m.settings.AgyModel
 	}
 	m.fiveHour, m.sevenDay, m.monthly = nil, nil, nil
+	m.contextMax, m.planTier = 0, ""
 	cmd := m.clearConversation()
 	m.note("engine → "+engineLabel(engine)+" (new conversation)", true)
 	return cmd

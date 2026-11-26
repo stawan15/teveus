@@ -37,7 +37,8 @@ type session struct {
 
 	sessionID, model, mode     string
 	cost, prevCost             float64
-	context                    int
+	context, contextMax        int
+	planTier                   string
 	commands                   []claude.Command
 	models                     []claude.ModelInfo
 	warnedCtx, promptedModel   bool
@@ -67,7 +68,7 @@ func (m *Model) save() {
 	s.queue = m.queue
 	s.busy, s.phase, s.turnStart, s.perms = m.busy, m.phase, m.turnStart, m.perms
 	s.sessionID, s.model, s.mode = m.sessionID, m.model, m.mode
-	s.cost, s.prevCost, s.context = m.cost, m.prevCost, m.context
+	s.cost, s.prevCost, s.context, s.contextMax, s.planTier = m.cost, m.prevCost, m.context, m.contextMax, m.planTier
 	s.commands, s.models = m.commands, m.models
 	s.warnedCtx, s.promptedModel, s.noProvider = m.warnedCtx, m.promptedModel, m.noProvider
 	s.tokIn, s.tokOut, s.tokCache = m.tokIn, m.tokOut, m.tokCache
@@ -84,7 +85,7 @@ func (m *Model) load() {
 	m.queue = s.queue
 	m.busy, m.phase, m.turnStart, m.perms = s.busy, s.phase, s.turnStart, s.perms
 	m.sessionID, m.model, m.mode = s.sessionID, s.model, s.mode
-	m.cost, m.prevCost, m.context = s.cost, s.prevCost, s.context
+	m.cost, m.prevCost, m.context, m.contextMax, m.planTier = s.cost, s.prevCost, s.context, s.contextMax, s.planTier
 	m.commands, m.models = s.commands, s.models
 	m.warnedCtx, m.promptedModel, m.noProvider = s.warnedCtx, s.promptedModel, s.noProvider
 	m.tokIn, m.tokOut, m.tokCache = s.tokIn, s.tokOut, s.tokCache

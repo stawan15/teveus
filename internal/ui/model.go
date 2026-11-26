@@ -119,6 +119,8 @@ type Model struct {
 	cost       float64
 	prevCost   float64
 	context    int
+	contextMax int
+	planTier   string
 	fiveHour   *claude.Window
 	sevenDay   *claude.Window
 	monthly    *claude.Window
@@ -1163,7 +1165,7 @@ func (m *Model) quit() tea.Cmd {
 func (m *Model) resetConversation() {
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.queue = nil, map[string]*block{}, nil, nil, nil, nil
 	m.busy, m.perms, m.sessionID, m.phase, m.turnFrom = false, nil, "", "", 0
-	m.cost, m.prevCost, m.context, m.warnedCtx = 0, 0, 0, false
+	m.cost, m.prevCost, m.context, m.contextMax, m.planTier, m.warnedCtx = 0, 0, 0, 0, "", false
 	m.tokIn, m.tokOut, m.tokCache, m.promptedModel, m.noProvider = 0, 0, 0, false, nil
 	m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0
 	m.lastTurnIn, m.lastTurnOut, m.lastTurnCache, m.lastTurnCost = 0, 0, 0, 0
@@ -1524,6 +1526,17 @@ func (m *Model) handleEvent(ev claude.Event) {
 		}
 		if e.Monthly != nil {
 			m.monthly = e.Monthly
+		}
+
+	case claude.ContextUsage:
+		if e.Used > 0 {
+			m.context = e.Used
+		}
+		if e.Size > 0 {
+			m.contextMax = e.Size
+		}
+		if e.Tier != "" {
+			m.planTier = e.Tier
 		}
 
 	case claude.Result:

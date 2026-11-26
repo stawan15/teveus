@@ -5,19 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
-### Changed
-
-- Refreshed the interface with a new Atelier layout: a full-height Left Architectural Rail (keeping the vertical `│` divider immune to Thai/emoji width drift across terminals), an editorial monogram with a 2×2 Bento Quick Start grid and project stack chips, a floating composer aligned to the reading canvas, aligned `5h`/`7d`/`30d` quota bars, intra-line diff highlights, automatic folding of consecutive read-only tool calls (`Read ×N`, click or press `ctrl+o` to expand), a compact non-duplicated approval bar (press `d` to toggle full diff), a cleaner command palette search bar, and synced dark tokens with coloured diffs on the `/phone` page.
+## [0.37.0] - 2026-11-26
 
 ### Added
 
+- **Google (Antigravity CLI)** engine (`agy acp`): run your own installed `agy` binary over its Agent Client Protocol stdio server, signed in with your Google account (teveus never sees your login and asks for confirmation once before first run). Select it from `/login`, `/engine`, `/engine antigravity` (or `/engine agy`), or with `-engine antigravity` and `-agy <path>`.
 - Live functional telemetry in the Left Rail and transcript: an **AGENTS** monitor showing active subagents, their current tool step and token burn (with a `◇` header pill and `◇ Task` card), a **FILES** ledger listing edited/created files with `+add -del` line counts, a live session token & cache-hit % meter, and a quiet hairline per-turn receipt (`Worked for … · in/out tokens · % cached · cost · tools`) after every reply.
 - `/saver` (and **Settings → Token saver preset**) lets you switch between `full`, `balanced` and `max` token-saving presets in one step.
+
+### Changed
+
+- Refreshed the interface with a new Atelier layout: a full-height Left Architectural Rail (keeping the vertical `│` divider immune to Thai/emoji width drift across terminals), an editorial monogram with a 2×2 Bento Quick Start grid and project stack chips, a floating composer aligned to the reading canvas, aligned `5h`/`7d`/`30d` quota bars, intra-line diff highlights, automatic folding of consecutive read-only tool calls (`Read ×N`, click or press `ctrl+o` to expand), a compact non-duplicated approval bar (press `d` to toggle full diff), a cleaner command palette search bar, and synced dark tokens with coloured diffs on the `/phone` page.
 
 ### Fixed
 
 - Status bar shimmer animation now adapts its colours whenever you switch themes instead of staying on the initial theme's accent.
 - Trailing background tint on inline-highlighted diff lines is preserved when stripping blank foreground padding codes.
+- Multiple URLs on the same rendered line are all linked with OSC 8 hyperlinks instead of skipping the second link.
 
 
 ## [0.36.1] - 2026-11-20
@@ -567,7 +571,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.36.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/stawan15/teveus/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/stawan15/teveus/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/stawan15/teveus/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/stawan15/teveus/compare/v0.34.2...v0.35.0

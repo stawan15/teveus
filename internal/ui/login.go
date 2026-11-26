@@ -146,8 +146,13 @@ func (m *Model) openLogin(arg string) tea.Cmd {
 		sub = "✓ logged in as " + m.claudeAuth.email + " · uses the Claude Code engine"
 		subLabel = "● " + subLabel
 	}
-	cs := []choice{{label: subLabel, value: "claude", desc: sub,
-		run: func(m *Model) tea.Cmd { return m.useSubscription() }}}
+	cs := []choice{
+		{label: subLabel, value: "claude", desc: sub,
+			run: func(m *Model) tea.Cmd { return m.useSubscription() }},
+		{label: "Google (Antigravity CLI)", value: "antigravity",
+			desc: "runs your installed agy · you sign in with Google · not made or endorsed by Google",
+			run:  func(m *Model) tea.Cmd { return m.setEngine("antigravity") }},
+	}
 	for _, p := range agent.Providers {
 		p := p
 		status, ok := providerStatus(s, p)

@@ -361,6 +361,8 @@ func (m *Model) header() string {
 		brand += " " + chip("Claude", cAccent)
 	case "api":
 		brand += " " + chip("API", cAccent2)
+	case "antigravity":
+		brand += " " + chip("Agy", cBlue)
 	}
 	if m.sideW > 0 {
 		// Brand anchors cleanly above the Left Architectural Rail; repo, branch

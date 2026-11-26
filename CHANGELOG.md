@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.37.3] - 2026-11-26
+
+### Added
+
+- **Cross-engine conversation handoff**: switching engines mid-conversation (or after `/resume`, e.g. from Claude Code or Direct API to Google Antigravity CLI to use Gemini models) now preserves the transcript on screen and automatically hands off a compact, secret-redacted conversation summary to the new model on your next prompt instead of wiping the session.
+- **Live `USAGE` bars for Antigravity CLI**: the sidebar now displays your plan tier (`Google AI Pro`), live context-window utilization (`ctx` bar scaled to the model's 1M context window from ACP `usage_update`), and session cache-hit percentage (`hit` bar).
+
 ## [0.37.2] - 2026-11-26
 
 ### Fixed
@@ -590,7 +597,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.2...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.3...HEAD
+[0.37.3]: https://github.com/stawan15/teveus/compare/v0.37.2...v0.37.3
 [0.37.2]: https://github.com/stawan15/teveus/compare/v0.37.1...v0.37.2
 [0.37.1]: https://github.com/stawan15/teveus/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/stawan15/teveus/compare/v0.36.1...v0.37.0

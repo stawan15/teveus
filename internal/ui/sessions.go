@@ -118,7 +118,11 @@ func listClaudeSessions(cwd string) []savedSession {
 func listAllSessions(cwd string) []savedSession {
 	out := listClaudeSessions(cwd)
 	for _, s := range agent.ListSessions(sessionDir(), cwd) {
-		out = append(out, savedSession{engine: "api", id: s.ID, title: s.Title, model: s.Model, updated: s.Updated})
+		eng := s.Engine
+		if eng == "" {
+			eng = "api"
+		}
+		out = append(out, savedSession{engine: eng, id: s.ID, title: s.Title, model: s.Model, updated: s.Updated})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].updated.After(out[j].updated) })
 	return out
@@ -149,8 +153,11 @@ func (m *Model) openResumePicker() {
 	for _, s := range sessions {
 		s := s
 		group := "Claude Code"
-		if s.engine == "api" {
+		switch s.engine {
+		case "api":
 			group = "Direct API"
+		case "antigravity":
+			group = "Google (Antigravity CLI)"
 		}
 		cs = append(cs, choice{label: s.title, value: s.engine + ":" + s.id, desc: shortModel(s.model),
 			key: ago(s.updated), group: group, run: func(m *Model) tea.Cmd { return m.resumeSession(s) }})
@@ -180,7 +187,7 @@ func (m *Model) resumeSession(s savedSession) tea.Cmd {
 	m.cost, m.prevCost, m.context, m.warnedCtx, m.tokIn, m.tokOut = 0, 0, 0, false, 0, 0
 	m.promptedModel, m.noProvider = true, nil
 
-	if s.engine == "api" {
+	if s.engine == "api" || s.engine == "antigravity" {
 		if sess, err := agent.LoadSession(sessionDir(), s.id); err == nil {
 			m.replayAPI(sess.History)
 			if sess.Model != "" {

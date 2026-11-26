@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stawan15/teveus/internal/agent"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -18,7 +19,7 @@ func liveClient(t *testing.T, mode string) *Client {
 	if err != nil {
 		t.Skip("agy is not installed")
 	}
-	c, err := Start(Options{Binary: bin, Cwd: t.TempDir(), PermissionMode: mode})
+	c, err := Start(Options{Binary: bin, Cwd: t.TempDir(), PermissionMode: mode, SessionDir: t.TempDir()})
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -78,10 +79,16 @@ func TestLiveHandshake(t *testing.T) {
 	if init.SessionID == "" {
 		t.Error("no session id")
 	}
+	if init.Model == "" {
+		t.Error("no initial model reported")
+	}
 	if len(ready.Models) == 0 {
 		t.Error("no models offered")
 	} else {
-		t.Logf("%d models, first %q", len(ready.Models), ready.Models[0].Value)
+		t.Logf("%d models, first %q (group=%q meta=%q) active=%q", len(ready.Models), ready.Models[0].Value, ready.Models[0].Group, ready.Models[0].Meta, init.Model)
+	}
+	if err := c.SetEffort("low"); err != nil {
+		t.Errorf("SetEffort(low): %v", err)
 	}
 }
 
@@ -106,6 +113,12 @@ func TestLiveTurn(t *testing.T) {
 	}
 	if res.Usage.InputTokens == 0 {
 		t.Error("no token counts")
+	}
+	sess, err := agent.LoadSession(c.sessionDir, c.session)
+	if err != nil {
+		t.Errorf("session not saved: %v", err)
+	} else if sess.Engine != "antigravity" || len(sess.History) < 2 {
+		t.Errorf("saved session = %+v", sess)
 	}
 	t.Logf("input=%d output=%d text=%q", res.Usage.InputTokens, res.Usage.OutputTokens, text.String())
 }
@@ -200,5 +213,64 @@ func TestModesMapToTheCLIs(t *testing.T) {
 	}
 	if !modeAllowsAll("auto") || modeAllowsAll("acceptEdits") {
 		t.Error("auto should answer itself; accept-edits should still ask for commands")
+	}
+}
+
+func TestParseSessionModelsAndClampEffort(t *testing.T) {
+	cfgOpts := []configOption{
+		{
+			ID: "model", CurrentValue: "gemini-4-neon",
+			Options: []struct {
+				Value string `json:"value"`
+				Name  string `json:"name"`
+			}{
+				{Value: "gemini-4-neon", Name: "Gemini 4 Neon"},
+				{Value: "gemini-3.8-flash", Name: "Gemini 3.8 Flash"},
+				{Value: "claude-opus-5-5", Name: "Claude Opus 5.5"},
+				{Value: "gemini-pro-orchestrator", Name: "Orchestrator (Carbon)"},
+			},
+		},
+		{
+			ID: "thought_level", CurrentValue: "high",
+			Options: []struct {
+				Value string `json:"value"`
+				Name  string `json:"name"`
+			}{
+				{Value: "low", Name: "Low"},
+				{Value: "medium", Name: "Medium"},
+				{Value: "high", Name: "High"},
+				{Value: "xhigh", Name: "Extra"},
+			},
+		},
+	}
+	avail := []availableModel{
+		{ModelID: "gemini-4-neon-low"}, {ModelID: "gemini-4-neon-medium"}, {ModelID: "gemini-4-neon-high"}, {ModelID: "gemini-4-neon-xhigh"},
+		{ModelID: "gemini-3.8-flash-low"}, {ModelID: "gemini-3.8-flash-medium"}, {ModelID: "gemini-3.8-flash-high"},
+		{ModelID: "claude-opus-5-5-low"}, {ModelID: "claude-opus-5-5-high"},
+	}
+	models, cur, levels, ok := parseSessionModels(cfgOpts, avail)
+	if !ok || cur != "gemini-4-neon" || len(models) != 4 || len(levels) != 4 {
+		t.Fatalf("parseSessionModels: ok=%v cur=%q models=%d levels=%v", ok, cur, len(models), levels)
+	}
+	if models[0].Group != "Antigravity · Gemini 4" || models[0].Meta != "low–xhigh" || len(models[0].Reasoning) != 4 {
+		t.Errorf("neon: %+v", models[0])
+	}
+	if models[1].Group != "Antigravity · Gemini" || models[1].Meta != "low–high" || len(models[1].Reasoning) != 3 {
+		t.Errorf("flash: %+v", models[1])
+	}
+	if models[2].Group != "Antigravity · Claude" {
+		t.Errorf("claude group: %+v", models[2])
+	}
+	if models[3].Group != "Antigravity · Orchestrator" {
+		t.Errorf("orchestrator group: %+v", models[3])
+	}
+	if got := clampThoughtLevel("max", []string{"low", "medium", "high"}); got != "high" {
+		t.Errorf("clamp max -> %q, want high", got)
+	}
+	if got := clampThoughtLevel("max", []string{"low", "medium", "high", "xhigh"}); got != "xhigh" {
+		t.Errorf("clamp max -> %q, want xhigh", got)
+	}
+	if got := clampThoughtLevel("medium", []string{"low", "medium", "high"}); got != "medium" {
+		t.Errorf("clamp medium -> %q, want medium", got)
 	}
 }

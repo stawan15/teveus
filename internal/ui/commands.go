@@ -32,8 +32,11 @@ func init() {
 		}},
 		{"login", "Connect a provider: API key or browser login", "", func(m *Model, arg string) tea.Cmd { return m.openLogin(arg) }},
 		{"logout", "Remove a saved provider key", "", func(m *Model, _ string) tea.Cmd { m.openLogout(); return nil }},
-		{"engine", "Switch engine: Claude Code or direct API (your keys)", "", func(m *Model, arg string) tea.Cmd {
-			if arg == "claude" || arg == "api" {
+		{"engine", "Switch engine: Claude Code, Direct API, or Antigravity CLI", "", func(m *Model, arg string) tea.Cmd {
+			if arg == "agy" {
+				arg = "antigravity"
+			}
+			if arg == "claude" || arg == "api" || arg == "antigravity" {
 				return m.setEngine(arg)
 			}
 			m.openEnginePicker()

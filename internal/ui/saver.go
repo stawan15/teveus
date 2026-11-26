@@ -118,6 +118,12 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 		m.askClaudeNotice(func(m *Model) tea.Cmd { return m.setEngine("claude") })
 		return nil
 	}
+	if engine == "antigravity" && !m.agyConfirmed() {
+		// Same for Google's CLI: the user runs their own program, under
+		// Google's terms, and teveus is not part of it.
+		m.askAgyNotice(func(m *Model) tea.Cmd { return m.setEngine("antigravity") })
+		return nil
+	}
 	if m.busy {
 		m.note("finish or interrupt the current turn first", false)
 		return nil
@@ -137,8 +143,11 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 
 // agentName is how the assistant is referred to in notifications.
 func (m *Model) agentName() string {
-	if m.engine == "api" && m.model != "" {
+	if (m.engine == "api" || m.engine == "antigravity") && m.model != "" {
 		return shortModel(m.model)
+	}
+	if m.engine == "antigravity" {
+		return "Antigravity"
 	}
 	return "Claude"
 }
@@ -149,6 +158,10 @@ func engineLabel(e string) string {
 		return "Direct API"
 	case "claude":
 		return "Claude Code"
+	case "antigravity":
+		// Named for what the user runs, not by Google's product name alone:
+		// teveus isn't affiliated with Google, and the label shouldn't imply it.
+		return "Google (Antigravity CLI)"
 	}
 	return "not connected"
 }
@@ -159,10 +172,16 @@ func (m *Model) openEnginePicker() {
 			run: func(m *Model) tea.Cmd { return m.setEngine("claude") }},
 		{label: "Direct API", value: "api", desc: "your own keys: OpenAI, Anthropic, Gemini, OpenRouter, Groq, local models…",
 			run: func(m *Model) tea.Cmd { return m.setEngine("api") }},
+		{label: "Google (Antigravity CLI)", value: "antigravity",
+			desc: "your installed agy, signed in with your Google account · not made or endorsed by Google",
+			run:  func(m *Model) tea.Cmd { return m.setEngine("antigravity") }},
 	}
 	sel := 0
-	if m.engine == "api" {
+	switch m.engine {
+	case "api":
 		sel = 1
+	case "antigravity":
+		sel = 2
 	}
 	m.openPicker("Engine", cs, sel)
 }

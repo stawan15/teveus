@@ -16,11 +16,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/stawan15/teveus/internal/agent"
+	"github.com/stawan15/teveus/internal/antigravity"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
+// AgyOptions is where the Antigravity CLI lives; the zero value means "agy"
+// on PATH.
+type AgyOptions struct {
+	Binary string
+}
+
 type Config struct {
 	Claude    claude.Options
+	Agy       AgyOptions
 	Dark      bool
 	Theme     string // overrides the saved theme when set
 	Settings  Settings
@@ -231,10 +239,12 @@ func New(cfg Config) *Model {
 	// with no key left starts disconnected rather than showing errors. An
 	// explicit -engine flag is always honoured (Claude Code still asks first).
 	switch {
-	case engine != "api" && engine != "claude":
+	case engine != "api" && engine != "claude" && engine != "antigravity":
 		engine = ""
 	case cfg.Engine != "":
 	case engine == "claude" && !settings.ClaudeNotice:
+		engine = ""
+	case engine == "antigravity" && !settings.AgyNotice:
 		engine = ""
 	case engine == "api" && !hasAPICredentials():
 		engine = ""
@@ -352,13 +362,14 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	if m.engine == "" {
 		return nil // not connected yet: /login
 	}
-	if m.gateClaude(opts) {
+	if m.gateClaude(opts) || m.gateAgy(opts) {
 		return nil
 	}
 	opts = m.startOptions(opts)
 	var c claude.Backend
 	var err error
-	if m.engine == "api" {
+	switch m.engine {
+	case "api":
 		// WebFetch's guard is process-wide: it covers the tool whether the
 		// engine, a subagent or a resumed session calls it.
 		agent.SetWebFetchLocal(m.settings.WebFetchLocal)
@@ -367,7 +378,14 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
 			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution, SubagentModel: m.settings.SubagentModel,
 		})
-	} else {
+	case "antigravity":
+		// The user's own Antigravity CLI, run as they installed it. It signs
+		// in with their Google account; teveus never sees that login.
+		c, err = antigravity.Start(antigravity.Options{
+			Binary: m.cfg.Agy.Binary, Cwd: m.cwd, Model: opts.Model,
+			PermissionMode: opts.PermissionMode, Resume: opts.Resume, Effort: opts.Effort,
+		})
+	default:
 		c, err = claude.Start(opts)
 	}
 	if err != nil {
@@ -1083,6 +1101,11 @@ func (m *Model) send(text string) tea.Cmd {
 		if m.engine == "claude" && !m.claudeConfirmed() {
 			m.input.SetValue(text) // keep the message for after the question
 			m.gateClaude(opts)
+			return nil
+		}
+		if m.engine == "antigravity" && !m.agyConfirmed() {
+			m.input.SetValue(text) // keep the message for after the question
+			m.gateAgy(opts)
 			return nil
 		}
 		cmd = m.start(opts)

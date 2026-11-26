@@ -245,36 +245,31 @@ func (m *Model) View() string {
 	rightRows = append(rightRows, m.chatView(), m.bottomFitted(), m.statusBar())
 	body := strings.Join(rightRows, "\n")
 	if m.sideW > 0 {
-		// Left Architectural Rail: drawn BEFORE the transcript on every row.
-		// Because the rail holds controlled telemetry rather than variable-width
-		// Thai/emoji prose, its vertical │ divider stays laser-straight across
-		// Ghostty, iTerm2, Terminal.app and tmux with zero tearing.
+		// Right Architectural Rail: the transcript stays on the left, and
+		// joinSides pads/truncates every left row to exact m.chatW before
+		// appending the right rail, so │ stays laser-straight on column m.chatW.
 		bodyH := max(m.h-2, 1)
-		body = joinSides(m.sidebar(bodyH), body, m.sideW)
+		body = joinSides(body, m.sidebar(bodyH), m.chatW)
 	}
 	return m.clampFrame(m.header() + "\n" + m.headerRule() + "\n" + body)
 }
 
-// joinSides puts the transcript and the sidebar on the same rows, left to
-// right. Each side is already fitted to its column, so this is a concat — but
-// a row can still come out a cell or two short (a block whose border makes it
-// narrower than the pane), and joining it as it is pulls the sidebar's border
-// left on just that line. Padding to the column here keeps the border straight
-// without measuring the whole frame again.
+// joinSides puts the left pane and the right sidebar on the same rows, left to
+// right. Every left row is fitted to exact leftW cells so the right sidebar's
+// │ border stays on column leftW even when a block or prose line is shorter.
 func joinSides(left, right string, leftW int) string {
 	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
 	out := make([]string, max(len(l), len(r)))
-	pad := ""
+	pad := strings.Repeat(" ", max(leftW, 0))
 	for i := range out {
 		var a, b string
 		if i < len(l) {
 			a = l[i]
-			if hold := leftW - lineWidth(a); hold > 0 && hold < 8 {
-				if len(pad) < hold {
-					pad = strings.Repeat(" ", hold)
-				}
-				a += pad[:hold]
-			}
+		}
+		if w := lineWidth(a); w < leftW {
+			a += pad[:leftW-w]
+		} else if w > leftW {
+			a = ansi.Truncate(a, leftW, "")
 		}
 		if i < len(r) {
 			b = r[i]
@@ -365,39 +360,45 @@ func (m *Model) header() string {
 		brand += " " + chip("Agy", cBlue)
 	}
 	if m.sideW > 0 {
-		// Brand anchors cleanly above the Left Architectural Rail; repo, branch
-		// and model sit in the Right Editorial Canvas header across the divider.
-		railInner := max(m.sideW-1, 4)
-		leftCell := truncate(" "+brand, railInner)
-		if pad := railInner - ansi.StringWidth(leftCell); pad > 0 {
-			leftCell += strings.Repeat(" ", pad)
-		}
+		// Left header carries brand, cwd, branch, active subagents and model
+		// across the main reading canvas; the right rail header holds ? help.
 		pw := m.paneW()
 		padL := strings.Repeat(" ", m.paneMargin())
-		rLeft := padL + sDim.Render(shortPath(m.cwd))
-		if m.branch != "" {
-			rLeft += "  " + sFaint.Render("⎇ ") + sAccent2.Render(m.branch)
+		lLeft := padL + strings.TrimPrefix(brand, " ")
+		if pw >= 56 {
+			lLeft += "  " + sDim.Render(shortPath(m.cwd))
 		}
-		var rparts []string
+		if m.branch != "" && pw >= 72 {
+			lLeft += "  " + sFaint.Render("⎇ ") + sAccent2.Render(m.branch)
+		}
+		var lparts []string
 		if active := m.activeSubagents(); active > 0 {
-			rparts = append(rparts, chip(fmt.Sprintf("◇ %s", plural(active, "%d agent")), cAccent2))
+			lparts = append(lparts, chip(fmt.Sprintf("◇ %s", plural(active, "%d agent")), cAccent2))
 		}
 		if m.model != "" {
-			rparts = append(rparts, sText.Render(shortModel(m.model)))
+			lparts = append(lparts, sText.Render(shortModel(m.model)))
 		}
-		if pw >= 62 {
-			rparts = append(rparts, sFaint.Render("? help"))
-		}
-		rRight := strings.Join(rparts, sFaint.Render("  ")) + padL
-		gap := pw - lipgloss.Width(rLeft) - lipgloss.Width(rRight)
+		lRight := strings.Join(lparts, sFaint.Render("  ")) + padL
+		gap := pw - lipgloss.Width(lLeft) - lipgloss.Width(lRight)
 		if gap < 1 {
-			rRight = ""
+			lRight = ""
 			if m.model != "" {
-				rRight = sText.Render(shortModel(m.model)) + " "
+				lRight = sText.Render(shortModel(m.model)) + " "
 			}
-			gap = max(pw-lipgloss.Width(rLeft)-lipgloss.Width(rRight), 1)
+			gap = max(pw-lipgloss.Width(lLeft)-lipgloss.Width(lRight), 1)
 		}
-		return leftCell + sBorder.Render("│") + rLeft + strings.Repeat(" ", gap) + rRight
+		leftCell := lLeft + strings.Repeat(" ", gap) + lRight
+		if w := lineWidth(leftCell); w > pw {
+			leftCell = ansi.Truncate(leftCell, pw, "")
+		} else if w < pw {
+			leftCell += strings.Repeat(" ", pw-w)
+		}
+
+		railInner := max(m.sideW-1, 4)
+		helpStr := sFaint.Render("? help  ")
+		rightPad := max(railInner-lipgloss.Width(helpStr), 0)
+		rightCell := strings.Repeat(" ", rightPad) + helpStr
+		return leftCell + sBorder.Render("│") + rightCell
 	}
 
 	left := brand
@@ -427,14 +428,14 @@ func (m *Model) header() string {
 }
 
 // headerRule draws the architectural hairline crossbar, placing a clean ┼
-// intersection exactly at the Left Rail divider column.
+// intersection exactly at the Right Rail divider column.
 func (m *Model) headerRule() string {
 	if m.ruleCache != "" && m.ruleCacheW == m.w && m.ruleCacheSide == m.sideW && m.ruleCacheThm == theme.Name {
 		return m.ruleCache
 	}
 	var line string
 	if m.sideW > 0 && m.sideW < m.w {
-		line = strings.Repeat("─", m.sideW-1) + "┼" + strings.Repeat("─", max(m.w-m.sideW, 0))
+		line = strings.Repeat("─", m.chatW) + "┼" + strings.Repeat("─", max(m.sideW-1, 0))
 	} else {
 		line = strings.Repeat("─", max(m.w, 1))
 	}
@@ -898,11 +899,11 @@ func (m *Model) sidebar(height int) string {
 		}
 	}
 
-	// Right border sits on exact column sideW-1; 2-cell horizontal padding
-	// keeps the rail airy and calm.
+	// Left border sits on exact column m.chatW; 2-cell horizontal padding
+	// keeps the right rail airy and calm.
 	out := lipgloss.NewStyle().
 		Width(sideW-1).Height(height).MaxHeight(height).
-		Border(lipgloss.NormalBorder(), false, true, false, false).
+		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(cBorder).
 		Padding(0, padX).
 		Render(fitWidth(strings.Join(s, "\n"), w))

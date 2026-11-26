@@ -284,7 +284,7 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 		}
 		json.Unmarshal(res, &out)
 		c.emit(claude.Result{
-			Subtype: out.StopReason,
+			Subtype: stopReasonSubtype(out.StopReason),
 			Usage: claude.Usage{
 				InputTokens:              out.Usage.InputTokens,
 				OutputTokens:             out.Usage.OutputTokens,
@@ -564,6 +564,17 @@ func parseSessionModels(cfgOpts []configOption, avail []availableModel) (models 
 		})
 	}
 	return models, currentModel, thoughtLevels, false
+}
+
+func stopReasonSubtype(reason string) string {
+	switch reason {
+	case "", "end_turn":
+		return "success"
+	case "cancelled":
+		return "error_during_execution"
+	default:
+		return reason
+	}
 }
 
 func modelGroup(id string) string {

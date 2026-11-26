@@ -79,7 +79,7 @@ func (m *Model) plainLine(i int) string {
 // toggles the tool card under it.
 func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 	row := msg.Y - m.topHeight() // header + hairline divider + optional tab strip
-	col := msg.X - m.sideW       // editorial canvas starts after the left architectural rail
+	col := msg.X                 // transcript sits on the left canvas starting at column 0
 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && col >= 0 && len(m.queue) > 0 && !m.pop.open() && len(m.perms) == 0 {
 		lines := strings.Count(m.bottomFitted(), "\n") + 1
 		qLines := strings.Count(m.queueView(), "\n") + 1

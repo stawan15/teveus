@@ -149,3 +149,55 @@ func TestAntigravityContextUsageRendersSidebarBar(t *testing.T) {
 		}
 	}
 }
+
+type fakeSendClient struct {
+	sent []string
+}
+
+func (f *fakeSendClient) Events() <-chan claude.Event                    { return nil }
+func (f *fakeSendClient) Send(text string) error                         { f.sent = append(f.sent, text); return nil }
+func (f *fakeSendClient) SendImages(text string, _ []claude.Image) error { return f.Send(text) }
+func (f *fakeSendClient) Interrupt() error                               { return nil }
+func (f *fakeSendClient) SetPermissionMode(string) error                 { return nil }
+func (f *fakeSendClient) SetModel(string) error                          { return nil }
+func (f *fakeSendClient) Allow(*claude.PermissionRequest, bool) error    { return nil }
+func (f *fakeSendClient) Deny(*claude.PermissionRequest, string) error   { return nil }
+func (f *fakeSendClient) Close()                                         {}
+
+func TestSwitchingEngineCarriesExistingConversation(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{
+		Dark:     true,
+		Settings: Settings{Engine: "claude", ClaudeNotice: true, AgyNotice: true, Onboarded: true},
+		Agy:      AgyOptions{Binary: "/nonexistent/agy"},
+	})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.add(&block{kind: kindUser, text: "Check why the query is slow"})
+	m.add(&block{kind: kindAssistant, text: "Missing index on orders(created_at)."})
+
+	m.setEngine("antigravity")
+	if m.engine != "antigravity" {
+		t.Fatalf("engine = %q, want antigravity", m.engine)
+	}
+	if len(m.blocks) < 2 {
+		t.Fatalf("conversation was cleared on engine switch: %d blocks", len(m.blocks))
+	}
+	if !strings.Contains(m.handoff, "Check why the query is slow") || !strings.Contains(m.handoff, "Missing index") {
+		t.Fatalf("handoff missing prior context: %q", m.handoff)
+	}
+
+	// Next user message carries the handoff once, while showing only the user's text on screen.
+	fc := &fakeSendClient{}
+	m.client = fc
+	m.send("Now add the migration")
+	if len(fc.sent) != 1 || !strings.Contains(fc.sent[0], "<conversation_history>") || !strings.Contains(fc.sent[0], "Now add the migration") {
+		t.Fatalf("sent = %+v", fc.sent)
+	}
+	if m.handoff != "" {
+		t.Fatalf("handoff not cleared after send: %q", m.handoff)
+	}
+	lastUser := m.blocks[len(m.blocks)-1]
+	if lastUser.kind != kindUser || lastUser.text != "Now add the migration" {
+		t.Fatalf("lastUser = %+v", lastUser)
+	}
+}

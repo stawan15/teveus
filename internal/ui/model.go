@@ -111,6 +111,7 @@ type Model struct {
 	perms     []*claude.PermissionRequest
 
 	sessionID  string
+	handoff    string // conversation summary carried over when switching engines
 	model      string
 	mode       string
 	modeBefore string // what to fall back to when the CLI refuses a mode
@@ -1119,17 +1120,22 @@ func (m *Model) send(text string) tea.Cmd {
 			return cmd
 		}
 	}
+	wireText := text
+	if m.handoff != "" {
+		wireText = "<conversation_history>\n" + m.handoff + "\n</conversation_history>\n\n" + text
+	}
 	var err error
 	if imgs := m.outImages; len(imgs) > 0 {
 		m.outImages = nil
-		err = m.client.SendImages(text, imgs)
+		err = m.client.SendImages(wireText, imgs)
 	} else {
-		err = m.client.Send(text)
+		err = m.client.Send(wireText)
 	}
 	if err != nil {
 		m.add(&block{kind: kindError, text: err.Error()})
 		return cmd
 	}
+	m.handoff = ""
 	if !m.busy {
 		m.busy, m.turnStart, m.phase, m.turnFrom = true, time.Now(), "Thinking", len(m.blocks)
 		m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0
@@ -1164,7 +1170,7 @@ func (m *Model) quit() tea.Cmd {
 
 func (m *Model) resetConversation() {
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.queue = nil, map[string]*block{}, nil, nil, nil, nil
-	m.busy, m.perms, m.sessionID, m.phase, m.turnFrom = false, nil, "", "", 0
+	m.busy, m.perms, m.sessionID, m.handoff, m.phase, m.turnFrom = false, nil, "", "", "", 0
 	m.cost, m.prevCost, m.context, m.contextMax, m.planTier, m.warnedCtx = 0, 0, 0, 0, "", false
 	m.tokIn, m.tokOut, m.tokCache, m.promptedModel, m.noProvider = 0, 0, 0, false, nil
 	m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0

@@ -107,8 +107,9 @@ func (m *Model) restart(why string) tea.Cmd {
 	return cmd
 }
 
-// setEngine switches between Claude Code and the direct API engine.
-// Conversations don't carry across engines, so this starts a new one.
+// setEngine switches between Claude Code, Direct API, and Antigravity.
+// When a conversation is already on screen, it is preserved and handed off
+// to the new engine so the user can continue working with a different model.
 func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == m.engine {
 		return nil
@@ -140,9 +141,61 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 	}
 	m.fiveHour, m.sevenDay, m.monthly = nil, nil, nil
 	m.contextMax, m.planTier = 0, ""
-	cmd := m.clearConversation()
-	m.note("engine → "+engineLabel(engine)+" (new conversation)", true)
+	if len(m.blocks) == 0 {
+		cmd := m.clearConversation()
+		m.note("engine → "+engineLabel(engine)+" (new conversation)", true)
+		return cmd
+	}
+	handoff := m.buildHandoff()
+	if m.client != nil {
+		m.client.Close()
+		m.client = nil
+	}
+	m.sessionID, m.busy, m.perms, m.stream, m.phase = "", false, nil, nil, ""
+	m.handoff = handoff
+	opts := m.cfg.Claude
+	opts.Resume, opts.Continue = "", false
+	cmd := m.start(opts)
+	m.add(&block{kind: kindInfo, text: "Switched to " + engineLabel(engine) + " · continuing conversation"})
+	m.refresh()
+	m.vp.GotoBottom()
+	m.note("engine → "+engineLabel(engine)+" (continuing conversation)", true)
 	return cmd
+}
+
+const maxHandoffRunes = 12000
+
+// buildHandoff formats the visible transcript into a compact, secret-redacted
+// summary so a newly switched engine can continue an existing conversation.
+func (m *Model) buildHandoff() string {
+	var parts []string
+	for _, b := range m.blocks {
+		switch b.kind {
+		case kindUser:
+			if t := strings.TrimSpace(b.text); t != "" {
+				parts = append(parts, "User: "+t)
+			}
+		case kindAssistant:
+			if t := strings.TrimSpace(b.text); t != "" {
+				parts = append(parts, "Assistant: "+t)
+			}
+		case kindTool:
+			sum := ""
+			if m.r != nil {
+				sum = m.r.summary(b.name, b.input)
+			}
+			if sum != "" {
+				parts = append(parts, "[Tool "+b.name+": "+sum+"]")
+			} else if b.name != "" {
+				parts = append(parts, "[Tool "+b.name+"]")
+			}
+		}
+	}
+	out := agent.Redact(strings.Join(parts, "\n\n"))
+	if r := []rune(out); len(r) > maxHandoffRunes {
+		out = "[earlier turns omitted]\n\n" + string(r[len(r)-maxHandoffRunes:])
+	}
+	return out
 }
 
 // agentName is how the assistant is referred to in notifications.

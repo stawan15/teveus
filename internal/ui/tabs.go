@@ -35,22 +35,22 @@ type session struct {
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
 
-	sessionID, model, mode     string
-	cost, prevCost             float64
-	context, contextMax        int
-	planTier                   string
-	commands                   []claude.Command
-	models                     []claude.ModelInfo
-	warnedCtx, promptedModel   bool
-	noProvider                 *block
-	tokIn, tokOut, tokCache    int
-	turnIn, turnOut, turnCache int
-	turnTools                  int
-	lastTurnIn, lastTurnOut    int
-	lastTurnCache              int
-	lastTurnCost               float64
-	subagents                  []*subagentState
-	touchedFiles               []touchedFile
+	sessionID, handoff, model, mode string
+	cost, prevCost                  float64
+	context, contextMax             int
+	planTier                        string
+	commands                        []claude.Command
+	models                          []claude.ModelInfo
+	warnedCtx, promptedModel        bool
+	noProvider                      *block
+	tokIn, tokOut, tokCache         int
+	turnIn, turnOut, turnCache      int
+	turnTools                       int
+	lastTurnIn, lastTurnOut         int
+	lastTurnCache                   int
+	lastTurnCost                    float64
+	subagents                       []*subagentState
+	touchedFiles                    []touchedFile
 
 	cwd, branch string
 	files       []string
@@ -67,7 +67,7 @@ func (m *Model) save() {
 	s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom = m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom
 	s.queue = m.queue
 	s.busy, s.phase, s.turnStart, s.perms = m.busy, m.phase, m.turnStart, m.perms
-	s.sessionID, s.model, s.mode = m.sessionID, m.model, m.mode
+	s.sessionID, s.handoff, s.model, s.mode = m.sessionID, m.handoff, m.model, m.mode
 	s.cost, s.prevCost, s.context, s.contextMax, s.planTier = m.cost, m.prevCost, m.context, m.contextMax, m.planTier
 	s.commands, s.models = m.commands, m.models
 	s.warnedCtx, s.promptedModel, s.noProvider = m.warnedCtx, m.promptedModel, m.noProvider
@@ -84,7 +84,7 @@ func (m *Model) load() {
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom = s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom
 	m.queue = s.queue
 	m.busy, m.phase, m.turnStart, m.perms = s.busy, s.phase, s.turnStart, s.perms
-	m.sessionID, m.model, m.mode = s.sessionID, s.model, s.mode
+	m.sessionID, m.handoff, m.model, m.mode = s.sessionID, s.handoff, s.model, s.mode
 	m.cost, m.prevCost, m.context, m.contextMax, m.planTier = s.cost, s.prevCost, s.context, s.contextMax, s.planTier
 	m.commands, m.models = s.commands, s.models
 	m.warnedCtx, m.promptedModel, m.noProvider = s.warnedCtx, s.promptedModel, s.noProvider

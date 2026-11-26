@@ -1,11 +1,31 @@
 {
-  "latest": "0.37.2",
+  "latest": "0.37.3",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.37.2...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.3...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.37.3",
+      "date": "2026-11-26",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.2...v0.37.3",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "**Cross-engine conversation handoff**: switching engines mid-conversation (or after `/resume`, e.g. from Claude Code or Direct API to Google Antigravity CLI to use Gemini models) now preserves the transcript on screen and automatically hands off a compact, secret-redacted conversation summary to the new model on your next prompt instead of wiping the session.",
+              "items": []
+            },
+            {
+              "text": "**Live `USAGE` bars for Antigravity CLI**: the sidebar now displays your plan tier (`Google AI Pro`), live context-window utilization (`ctx` bar scaled to the model's 1M context window from ACP `usage_update`), and session cache-hit percentage (`hit` bar).",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.37.2",

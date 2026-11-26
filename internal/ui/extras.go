@@ -45,6 +45,7 @@ type Settings struct {
 	ReduceMotion bool     `json:"reduceMotion,omitempty"` // no spinners or shimmer
 	FrameRate    int      `json:"frameRate,omitempty"`    // renderer frames per second; 0 = 120
 	APIModel     string   `json:"apiModel,omitempty"`     // last model picked on the API engine
+	AgyModel     string   `json:"agyModel,omitempty"`     // last model picked on the Antigravity CLI engine
 	RecentModels []string `json:"recentModels,omitempty"` // newest first
 	PhonePage    bool     `json:"phonePage,omitempty"`    // serve the phone page (phone.go); off by default
 	// WebFetch refuses this machine, its network and cloud metadata by default,

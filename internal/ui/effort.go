@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/stawan15/teveus/internal/agent"
+	"github.com/stawan15/teveus/internal/antigravity"
 )
 
 // Reasoning effort: how hard the model thinks before answering. "auto"
@@ -32,7 +33,7 @@ func (m *Model) effortInUse() (string, bool) {
 	if want == "" {
 		return "auto", false
 	}
-	if m.engine != "api" {
+	if m.engine != "api" && m.engine != "antigravity" {
 		return want, false
 	}
 	return agent.ClampToModel(want, m.model, m.modelReasoning(m.model))
@@ -72,7 +73,7 @@ func (m *Model) openEffortSlider() {
 // effortCeiling is the highest level the current model takes, and whether that
 // is below the top of the scale.
 func (m *Model) effortCeiling() (string, bool) {
-	if m.engine != "api" {
+	if m.engine != "api" && m.engine != "antigravity" {
 		return "max", false
 	}
 	lvl, capped := agent.ClampToModel("max", m.model, m.modelReasoning(m.model))
@@ -113,6 +114,11 @@ func (m *Model) setEffort(level string) tea.Cmd {
 	saveSettings(m.settings)
 	if eng, ok := m.client.(*agent.Engine); ok {
 		eng.SetEffort(m.settings.Effort)
+		m.note("effort → "+level, true)
+		return nil
+	}
+	if agy, ok := m.client.(*antigravity.Client); ok {
+		_ = agy.SetEffort(m.settings.Effort)
 		m.note("effort → "+level, true)
 		return nil
 	}

@@ -110,7 +110,7 @@ func searchSession(s savedSession, query string) (searchHit, bool) {
 			h.n++
 		}
 	}
-	if s.engine == "api" {
+	if s.engine == "api" || s.engine == "antigravity" {
 		sess, err := agent.LoadSession(sessionDir(), s.id)
 		if err != nil {
 			return h, false

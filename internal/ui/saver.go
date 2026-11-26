@@ -135,6 +135,9 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == "api" && m.model == "" {
 		m.model = m.settings.APIModel
 	}
+	if engine == "antigravity" && m.model == "" {
+		m.model = m.settings.AgyModel
+	}
 	m.fiveHour, m.sevenDay, m.monthly = nil, nil, nil
 	cmd := m.clearConversation()
 	m.note("engine → "+engineLabel(engine)+" (new conversation)", true)

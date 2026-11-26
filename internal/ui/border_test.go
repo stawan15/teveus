@@ -8,8 +8,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// With the Left Architectural Rail drawn before the transcript, Thai SARA AM,
-// emoji and failed-tool badges on the right can never shift or tear the │ border.
+// With the Right Architectural Rail, joinSides pads/truncates every left row
+// to exact m.chatW so Thai SARA AM, emoji and failed-tool badges on the left
+// never shift or tear the │ border on column m.chatW.
 func TestBorderStaysOnItsColumn(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})
@@ -24,7 +25,7 @@ func TestBorderStaysOnItsColumn(t *testing.T) {
 		if i == 1 {
 			want = "┼"
 		}
-		if got := ansi.Strip(ansi.Cut(lines[i], m.sideW-1, m.sideW)); got != want {
+		if got := ansi.Strip(ansi.Cut(lines[i], m.chatW, m.chatW+1)); got != want {
 			t.Errorf("row %d: rail divider is %q, want %q", i, got, want)
 		}
 	}

@@ -273,4 +273,10 @@ func TestParseSessionModelsAndClampEffort(t *testing.T) {
 	if got := clampThoughtLevel("medium", []string{"low", "medium", "high"}); got != "medium" {
 		t.Errorf("clamp medium -> %q, want medium", got)
 	}
+	if got := stopReasonSubtype("end_turn"); got != "success" {
+		t.Errorf("end_turn -> %q, want success", got)
+	}
+	if got := stopReasonSubtype("cancelled"); got != "error_during_execution" {
+		t.Errorf("cancelled -> %q, want error_during_execution", got)
+	}
 }

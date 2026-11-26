@@ -253,6 +253,9 @@ func New(cfg Config) *Model {
 	if engine == "api" && model == "" {
 		model = settings.APIModel
 	}
+	if engine == "antigravity" && model == "" {
+		model = settings.AgyModel
+	}
 	vp := scroller{MouseWheelDelta: 3}
 	m := &Model{
 		cfg:        cfg,
@@ -384,6 +387,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		c, err = antigravity.Start(antigravity.Options{
 			Binary: m.cfg.Agy.Binary, Cwd: m.cwd, Model: opts.Model,
 			PermissionMode: opts.PermissionMode, Resume: opts.Resume, Effort: opts.Effort,
+			SessionDir: sessionDir(),
 		})
 	default:
 		c, err = claude.Start(opts)
@@ -1190,6 +1194,9 @@ func (m *Model) setModel(name string) {
 		}
 		m.settings.RecentModels = recent
 		m.settings.APIModel = name
+		saveSettings(m.settings)
+	} else if m.engine == "antigravity" {
+		m.settings.AgyModel = name
 		saveSettings(m.settings)
 	}
 	if m.client != nil {

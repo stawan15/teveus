@@ -10,10 +10,11 @@ import (
 	"time"
 )
 
-// Session is a saved API-engine conversation, stored as one JSON file so it
-// can be resumed later with /resume.
+// Session is a saved conversation, stored as one JSON file so it can be
+// resumed later with /resume.
 type Session struct {
 	ID      string    `json:"id"`
+	Engine  string    `json:"engine,omitempty"` // "" or "api" for Direct API; "antigravity" for Antigravity CLI
 	Cwd     string    `json:"cwd"`
 	Model   string    `json:"model"`
 	Title   string    `json:"title"`
@@ -73,6 +74,9 @@ func ListSessions(dir, cwd string) []Session {
 	sort.Slice(out, func(i, j int) bool { return out[i].Updated.After(out[j].Updated) })
 	return out
 }
+
+// SessionTitle derives a short conversation title from the first user turn.
+func SessionTitle(history []Message) string { return sessionTitle(history) }
 
 func sessionTitle(history []Message) string {
 	for _, m := range history {

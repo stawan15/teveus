@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stawan15/teveus/internal/agent"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -203,6 +204,9 @@ func (c *Client) handleNotification(msg rpcMessage) {
 			Text string `json:"text"`
 		}
 		if json.Unmarshal(u.Content, &content) == nil && content.Text != "" {
+			c.mu.Lock()
+			c.turnText.WriteString(content.Text)
+			c.mu.Unlock()
 			c.emit(claude.TextDelta{Text: content.Text})
 		}
 
@@ -227,6 +231,27 @@ func (c *Client) handleNotification(msg rpcMessage) {
 		case "failed":
 			status = "failed"
 		}
+		c.mu.Lock()
+		if c.turnToolIdx != nil && u.ToolCallID != "" {
+			if idx, ok := c.turnToolIdx[u.ToolCallID]; ok {
+				if name != "" {
+					c.turnTools[idx].Name = name
+				}
+				if len(input) > 2 {
+					c.turnTools[idx].Input = input
+				}
+			} else {
+				c.turnToolIdx[u.ToolCallID] = len(c.turnTools)
+				c.turnTools = append(c.turnTools, agent.ToolCall{ID: u.ToolCallID, Name: name, Input: input})
+			}
+			if status != "running" && !c.turnResSeen[u.ToolCallID] {
+				c.turnResSeen[u.ToolCallID] = true
+				c.turnResults = append(c.turnResults, agent.Message{
+					Role: "tool", ToolCallID: u.ToolCallID, Result: u.Title, IsError: status == "failed",
+				})
+			}
+		}
+		c.mu.Unlock()
 		c.emit(claude.AssistantMessage{Blocks: []claude.ContentBlock{{
 			Type: "tool_use", ID: u.ToolCallID, Name: name, Input: input,
 		}}})

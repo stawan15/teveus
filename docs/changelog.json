@@ -1,11 +1,31 @@
 {
-  "latest": "0.39.2",
+  "latest": "0.39.3",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.39.2...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.39.3...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.39.3",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.39.2...v0.39.3",
+      "sections": [
+        {
+          "title": "Improved",
+          "items": [
+            {
+              "text": "Raised `Faint`, `Dim`, and `Border` contrast across dark themes (`claude`, `minimal`, `tokyo-night`, `catppuccin`, `gruvbox`) so borders, sidebar headers, and status hints are clearly legible.",
+              "items": []
+            },
+            {
+              "text": "Increased default tool output preview from 4 to 12 lines, kept `Write` diff previews visible after completion, and extracted full `tool_call_update` content on Google Antigravity CLI (`Agy`) instead of showing only the title.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.39.2",

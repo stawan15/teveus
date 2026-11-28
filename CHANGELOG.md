@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.39.3] - 2026-11-28
+
 ### Improved
 
 - Raised `Faint`, `Dim`, and `Border` contrast across dark themes (`claude`, `minimal`, `tokyo-night`, `catppuccin`, `gruvbox`) so borders, sidebar headers, and status hints are clearly legible.
@@ -669,7 +671,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.2...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.3...HEAD
+[0.39.3]: https://github.com/stawan15/teveus/compare/v0.39.2...v0.39.3
 [0.39.2]: https://github.com/stawan15/teveus/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/stawan15/teveus/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/stawan15/teveus/compare/v0.38.3...v0.39.0

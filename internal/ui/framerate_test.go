@@ -16,28 +16,28 @@ func TestFrameRateSetting(t *testing.T) {
 	m := New(Config{Dark: true})
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 
-	if got := FrameRate(Settings{}); got != 120 {
-		t.Fatalf("default rate %d, want 120", got)
+	if got := FrameRate(Settings{}); got != 60 {
+		t.Fatalf("default rate %d, want 60", got)
 	}
-	if got := m.frameRate(); got != 120 {
+	if got := m.frameRate(); got != 60 {
 		t.Fatalf("model rate %d", got)
 	}
 
-	m.setFrameRate("60")
-	if m.settings.FrameRate != 60 || FrameRate(m.settings) != 60 {
+	m.setFrameRate("120")
+	if m.settings.FrameRate != 120 || FrameRate(m.settings) != 120 {
 		t.Fatalf("setting %d, rate %d", m.settings.FrameRate, FrameRate(m.settings))
 	}
-	if got := savedFrameRate(t); got != 60 {
+	if got := savedFrameRate(t); got != 120 {
 		t.Fatalf("saved rate %d", got)
 	}
 
-	// "60fps" is the same ask; anything else is refused and says so.
-	m.setFrameRate("60fps")
-	if m.settings.FrameRate != 60 || !m.noticeOK {
-		t.Fatalf("60fps: %d %q", m.settings.FrameRate, m.notice)
+	// "120fps" is the same ask; anything else is refused and says so.
+	m.setFrameRate("120fps")
+	if m.settings.FrameRate != 120 || !m.noticeOK {
+		t.Fatalf("120fps: %d %q", m.settings.FrameRate, m.notice)
 	}
 	m.setFrameRate("9999")
-	if m.settings.FrameRate != 60 || m.noticeOK {
+	if m.settings.FrameRate != 120 || m.noticeOK {
 		t.Fatalf("bogus rate accepted: %d %q", m.settings.FrameRate, m.notice)
 	}
 

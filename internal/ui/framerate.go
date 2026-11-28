@@ -14,7 +14,7 @@ import (
 // reply streams. A terminal that can't keep up (over SSH, in tmux, a large
 // window) shows that as lag, so the rate is the user's to pick.
 
-const defaultFrameRate = 120
+const defaultFrameRate = 60
 
 // FrameRate is the rate to start the renderer at: the setting, or the default
 // when it is unset. The program is built once, so this is read at startup.

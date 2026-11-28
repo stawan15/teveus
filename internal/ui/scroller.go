@@ -62,6 +62,12 @@ func (s *scroller) visible() []string {
 }
 
 func (s *scroller) View() string {
+	return strings.Join(s.ViewLines(), "\n")
+}
+
+// ViewLines returns the visible viewport rows already fitted to Width and
+// padded to Height, avoiding an extra Join+Split in View().
+func (s *scroller) ViewLines() []string {
 	// Clamp before padding: a line wider than the viewport (text with no
 	// spaces to wrap on) would draw over whatever sits beside it instead of
 	// being cut. Padding by hand keeps this off lipgloss, which would measure
@@ -81,5 +87,5 @@ func (s *scroller) View() string {
 	for len(out) < height {
 		out = append(out, blank)
 	}
-	return strings.Join(out, "\n")
+	return out
 }

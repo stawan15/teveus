@@ -582,7 +582,7 @@ func (r *renderer) renderReadChain(chain []*block, width int) string {
 // lists, and a preview of the output.
 func (r *renderer) toolBody(b *block, width int) []string {
 	expand := r.expand || b.open
-	maxLines := 4
+	maxLines := 12
 	if expand {
 		maxLines = 60
 	}
@@ -600,12 +600,11 @@ func (r *renderer) toolBody(b *block, width int) []string {
 	case "Edit", "MultiEdit":
 		return clip(r.editDiff(b.input, width), maxLines*4)
 	case "Write":
-		if b.state == toolRunning || expand {
-			content, _ := b.input["content"].(string)
-			return clip(diffLines("", content, width), maxLines*3)
-		}
 		content, _ := b.input["content"].(string)
-		return []string{sDim.Render(plural(strings.Count(strings.TrimRight(content, "\n"), "\n")+1, "wrote %d line"))}
+		if content != "" {
+			return clip(diffLines("", content, width), maxLines)
+		}
+		return nil
 	case "TodoWrite":
 		return todoLines(b.input)
 	case "TaskCreate", "TaskUpdate", "ToolSearch":

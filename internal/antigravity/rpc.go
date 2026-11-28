@@ -278,7 +278,7 @@ func (c *Client) handleNotification(msg rpcMessage) {
 			Type: "tool_use", ID: u.ToolCallID, Name: name, Input: input,
 		}}})
 		if status != "running" {
-			text := u.Title
+			text := toolUpdateText(u.Content, u.Title)
 			c.emit(claude.ToolResults{Results: []claude.ContentBlock{{
 				Type: "tool_result", ToolUseID: u.ToolCallID, Text: text, IsError: status == "failed",
 			}}})
@@ -298,6 +298,42 @@ func (c *Client) handleNotification(msg rpcMessage) {
 			c.emit(claude.ContextUsage{Used: usage.Used, Size: usage.Size})
 		}
 	}
+}
+
+// toolUpdateText extracts readable output from ACP tool_call_update content,
+// falling back to title when content is empty.
+func toolUpdateText(raw json.RawMessage, title string) string {
+	if len(raw) == 0 {
+		return title
+	}
+	var items []struct {
+		Type    string `json:"type"`
+		Text    string `json:"text"`
+		Content *struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(raw, &items) == nil {
+		var parts []string
+		for _, it := range items {
+			if it.Content != nil && it.Content.Text != "" {
+				parts = append(parts, it.Content.Text)
+			} else if it.Text != "" {
+				parts = append(parts, it.Text)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "\n")
+		}
+	}
+	var single struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &single) == nil && single.Text != "" {
+		return single.Text
+	}
+	return title
 }
 
 // handlePermission turns the CLI's question into the UI's, and answers it

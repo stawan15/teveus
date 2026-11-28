@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Improved
+
+- Raised `Faint`, `Dim`, and `Border` contrast across dark themes (`claude`, `minimal`, `tokyo-night`, `catppuccin`, `gruvbox`) so borders, sidebar headers, and status hints are clearly legible.
+- Increased default tool output preview from 4 to 12 lines, kept `Write` diff previews visible after completion, and extracted full `tool_call_update` content on Google Antigravity CLI (`Agy`) instead of showing only the title.
+
 ## [0.39.2] - 2026-11-28
 
 ### Added

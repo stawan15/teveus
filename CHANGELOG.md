@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.39.2] - 2026-11-28
+
 ### Added
 
 - Google Antigravity CLI (`Agy`) now fetches 5-hour and weekly quota limits (`agy -p /usage`) in the background, showing `5h` and `7d` bars in the `QUOTA` sidebar section alongside `USAGE` (`ctx` / `hit`), plus a `/usage` command that displays a table for both Gemini and Claude/GPT model groups.
@@ -662,7 +664,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.1...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.2...HEAD
+[0.39.2]: https://github.com/stawan15/teveus/compare/v0.39.1...v0.39.2
 [0.39.1]: https://github.com/stawan15/teveus/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/stawan15/teveus/compare/v0.38.3...v0.39.0
 [0.38.3]: https://github.com/stawan15/teveus/compare/v0.38.2...v0.38.3

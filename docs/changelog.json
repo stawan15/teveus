@@ -1,11 +1,36 @@
 {
-  "latest": "0.39.1",
+  "latest": "0.39.2",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.39.1...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.39.2...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.39.2",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.39.1...v0.39.2",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Google Antigravity CLI (`Agy`) now fetches 5-hour and weekly quota limits (`agy -p /usage`) in the background, showing `5h` and `7d` bars in the `QUOTA` sidebar section alongside `USAGE` (`ctx` / `hit`), plus a `/usage` command that displays a table for both Gemini and Claude/GPT model groups.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Compact rounded-box Markdown tables (`╭─┬─╮` / `├─┼─┤` / `╰─┴─╯`) sized to cell content with subtle borders and styled inline code/bold/links inside cells.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.39.1",

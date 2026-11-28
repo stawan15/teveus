@@ -3,6 +3,9 @@ package antigravity
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -43,5 +46,26 @@ func TestInterruptSendsNonBlockingACPNotification(t *testing.T) {
 	params, _ := msg["params"].(map[string]any)
 	if params["sessionId"] != "ses-test-1" {
 		t.Fatalf("sessionId = %v, want ses-test-1", params["sessionId"])
+	}
+}
+
+func TestStartReturnsImmediatelyBeforeHandshake(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script test is unix-only")
+	}
+	dir := t.TempDir()
+	fakeBin := filepath.Join(dir, "fake-agy")
+	if err := os.WriteFile(fakeBin, []byte("#!/bin/sh\nsleep 3\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	c, err := Start(Options{Binary: fakeBin, Cwd: dir})
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer c.Close()
+	if elapsed > 500*time.Millisecond {
+		t.Fatalf("Start blocked for %v; handshake must run asynchronously", elapsed)
 	}
 }

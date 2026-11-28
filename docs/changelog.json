@@ -1,11 +1,27 @@
 {
-  "latest": "0.38.2",
+  "latest": "0.38.3",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.38.2...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.3...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.38.3",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.2...v0.38.3",
+      "sections": [
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Instant startup: the Google Antigravity CLI (`Agy`) engine now runs its ACP handshake asynchronously in the background so the UI paints immediately instead of blocking for seconds on launch, `main.go` skips the blocking terminal dark-background query when a theme is already configured, and `gitBranch` runs once instead of twice.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.38.2",

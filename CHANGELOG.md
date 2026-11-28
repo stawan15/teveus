@@ -5,6 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.38.3] - 2026-11-28
+
+### Changed
+
+- Instant startup: the Google Antigravity CLI (`Agy`) engine now runs its ACP handshake asynchronously in the background so the UI paints immediately instead of blocking for seconds on launch, `main.go` skips the blocking terminal dark-background query when a theme is already configured, and `gitBranch` runs once instead of twice.
+
 ## [0.38.2] - 2026-11-28
 
 ### Fixed
@@ -627,7 +633,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.38.2...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.38.3...HEAD
+[0.38.3]: https://github.com/stawan15/teveus/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/stawan15/teveus/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/stawan15/teveus/compare/v0.38.0...v0.38.1
 [0.38.0]: https://github.com/stawan15/teveus/compare/v0.37.3...v0.38.0

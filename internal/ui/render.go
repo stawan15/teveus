@@ -422,6 +422,10 @@ func (r *renderer) tool(b *block, width int) string {
 		if d := b.finished.Sub(b.started); d > time.Second {
 			tail += sFaint.Render(fmt.Sprintf("  %.1fs", d.Seconds()))
 		}
+	} else if b.state == toolRunning && !b.started.IsZero() {
+		if d := time.Since(b.started); d >= time.Second {
+			tail += sFaint.Render(fmt.Sprintf("  %.1fs", d.Seconds()))
+		}
 	}
 	toolStyle := sTool
 	if isSub {
@@ -597,7 +601,7 @@ func (r *renderer) toolBody(b *block, width int) []string {
 			return []string{sDim.Render(plural(strings.Count(b.result, "\n")+1, "read %d line"))}
 		}
 	}
-	if b.state == toolRunning || b.result == "" {
+	if b.result == "" {
 		return nil
 	}
 	return clip(wrapLines(b.result, width, sDim), maxLines)

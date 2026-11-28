@@ -17,9 +17,11 @@ import (
 // piled up to be worth it: between batches the sent prefix doesn't change.
 
 const (
-	keepResults   = 8     // the newest tool results are always sent whole
-	pruneMinChars = 1500  // shorter results aren't worth a note
-	pruneBatch    = 40000 // characters that must pile up before a batch is dropped
+	keepResults        = 8     // the newest tool results are always sent whole
+	keepResultsSaver   = 6     // tighter window when token savers are enabled
+	pruneMinChars      = 1500  // shorter results aren't worth a note
+	pruneBatch         = 40000 // characters that must pile up before a batch is dropped
+	pruneBatchSaver    = 25000 // tighter batch threshold when token savers are enabled
 )
 
 // pruneResults marks old tool results as dropped, once at least pruneBatch
@@ -28,6 +30,10 @@ const (
 func (e *Engine) pruneResults(force bool) int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	keep, batch := keepResults, pruneBatch
+	if e.opts.Style != "" || e.opts.LeanTools {
+		keep, batch = keepResultsSaver, pruneBatchSaver
+	}
 	skills := skillCallIDs(e.history)
 	var idx []int
 	total, seen := 0, 0
@@ -36,12 +42,12 @@ func (e *Engine) pruneResults(force bool) int {
 		if m.Role != "tool" {
 			continue
 		}
-		if seen++; seen > keepResults && !m.Pruned && len(m.Result) >= pruneMinChars && !skills[m.ToolCallID] {
+		if seen++; seen > keep && !m.Pruned && len(m.Result) >= pruneMinChars && !skills[m.ToolCallID] {
 			idx = append(idx, i)
 			total += len(m.Result)
 		}
 	}
-	if total == 0 || (!force && total < pruneBatch) {
+	if total == 0 || (!force && total < batch) {
 		return 0
 	}
 	for _, i := range idx {

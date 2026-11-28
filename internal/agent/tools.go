@@ -279,6 +279,54 @@ func runEdit(_ context.Context, t *Toolbox, in map[string]any) (string, error) {
 
 const outputCap = 30000
 
+type toolProgressKey struct{}
+
+// withToolProgress attaches a callback that receives live tail output while a
+// long-running tool (such as Bash) executes.
+func withToolProgress(ctx context.Context, fn func(string)) context.Context {
+	return context.WithValue(ctx, toolProgressKey{}, fn)
+}
+
+type progressWriter struct {
+	mu   sync.Mutex
+	buf  *bytes.Buffer
+	fn   func(string)
+	last time.Time
+}
+
+func (w *progressWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	n, err := w.buf.Write(p)
+	var snap string
+	if w.fn != nil && time.Since(w.last) >= 200*time.Millisecond {
+		w.last = time.Now()
+		snap = tailLines(w.buf.String(), 4, 400)
+	}
+	w.mu.Unlock()
+	if snap != "" {
+		w.fn(snap)
+	}
+	return n, err
+}
+
+func tailLines(s string, maxLines, maxChars int) string {
+	s = strings.TrimRight(s, "\r\n")
+	if s == "" {
+		return ""
+	}
+	if len(s) > maxChars {
+		s = s[len(s)-maxChars:]
+		if i := strings.IndexByte(s, '\n'); i >= 0 && i+1 < len(s) {
+			s = s[i+1:]
+		}
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) > maxLines {
+		lines = lines[len(lines)-maxLines:]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func runBash(ctx context.Context, t *Toolbox, in map[string]any) (string, error) {
 	if in["run_in_background"] == true {
 		id := t.startJob(str(in, "command"))
@@ -290,9 +338,17 @@ func runBash(ctx context.Context, t *Toolbox, in map[string]any) (string, error)
 	cmd := shellCommand(ctx, str(in, "command"))
 	cmd.Dir = t.Cwd
 	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
+	if fn, ok := ctx.Value(toolProgressKey{}).(func(string)); ok && fn != nil {
+		pw := &progressWriter{buf: &buf, fn: fn}
+		cmd.Stdout, cmd.Stderr = pw, pw
+	} else {
+		cmd.Stdout, cmd.Stderr = &buf, &buf
+	}
 	err := cmd.Run()
 	out := capOutput(buf.String())
+	if ctx.Err() == context.Canceled {
+		return out, fmt.Errorf("Interrupted by the user.")
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("timed out after %s\n%s", timeout, out)
 	}

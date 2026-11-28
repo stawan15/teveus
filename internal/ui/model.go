@@ -89,7 +89,13 @@ type Model struct {
 	// sideCache keeps the drawn sidebar: it changes only when one of the
 	// values in sideKey does, and the spinner redraws the frame without it.
 	sideCache   string
+	sideLines   []string
 	sideKeyUsed sideKey
+
+	// headerCache keeps the drawn top bar so View() doesn't re-run regex/home
+	// lookup on every frame.
+	headerCache   string
+	headerKeyUsed headerKey
 
 	// inputCache keeps the drawn input box. A scroll or a streamed chunk
 	// redraws the frame with the same box, and drawing it costs about a
@@ -153,6 +159,7 @@ type Model struct {
 	draft           string
 	ctrlC           time.Time
 	escAt           time.Time
+	interrupting    bool
 	notice          string
 	noticeOK        bool
 	noticeAt        time.Time
@@ -382,7 +389,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 		c, err = agent.Start(agent.Options{
 			Cwd: m.cwd, Model: opts.Model, Mode: opts.PermissionMode,
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
-			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution, SubagentModel: m.settings.SubagentModel,
+			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution, SubagentModel: m.settings.SubagentModel, LeanTools: !m.cfg.Full && m.settings.LeanTools,
 		})
 	case "antigravity":
 		// The user's own Antigravity CLI, run as they installed it. It signs
@@ -444,12 +451,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.r.spin = "●"
 		}
 		if m.busy {
-			for _, b := range m.blocks {
-				if b.kind == kindTool && b.state == toolRunning {
+			anyRunning := false
+			for _, b := range m.tools {
+				if b.state == toolRunning {
 					b.invalidate()
+					anyRunning = true
 				}
 			}
-			m.refresh()
+			if anyRunning {
+				m.refresh()
+			} else if m.phone != nil {
+				m.phone.update(m)
+			}
 		} else if m.phone != nil {
 			// A page open on the phone reads what the last refresh copied, so
 			// an idle window has to keep that copy current too.
@@ -532,8 +545,29 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.handleEvent(msg.ev)
+		// Drain any already-buffered events (e.g. bursts of TextDelta tokens)
+		// before rebuilding layout and transcript once for the whole batch.
+		closed := false
+		if msg.ch != nil {
+		drain:
+			for i := 0; i < 64; i++ {
+				select {
+				case ev, ok := <-msg.ch:
+					if !ok {
+						closed = true
+						break drain
+					}
+					m.handleEvent(ev)
+				default:
+					break drain
+				}
+			}
+		}
 		m.layout()
 		m.refresh()
+		if closed {
+			return m, nil
+		}
 		return m, listen(msg.gen, msg.ch)
 
 	case tea.MouseMsg:
@@ -688,16 +722,26 @@ func (m *Model) handleKey(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "esc":
 		// One stray Esc shouldn't throw away a long task: the first press
-		// warns, a second within 1.5s interrupts.
+		// warns, a second within 3s interrupts, and a third while still
+		// interrupting force-cancels so the UI never stays stuck.
 		if m.busy && m.client != nil {
-			if time.Since(m.escAt) > 1500*time.Millisecond {
+			if m.interrupting {
+				m.client.Interrupt()
+				m.finishTurn()
+				m.add(&block{kind: kindInfo, text: "Interrupted."})
+				m.note("force interrupted", false)
+				m.refresh()
+				return m, nil
+			}
+			if time.Since(m.escAt) > 3*time.Second {
 				m.escAt = time.Now()
 				m.note("press esc again to interrupt", false)
 				return m, nil
 			}
 			m.escAt = time.Time{}
+			m.interrupting = true
 			m.client.Interrupt()
-			m.note("interrupting…", false)
+			m.note("interrupting… (press esc again to force)", false)
 		}
 		return m, nil
 	case "enter":
@@ -1482,6 +1526,12 @@ func (m *Model) handleEvent(ev claude.Event) {
 			}
 		}
 
+	case claude.ToolProgress:
+		if b := m.tools[e.ToolUseID]; b != nil && b.state == toolRunning {
+			b.result = e.Output
+			b.invalidate()
+		}
+
 	case claude.ToolResults:
 		for _, r := range e.Results {
 			b := m.tools[r.ToolUseID]
@@ -1667,6 +1717,7 @@ func (m *Model) sendQueued() {
 
 func (m *Model) finishTurn() {
 	m.busy, m.perms, m.phase = false, nil, ""
+	m.interrupting, m.escAt = false, time.Time{}
 	if m.stream != nil {
 		m.stream.streaming = false
 		m.stream.invalidate()

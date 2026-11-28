@@ -47,6 +47,11 @@ func (m *Model) layout() {
 	if m.w == 0 {
 		return
 	}
+	m.layoutWidths()
+	m.layoutViewport(lipgloss.Height(m.bottomFitted()))
+}
+
+func (m *Model) layoutWidths() {
 	m.sideW = 0
 	if !m.settings.HideSide && m.w >= 112 {
 		m.sideW = sidebarWidth
@@ -56,8 +61,14 @@ func (m *Model) layout() {
 	if m.sideW > 0 {
 		inPad = 4 + m.paneMargin()*2
 	}
-	m.input.SetWidth(max(m.paneW()-inPad, 10))
-	vpH := m.h - m.topHeight() - 1 - lipgloss.Height(m.bottomFitted())
+	wantW := max(m.paneW()-inPad, 10)
+	if m.input.Width() != wantW {
+		m.input.SetWidth(wantW)
+	}
+}
+
+func (m *Model) layoutViewport(bottomH int) {
+	vpH := m.h - m.topHeight() - 1 - bottomH
 	m.vp.Width, m.vp.Height = m.chatW, max(vpH, 1)
 }
 
@@ -237,28 +248,41 @@ func (m *Model) View() string {
 	}
 	// Size the transcript to what the bottom area needs right now, so a
 	// popup opened from anywhere can never push the frame past the window.
-	m.layout()
-	var rightRows []string
+	// Compute bottomFitted once and reuse it instead of rendering it twice.
+	m.layoutWidths()
+	bottom := m.bottomFitted()
+	m.layoutViewport(lipgloss.Height(bottom))
+	leftRows := make([]string, 0, m.h)
 	if t := m.tabStrip(); t != "" {
-		rightRows = append(rightRows, t)
+		leftRows = append(leftRows, strings.Split(t, "\n")...)
 	}
-	rightRows = append(rightRows, m.chatView(), m.bottomFitted(), m.statusBar())
-	body := strings.Join(rightRows, "\n")
+	leftRows = append(leftRows, m.chatLines()...)
+	leftRows = append(leftRows, strings.Split(bottom, "\n")...)
+	leftRows = append(leftRows, m.statusBar())
+	bodyLines := leftRows
 	if m.sideW > 0 {
 		// Right Architectural Rail: the transcript stays on the left, and
-		// joinSides pads/truncates every left row to exact m.chatW before
+		// joinSideLines pads/truncates every left row to exact m.chatW before
 		// appending the right rail, so │ stays laser-straight on column m.chatW.
 		bodyH := max(m.h-2, 1)
-		body = joinSides(body, m.sidebar(bodyH), m.chatW)
+		bodyLines = joinSideLines(leftRows, m.sidebarLines(bodyH), m.chatW)
 	}
-	return m.clampFrame(m.header() + "\n" + m.headerRule() + "\n" + body)
+	rows := make([]string, 0, m.h+2)
+	rows = append(rows, m.header(), m.headerRule())
+	rows = append(rows, bodyLines...)
+	return m.clampLines(rows)
 }
 
 // joinSides puts the left pane and the right sidebar on the same rows, left to
 // right. Every left row is fitted to exact leftW cells so the right sidebar's
 // │ border stays on column leftW even when a block or prose line is shorter.
 func joinSides(left, right string, leftW int) string {
-	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
+	return strings.Join(joinSideLines(strings.Split(left, "\n"), strings.Split(right, "\n"), leftW), "\n")
+}
+
+// joinSideLines puts the transcript and the sidebar on the same rows, left to
+// right, without joining and re-splitting strings.
+func joinSideLines(l, r []string, leftW int) []string {
 	out := make([]string, max(len(l), len(r)))
 	pad := strings.Repeat(" ", max(leftW, 0))
 	for i := range out {
@@ -276,30 +300,27 @@ func joinSides(left, right string, leftW int) string {
 		}
 		out[i] = a + b
 	}
-	return strings.Join(out, "\n")
+	return out
 }
 
 // clampFrame makes the frame exactly as tall as the window with every row
-// exactly as wide. A row the terminal draws wider than the layout believes
-// wraps, which shifts every row under it sideways and leaves the frame before
-// it showing through; a frame taller than the window scrolls the terminal, so
-// the next frame lands a row off and the old status bar stays on screen. The
-// views are each fitted already — this is the backstop that keeps one mistake
-// in any of them from wrecking the whole display.
+// exactly as wide.
 func (m *Model) clampFrame(s string) string {
-	// Decompose Thai and Lao SARA AM first: the width functions count it as one
-	// cell, terminals draw two, so measuring the folded form under-reports.
-	s = termSafe(s)
-	lines := strings.Split(s, "\n")
-	if cap(m.clamped) < len(lines) {
-		m.clamped = make([]string, 0, len(lines)+8)
+	return m.clampLines(strings.Split(s, "\n"))
+}
+
+// clampLines fits each row directly without a whole-frame Join+Split cycle.
+func (m *Model) clampLines(lines []string) string {
+	n := len(lines)
+	if n > m.h {
+		n = m.h
 	}
-	m.clamped = m.clamped[:len(lines)]
-	for i, l := range lines {
-		m.clamped[i] = m.fitRow(l)
+	if cap(m.clamped) < n {
+		m.clamped = make([]string, 0, n+8)
 	}
-	if len(m.clamped) > m.h {
-		m.clamped = m.clamped[:m.h]
+	m.clamped = m.clamped[:n]
+	for i := 0; i < n; i++ {
+		m.clamped[i] = m.fitRow(termSafe(lines[i]))
 	}
 	return strings.Join(m.clamped, "\n")
 }
@@ -329,9 +350,10 @@ func (m *Model) fitRow(l string) string {
 	case w < target:
 		out = l + m.rowPad[w:]
 	}
-	if len(m.rowCache) < 512 {
-		m.rowCache[l] = out
+	if len(m.rowCache) >= 1024 {
+		clear(m.rowCache)
 	}
+	m.rowCache[l] = out
 	return out
 }
 
@@ -349,7 +371,22 @@ func (m *Model) bottomFitted() string {
 	return b
 }
 
+type headerKey struct {
+	w      int
+	sideW  int
+	engine string
+	cwd    string
+	branch string
+	model  string
+	theme  string
+	agents int
+}
+
 func (m *Model) header() string {
+	key := headerKey{w: m.w, sideW: m.sideW, engine: m.engine, cwd: m.cwd, branch: m.branch, model: m.model, theme: theme.Name, agents: m.activeSubagents()}
+	if m.headerCache != "" && key == m.headerKeyUsed {
+		return m.headerCache
+	}
 	brand := " " + sAccent.Render("✦") + " " + sBold.Render("teveus")
 	switch m.engine {
 	case "claude":
@@ -398,7 +435,8 @@ func (m *Model) header() string {
 		helpStr := sFaint.Render("? help  ")
 		rightPad := max(railInner-lipgloss.Width(helpStr), 0)
 		rightCell := strings.Repeat(" ", rightPad) + helpStr
-		return leftCell + sBorder.Render("│") + rightCell
+		m.headerCache, m.headerKeyUsed = leftCell+sBorder.Render("│")+rightCell, key
+		return m.headerCache
 	}
 
 	left := brand
@@ -424,7 +462,8 @@ func (m *Model) header() string {
 		}
 		gap = max(m.w-lipgloss.Width(left)-lipgloss.Width(right), 1)
 	}
-	return left + strings.Repeat(" ", gap) + right
+	m.headerCache, m.headerKeyUsed = left+strings.Repeat(" ", gap)+right, key
+	return m.headerCache
 }
 
 // headerRule draws the architectural hairline crossbar, placing a clean ┼
@@ -586,6 +625,11 @@ func (m *Model) center(width int, lines []string) string {
 	block := lipgloss.JoinVertical(lipgloss.Center, lines...)
 	top := max((m.vp.Height-lipgloss.Height(block))/2, 0)
 	return strings.Repeat("\n", top) + lipgloss.PlaceHorizontal(width, lipgloss.Center, block)
+}
+
+func (m *Model) sidebarLines(height int) []string {
+	_ = m.sidebar(height)
+	return m.sideLines
 }
 
 func (m *Model) sidebar(height int) string {
@@ -802,8 +846,11 @@ func (m *Model) sidebar(height int) string {
 		s = append(s, kv("preset", sDim.Render(savLabel)))
 	} else {
 		saveTag := ""
-		if m.settings.LeanTools && m.engine == "claude" {
-			saveTag = sGreen.Render("-2.2k/req")
+		if m.settings.LeanTools && (m.engine == "claude" || m.engine == "api") {
+			saveTag = sGreen.Render("-lean")
+			if m.engine == "claude" {
+				saveTag = sGreen.Render("-2.2k/req")
+			}
 		}
 		section("SAVERS", saveTag)
 		var chips []string
@@ -931,7 +978,7 @@ func (m *Model) sidebar(height int) string {
 		BorderForeground(cBorder).
 		Padding(0, padX).
 		Render(fitWidth(strings.Join(s, "\n"), w))
-	m.sideCache, m.sideKeyUsed = out, key
+	m.sideCache, m.sideLines, m.sideKeyUsed = out, strings.Split(out, "\n"), key
 	return out
 }
 
@@ -1238,7 +1285,7 @@ func (m *Model) statusBar() string {
 		if m.turnIn+m.turnOut > 0 {
 			left += sFaint.Render(" · ") + sDim.Render("↑"+fmtTokens(m.turnIn)+" ↓"+fmtTokens(m.turnOut))
 		}
-		right = hints("esc esc", "interrupt", "ctrl+o", "details")
+		right = hints("esc×2", "stop", "ctrl+o", "details")
 	case m.engine == "":
 		left = sFaint.Render(" ○") + sDim.Render(" not connected")
 		right = hints("/login", "connect", "ctrl+k", "palette")
@@ -1253,9 +1300,9 @@ func (m *Model) statusBar() string {
 		}
 		if sp := m.spendLine(); m.sideW == 0 && sp != "" {
 			// The rail isn't showing what this has cost, so say it here.
-			left += sFaint.Render("  " + sp)
+			left += sFaint.Render("  ·  " + sp)
 		}
-		right = hints("ctrl+k", "palette", "ctrl+b", "rail", "shift+enter", "newline")
+		right = hints("ctrl+k", "palette", "ctrl+b", "rail", "?", "help")
 	}
 	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
 		st := sYellow

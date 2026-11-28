@@ -107,8 +107,9 @@ func (m *Model) restart(why string) tea.Cmd {
 	return cmd
 }
 
-// setEngine switches between Claude Code and the direct API engine.
-// Conversations don't carry across engines, so this starts a new one.
+// setEngine switches between Claude Code, Direct API, and Antigravity.
+// When a conversation is already on screen, it is preserved and handed off
+// to the new engine so the user can continue working with a different model.
 func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == m.engine {
 		return nil
@@ -116,6 +117,12 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == "claude" && !m.claudeConfirmed() {
 		// Connecting Claude Code is when its notice is shown.
 		m.askClaudeNotice(func(m *Model) tea.Cmd { return m.setEngine("claude") })
+		return nil
+	}
+	if engine == "antigravity" && !m.agyConfirmed() {
+		// Same for Google's CLI: the user runs their own program, under
+		// Google's terms, and teveus is not part of it.
+		m.askAgyNotice(func(m *Model) tea.Cmd { return m.setEngine("antigravity") })
 		return nil
 	}
 	if m.busy {
@@ -129,16 +136,75 @@ func (m *Model) setEngine(engine string) tea.Cmd {
 	if engine == "api" && m.model == "" {
 		m.model = m.settings.APIModel
 	}
+	if engine == "antigravity" && m.model == "" {
+		m.model = m.settings.AgyModel
+	}
 	m.fiveHour, m.sevenDay, m.monthly = nil, nil, nil
-	cmd := m.clearConversation()
-	m.note("engine → "+engineLabel(engine)+" (new conversation)", true)
+	m.contextMax, m.planTier = 0, ""
+	if len(m.blocks) == 0 {
+		cmd := m.clearConversation()
+		m.note("engine → "+engineLabel(engine)+" (new conversation)", true)
+		return cmd
+	}
+	handoff := m.buildHandoff()
+	if m.client != nil {
+		m.client.Close()
+		m.client = nil
+	}
+	m.sessionID, m.busy, m.perms, m.stream, m.phase = "", false, nil, nil, ""
+	m.handoff = handoff
+	opts := m.cfg.Claude
+	opts.Resume, opts.Continue = "", false
+	cmd := m.start(opts)
+	m.add(&block{kind: kindInfo, text: "Switched to " + engineLabel(engine) + " · continuing conversation"})
+	m.refresh()
+	m.vp.GotoBottom()
+	m.note("engine → "+engineLabel(engine)+" (continuing conversation)", true)
 	return cmd
+}
+
+const maxHandoffRunes = 12000
+
+// buildHandoff formats the visible transcript into a compact, secret-redacted
+// summary so a newly switched engine can continue an existing conversation.
+func (m *Model) buildHandoff() string {
+	var parts []string
+	for _, b := range m.blocks {
+		switch b.kind {
+		case kindUser:
+			if t := strings.TrimSpace(b.text); t != "" {
+				parts = append(parts, "User: "+t)
+			}
+		case kindAssistant:
+			if t := strings.TrimSpace(b.text); t != "" {
+				parts = append(parts, "Assistant: "+t)
+			}
+		case kindTool:
+			sum := ""
+			if m.r != nil {
+				sum = m.r.summary(b.name, b.input)
+			}
+			if sum != "" {
+				parts = append(parts, "[Tool "+b.name+": "+sum+"]")
+			} else if b.name != "" {
+				parts = append(parts, "[Tool "+b.name+"]")
+			}
+		}
+	}
+	out := agent.Redact(strings.Join(parts, "\n\n"))
+	if r := []rune(out); len(r) > maxHandoffRunes {
+		out = "[earlier turns omitted]\n\n" + string(r[len(r)-maxHandoffRunes:])
+	}
+	return out
 }
 
 // agentName is how the assistant is referred to in notifications.
 func (m *Model) agentName() string {
-	if m.engine == "api" && m.model != "" {
+	if (m.engine == "api" || m.engine == "antigravity") && m.model != "" {
 		return shortModel(m.model)
+	}
+	if m.engine == "antigravity" {
+		return "Antigravity"
 	}
 	return "Claude"
 }
@@ -149,6 +215,10 @@ func engineLabel(e string) string {
 		return "Direct API"
 	case "claude":
 		return "Claude Code"
+	case "antigravity":
+		// Named for what the user runs, not by Google's product name alone:
+		// teveus isn't affiliated with Google, and the label shouldn't imply it.
+		return "Google (Antigravity CLI)"
 	}
 	return "not connected"
 }
@@ -159,10 +229,16 @@ func (m *Model) openEnginePicker() {
 			run: func(m *Model) tea.Cmd { return m.setEngine("claude") }},
 		{label: "Direct API", value: "api", desc: "your own keys: OpenAI, Anthropic, Gemini, OpenRouter, Groq, local models…",
 			run: func(m *Model) tea.Cmd { return m.setEngine("api") }},
+		{label: "Google (Antigravity CLI)", value: "antigravity",
+			desc: "your installed agy, signed in with your Google account · not made or endorsed by Google",
+			run:  func(m *Model) tea.Cmd { return m.setEngine("antigravity") }},
 	}
 	sel := 0
-	if m.engine == "api" {
+	switch m.engine {
+	case "api":
 		sel = 1
+	case "antigravity":
+		sel = 2
 	}
 	m.openPicker("Engine", cs, sel)
 }
@@ -214,4 +290,76 @@ func (m *Model) toggleLean() tea.Cmd {
 		return m.restart("all tools loaded")
 	}
 	return m.restart("lean tools on (~2.2k fewer tokens per request)")
+}
+
+// saverPresetName names the active preset when the three savers match one.
+func (m *Model) saverPresetName() string {
+	lvl := m.minimalLevel()
+	switch {
+	case !m.settings.Concise && !m.settings.LeanTools && lvl == "off":
+		return "full power"
+	case m.settings.Concise && m.settings.LeanTools && lvl == "lite":
+		return "balanced"
+	case m.settings.Concise && m.settings.LeanTools && lvl == "strict":
+		return "max saver"
+	default:
+		return "custom"
+	}
+}
+
+// openSaverPresets applies Hick's Law: one choice sets concise, lean and
+// minimal together, while individual toggles remain available.
+func (m *Model) openSaverPresets() {
+	cs := []choice{
+		{label: "Full power", value: "full", desc: "all tools, normal replies, standard code style", key: "0 tok saved",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("full") }},
+		{label: "Balanced", value: "balanced", desc: "concise answers + lean tools + minimal lite", badge: "recommended", key: "-2.2k in · -60% out",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("balanced") }},
+		{label: "Max saver", value: "max", desc: "concise answers + lean tools + minimal strict", key: "max economy",
+			run: func(m *Model) tea.Cmd { return m.applySaverPreset("max") }},
+	}
+	sel := 1
+	switch m.saverPresetName() {
+	case "full power":
+		sel = 0
+	case "max saver":
+		sel = 2
+	}
+	m.openPicker("Token saver preset", cs, sel)
+	m.pop.flat = true
+}
+
+func (m *Model) applySaverPreset(preset string) tea.Cmd {
+	preset = strings.ToLower(strings.TrimSpace(preset))
+	if preset == "" {
+		m.openSaverPresets()
+		return nil
+	}
+	var concise, lean bool
+	var minimal string
+	switch preset {
+	case "full", "off":
+		concise, lean, minimal = false, false, "off"
+	case "balanced", "default":
+		concise, lean, minimal = true, true, "lite"
+	case "max", "strict":
+		concise, lean, minimal = true, true, "strict"
+	default:
+		m.note("saver presets: full, balanced, max", false)
+		return nil
+	}
+	m.settings.Concise = concise
+	m.settings.LeanTools = lean
+	m.settings.MinimalCode = minimal
+	saveSettings(m.settings)
+	if eng, ok := m.client.(*agent.Engine); ok {
+		eng.SetStyle(m.applySavers(claude.Options{}).AppendPrompt)
+		m.note("token saver → "+m.saverPresetName(), true)
+		return nil
+	}
+	if m.client == nil {
+		m.note("token saver → "+m.saverPresetName(), true)
+		return nil
+	}
+	return m.restart("token saver → " + m.saverPresetName())
 }

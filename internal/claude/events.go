@@ -162,6 +162,13 @@ type RateLimit struct {
 	Monthly  *Window // the API engine's OpenCode Go plan reports a monthly window too
 }
 
+// ContextUsage reports live context-window utilization and optional plan tier.
+type ContextUsage struct {
+	Used int
+	Size int
+	Tier string
+}
+
 // Result ends a turn.
 type Result struct {
 	Subtype    string
@@ -201,6 +208,7 @@ func (ToolProgress) isEvent()       {}
 func (ToolResults) isEvent()        {}
 func (*PermissionRequest) isEvent() {}
 func (RateLimit) isEvent()          {}
+func (ContextUsage) isEvent()       {}
 func (UserMessage) isEvent()        {}
 func (Compacted) isEvent()          {}
 func (Result) isEvent()             {}

@@ -17,9 +17,10 @@ func TestInputBoxEdgesAlign(t *testing.T) {
 			m := New(Config{Dark: true})
 			m.mode = mode
 			m.Update(tea.WindowSizeMsg{Width: w, Height: 30})
+			wantW := m.paneW()
 			for i, l := range strings.Split(m.inputView(), "\n") {
-				if got := ansi.StringWidth(l); got != w {
-					t.Fatalf("width %d mode %s line %d is %d wide: %q", w, mode, i, got, ansi.Strip(l))
+				if got := ansi.StringWidth(l); got != wantW {
+					t.Fatalf("width %d mode %s line %d is %d wide, want %d: %q", w, mode, i, got, wantW, ansi.Strip(l))
 				}
 			}
 			for _, view := range []string{m.View()} {

@@ -165,6 +165,7 @@ func (m *Model) openSettingsAt(sel int) {
 		{"AI", "Model", orDefault(shortModel(m.model)), func(m *Model) tea.Cmd { m.openModelPicker(); return nil }},
 		{"AI", "Reasoning effort", m.effort(), func(m *Model) tea.Cmd { m.openEffortSlider(); return nil }},
 		{"AI", "Research subagent model (API)", subagentLabel(m.settings.SubagentModel), func(m *Model) tea.Cmd { return m.openSubagentPicker("") }},
+		{"AI", "Token saver preset", m.saverPresetName(), func(m *Model) tea.Cmd { m.openSaverPresets(); return nil }},
 		{"AI", "Concise answers", onOff(m.settings.Concise), func(m *Model) tea.Cmd { return m.toggleConcise() }},
 		{"AI", "Lean tools (Claude Code)", onOff(m.settings.LeanTools), func(m *Model) tea.Cmd { return m.toggleLean() }},
 		{"AI", "Minimal code", m.minimalLevel(), func(m *Model) tea.Cmd { return m.setMinimal("") }},

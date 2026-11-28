@@ -32,8 +32,11 @@ func init() {
 		}},
 		{"login", "Connect a provider: API key or browser login", "", func(m *Model, arg string) tea.Cmd { return m.openLogin(arg) }},
 		{"logout", "Remove a saved provider key", "", func(m *Model, _ string) tea.Cmd { m.openLogout(); return nil }},
-		{"engine", "Switch engine: Claude Code or direct API (your keys)", "", func(m *Model, arg string) tea.Cmd {
-			if arg == "claude" || arg == "api" {
+		{"engine", "Switch engine: Claude Code, Direct API, or Antigravity CLI", "", func(m *Model, arg string) tea.Cmd {
+			if arg == "agy" {
+				arg = "antigravity"
+			}
+			if arg == "claude" || arg == "api" || arg == "antigravity" {
 				return m.setEngine(arg)
 			}
 			m.openEnginePicker()
@@ -71,6 +74,7 @@ func init() {
 		{"details", "Expand or collapse tool output", "ctrl+o", func(m *Model, _ string) tea.Cmd { return m.toggleDetails() }},
 		{"concise", "Concise answers on/off (saves output tokens)", "", func(m *Model, _ string) tea.Cmd { return m.toggleConcise() }},
 		{"lean", "Lean tools on/off (saves ~2.2k tokens per request)", "", func(m *Model, _ string) tea.Cmd { return m.toggleLean() }},
+		{"saver", "Token saver presets: full, balanced, max", "", func(m *Model, arg string) tea.Cmd { return m.applySaverPreset(arg) }},
 		{"effort", "Reasoning effort: how hard the model thinks (auto, low … max)", "", func(m *Model, arg string) tea.Cmd { return m.setEffort(arg) }},
 		{"minimal", "Minimal code: how much code the model may write (off, lite, full, strict)", "", func(m *Model, arg string) tea.Cmd { return m.setMinimal(arg) }},
 		{"subagent", "Model for research subagents (Direct API): a cheaper one saves tokens", "", func(m *Model, arg string) tea.Cmd { return m.openSubagentPicker(arg) }},
@@ -176,7 +180,17 @@ func (m *Model) fileChoices() []choice {
 
 func (m *Model) openPalette() {
 	run := func(f func(m *Model) tea.Cmd) func(m *Model) tea.Cmd { return f }
+	onBadge := func(b bool) string {
+		if b {
+			return "on"
+		}
+		return ""
+	}
 	cs := []choice{
+		{group: "token savers", label: "Token saver preset…", desc: m.saverPresetName() + " · one-click full / balanced / max", key: "/saver", run: run(func(m *Model) tea.Cmd { m.openSaverPresets(); return nil })},
+		{group: "token savers", label: "Concise answers", desc: "short, direct replies (~60% fewer output tokens)", badge: onBadge(m.settings.Concise), key: "/concise", run: run(func(m *Model) tea.Cmd { return m.toggleConcise() })},
+		{group: "token savers", label: "Lean tools", desc: "omit unused tool schemas (-2.2k tok/req)", badge: onBadge(m.settings.LeanTools), key: "/lean", run: run(func(m *Model) tea.Cmd { return m.toggleLean() })},
+		{group: "token savers", label: "Minimal code", desc: m.minimalLevel() + " · write only what the task needs", badge: onBadge(m.minimalLevel() != "off"), key: "/minimal", run: run(func(m *Model) tea.Cmd { return m.setMinimal("") })},
 		{group: "session", label: "New conversation", desc: "clear the transcript and start fresh", key: "/clear", run: run(func(m *Model) tea.Cmd { return m.clearConversation() })},
 		{group: "session", label: "Compact conversation", desc: "summarise history to free context", key: "/compact", run: run(func(m *Model) tea.Cmd { return m.send("/compact") })},
 		{group: "session", label: "Resume a conversation…", desc: "earlier sessions in this folder", key: "/resume", run: run(func(m *Model) tea.Cmd { m.openResumePicker(); return nil })},
@@ -189,16 +203,12 @@ func (m *Model) openPalette() {
 		{group: "model", label: "Switch engine…", desc: engineLabel(m.engine) + " · or your own API keys", key: "/engine", run: run(func(m *Model) tea.Cmd { m.openEnginePicker(); return nil })},
 		{group: "model", label: "Connect a provider…", desc: "API key or browser login", key: "/login", run: run(func(m *Model) tea.Cmd { return m.openLogin("") })},
 		{group: "model", label: "Switch model…", desc: shortModel(m.model), key: "/model", run: run(func(m *Model) tea.Cmd { m.openModelPicker(); return nil })},
-		{group: "model", label: "Reasoning effort…", desc: "how hard Claude thinks", key: "/effort", run: run(func(m *Model) tea.Cmd { return m.submit("/effort") })},
-		{group: "model", label: "Permission mode…", desc: modeLabel(m.mode), key: "shift+tab", run: run(func(m *Model) tea.Cmd { m.openModePicker(); return nil })},
-		{group: "usage", label: "Concise answers", desc: onOff(m.settings.Concise) + " · short, direct replies", key: "/concise", run: run(func(m *Model) tea.Cmd { return m.toggleConcise() })},
-		{group: "usage", label: "Lean tools", desc: onOff(m.settings.LeanTools) + " · ~2.2k fewer tokens per request", key: "/lean", run: run(func(m *Model) tea.Cmd { return m.toggleLean() })},
 		{group: "model", label: "Reasoning effort", desc: m.effort() + " · how hard the model thinks", key: "/effort", run: run(func(m *Model) tea.Cmd { m.openEffortSlider(); return nil })},
-		{group: "usage", label: "Minimal code", desc: m.minimalLevel() + " · write only what the task needs", key: "/minimal", run: run(func(m *Model) tea.Cmd { return m.setMinimal("") })},
+		{group: "model", label: "Permission mode…", desc: modeLabel(m.mode), key: "shift+tab", run: run(func(m *Model) tea.Cmd { m.openModePicker(); return nil })},
 		{group: "view", label: "Theme…", desc: theme.Name, key: "/theme", run: run(func(m *Model) tea.Cmd { m.openThemePicker(); return nil })},
-		{group: "view", label: "Toggle sidebar", desc: onOff(!m.settings.HideSide), key: "ctrl+b", run: run(func(m *Model) tea.Cmd { return m.toggleSidebar() })},
-		{group: "view", label: "Toggle tool details", desc: onOff(m.r.expand), key: "ctrl+o", run: run(func(m *Model) tea.Cmd { return m.toggleDetails() })},
-		{group: "view", label: "Toggle mouse capture", desc: onOff(!m.settings.NoMouse) + " · off lets you select text", key: "/mouse", run: run(func(m *Model) tea.Cmd { return m.toggleMouse() })},
+		{group: "view", label: "Toggle sidebar", desc: onOff(!m.settings.HideSide), badge: onBadge(!m.settings.HideSide), key: "ctrl+b", run: run(func(m *Model) tea.Cmd { return m.toggleSidebar() })},
+		{group: "view", label: "Toggle tool details", desc: onOff(m.r.expand), badge: onBadge(m.r.expand), key: "ctrl+o", run: run(func(m *Model) tea.Cmd { return m.toggleDetails() })},
+		{group: "view", label: "Toggle mouse capture", desc: onOff(!m.settings.NoMouse) + " · off lets you select text", badge: onBadge(!m.settings.NoMouse), key: "/mouse", run: run(func(m *Model) tea.Cmd { return m.toggleMouse() })},
 		{group: "app", label: "Settings…", desc: "theme, guidance, layout, AI", key: "/settings", run: run(func(m *Model) tea.Cmd { m.openSettings(); return nil })},
 		{group: "app", label: "Keyboard shortcuts", key: "?", run: run(func(m *Model) tea.Cmd { m.openHelp(); return nil })},
 		{group: "app", label: "Quit", key: "ctrl+c ×2", run: run(func(m *Model) tea.Cmd { return m.quit() })},

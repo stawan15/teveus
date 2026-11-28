@@ -38,8 +38,11 @@ func RunHeadless(cfg Config, prompt string, asJSON bool, stdout, stderr io.Write
 	if m.engine == "claude" && !m.settings.ClaudeNotice {
 		fmt.Fprintln(stderr, "note: "+claudeNotice)
 	}
+	if m.engine == "antigravity" && !m.settings.AgyNotice {
+		fmt.Fprintln(stderr, "note: "+agyNotice)
+	}
 	if m.engine == "" {
-		return errors.New("nothing is connected: pass -engine claude (your installed Claude Code) or -engine api with -model provider/model")
+		return errors.New("nothing is connected: pass -engine claude, -engine antigravity, or -engine api with -model provider/model")
 	}
 	m.start(m.cfg.Claude)
 	if m.client == nil {

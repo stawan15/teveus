@@ -47,7 +47,11 @@ func linkify(out, src string) string {
 		plain[i] = strings.TrimSpace(ansi.Strip(l))
 	}
 	mark := func(i int, seg, u string) {
-		if at := strings.Index(lines[i], seg); at >= 0 && seg != "" && !strings.Contains(lines[i][:at], "\x1b]8;") {
+		if at := strings.Index(lines[i], seg); at >= 0 && seg != "" {
+			before := lines[i][:at]
+			if strings.LastIndex(before, "\x1b]8;id=") > strings.LastIndex(before, "\x1b]8;;\x1b\\") {
+				return
+			}
 			h := fnv.New32a()
 			h.Write([]byte(u))
 			lines[i] = lines[i][:at] + fmt.Sprintf("\x1b]8;id=%x;%s\x1b\\%s\x1b]8;;\x1b\\", h.Sum32(), u, seg) + lines[i][at+len(seg):]

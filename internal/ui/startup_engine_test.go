@@ -23,12 +23,15 @@ func TestStartsDisconnectedUntilAnEngineIsChosen(t *testing.T) {
 		cfg  Config
 		want string
 	}{
-		"first run":                      {Config{Claude: opts}, ""},
-		"saved API engine, no key":       {Config{Claude: opts, Settings: Settings{Engine: "api"}}, ""},
-		"saved Claude, never agreed":     {Config{Claude: opts, Settings: Settings{Engine: "claude"}}, ""},
-		"saved Claude, agreed":           {Config{Claude: opts, Settings: Settings{Engine: "claude", ClaudeNotice: true}}, "claude"},
-		"-engine api":                    {Config{Claude: opts, Engine: "api"}, "api"},
-		"-engine claude (asks at start)": {Config{Claude: opts, Engine: "claude"}, "claude"},
+		"first run":                           {Config{Claude: opts}, ""},
+		"saved API engine, no key":            {Config{Claude: opts, Settings: Settings{Engine: "api"}}, ""},
+		"saved Claude, never agreed":          {Config{Claude: opts, Settings: Settings{Engine: "claude"}}, ""},
+		"saved Claude, agreed":                {Config{Claude: opts, Settings: Settings{Engine: "claude", ClaudeNotice: true}}, "claude"},
+		"saved Antigravity, never agreed":     {Config{Claude: opts, Settings: Settings{Engine: "antigravity"}}, ""},
+		"saved Antigravity, agreed":           {Config{Claude: opts, Settings: Settings{Engine: "antigravity", AgyNotice: true}}, "antigravity"},
+		"-engine api":                         {Config{Claude: opts, Engine: "api"}, "api"},
+		"-engine claude (asks at start)":      {Config{Claude: opts, Engine: "claude"}, "claude"},
+		"-engine antigravity (asks at start)": {Config{Claude: opts, Engine: "antigravity"}, "antigravity"},
 	} {
 		if m := New(c.cfg); m.engine != c.want {
 			t.Errorf("%s: engine = %q, want %q", name, m.engine, c.want)

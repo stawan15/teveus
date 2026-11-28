@@ -80,7 +80,7 @@ func TestEnginePickerSwitchesEngines(t *testing.T) {
 	if m.pop.mode != popPicker {
 		t.Fatalf("popup = %v", m.pop.mode)
 	}
-	if len(m.pop.list) != 2 {
+	if len(m.pop.list) != 3 {
 		t.Fatalf("%d engines offered", len(m.pop.list))
 	}
 	for _, c := range m.pop.list {

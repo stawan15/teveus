@@ -1,11 +1,31 @@
 {
-  "latest": "0.38.1",
+  "latest": "0.38.2",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.38.1...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.2...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.38.2",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.1...v0.38.2",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Pressing `Esc` twice on the Google Antigravity CLI (`Agy`) engine no longer freezes the UI: `session/cancel` is now sent as a non-blocking ACP JSON-RPC notification (no `id`, no reply expected) instead of a blocking request that waited forever on the UI thread.",
+              "items": []
+            },
+            {
+              "text": "Pressing `Enter` now renders your sent message in the transcript immediately instead of waiting for the first streamed reply event from the backend.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.38.1",

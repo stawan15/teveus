@@ -1,11 +1,40 @@
 {
-  "latest": "0.38.3",
+  "latest": "0.39.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.38.3...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.39.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.39.0",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.3...v0.39.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "Picking a model on the Google Antigravity CLI (`Agy`) engine via `/model` now immediately opens the `/effort` slider when the model supports reasoning levels, so you can pick model and thinking effort in one smooth flow (press `Esc` to keep your current effort).",
+              "items": []
+            },
+            {
+              "text": "The active reasoning effort level (e.g. `gemini-4-neon · high`) is now shown next to the model name in the header bar so it stays visible even when the sidebar rail is hidden.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "`SetPermissionMode`, `SetModel`, and `SetEffort` on the Google Antigravity CLI (`Agy`) backend now run asynchronously off the UI thread so switching modes (`shift+tab`), models, or effort levels during an active turn never stalls the interface.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.38.3",

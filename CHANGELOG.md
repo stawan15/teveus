@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-28
+
+### Added
+
+- Picking a model on the Google Antigravity CLI (`Agy`) engine via `/model` now immediately opens the `/effort` slider when the model supports reasoning levels, so you can pick model and thinking effort in one smooth flow (press `Esc` to keep your current effort).
+- The active reasoning effort level (e.g. `gemini-4-neon · high`) is now shown next to the model name in the header bar so it stays visible even when the sidebar rail is hidden.
+
+### Changed
+
+- `SetPermissionMode`, `SetModel`, and `SetEffort` on the Google Antigravity CLI (`Agy`) backend now run asynchronously off the UI thread so switching modes (`shift+tab`), models, or effort levels during an active turn never stalls the interface.
+
 ## [0.38.3] - 2026-11-28
 
 ### Changed
@@ -633,7 +644,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.38.3...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.0...HEAD
+[0.39.0]: https://github.com/stawan15/teveus/compare/v0.38.3...v0.39.0
 [0.38.3]: https://github.com/stawan15/teveus/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/stawan15/teveus/compare/v0.38.1...v0.38.2
 [0.38.1]: https://github.com/stawan15/teveus/compare/v0.38.0...v0.38.1

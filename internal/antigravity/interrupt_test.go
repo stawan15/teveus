@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/stawan15/teveus/internal/claude"
 )
 
 type nopWriteCloser struct{ bytes.Buffer }
@@ -67,5 +69,31 @@ func TestStartReturnsImmediatelyBeforeHandshake(t *testing.T) {
 	defer c.Close()
 	if elapsed > 500*time.Millisecond {
 		t.Fatalf("Start blocked for %v; handshake must run asynchronously", elapsed)
+	}
+}
+
+func TestSettersAreNonBlocking(t *testing.T) {
+	var buf nopWriteCloser
+	ready := make(chan struct{})
+	close(ready)
+	c := &Client{
+		stdin:         &buf,
+		events:        make(chan claude.Event, 8),
+		ready:         ready,
+		session:       "ses-async",
+		thoughtLevels: []string{"low", "medium", "high"},
+	}
+	start := time.Now()
+	_ = c.SetPermissionMode("auto")
+	_ = c.SetModel("gemini-4-neon")
+	_ = c.SetEffort("high")
+	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+		t.Fatalf("setters blocked UI thread for %v", elapsed)
+	}
+	c.mu.Lock()
+	gotMode, gotModel, gotEffort := c.mode, c.model, c.effort
+	c.mu.Unlock()
+	if gotMode != "auto" || gotModel != "gemini-4-neon" || gotEffort != "high" {
+		t.Fatalf("state not updated immediately: mode=%q model=%q effort=%q", gotMode, gotModel, gotEffort)
 	}
 }

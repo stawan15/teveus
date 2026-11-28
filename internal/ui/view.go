@@ -26,13 +26,23 @@ func (m *Model) layout() {
 	if m.w == 0 {
 		return
 	}
+	m.layoutWidths()
+	m.layoutViewport(lipgloss.Height(m.bottomFitted()))
+}
+
+func (m *Model) layoutWidths() {
 	m.sideW = 0
 	if !m.settings.HideSide && m.w >= 100 {
 		m.sideW = sidebarWidth
 	}
 	m.chatW = m.w - m.sideW
-	m.input.SetWidth(m.w - 4)
-	vpH := m.h - 1 - 1 - m.tabsHeight() - lipgloss.Height(m.bottomFitted())
+	if m.input.Width() != m.w-4 {
+		m.input.SetWidth(m.w - 4)
+	}
+}
+
+func (m *Model) layoutViewport(bottomH int) {
+	vpH := m.h - 1 - 1 - m.tabsHeight() - bottomH
 	m.vp.Width, m.vp.Height = m.chatW, max(vpH, 1)
 }
 
@@ -87,9 +97,8 @@ func (m *Model) refresh() {
 			sep := "\n\n"
 			switch {
 			case m.blocks[i].kind == kindUser:
-				// A short rule opens each turn; the user block carries the
-				// rest of the visual break.
-				sep = "\n\n" + sFaint.Render(strings.Repeat("─", min(width, 28))) + "\n\n"
+				// A short, whisper-quiet hairline opens each turn.
+				sep = "\n\n" + sFaint.Render(strings.Repeat("─", min(width, 12))) + "\n\n"
 			case (m.blocks[i-1].kind == kindTool && m.blocks[i].kind == kindTool) || m.level() == "pro":
 				sep = "\n"
 			}
@@ -188,31 +197,37 @@ func (m *Model) View() string {
 	}
 	// Size the transcript to what the bottom area needs right now, so a
 	// popup opened from anywhere can never push the frame past the window.
-	m.layout()
-	main := m.chatView()
+	// Compute bottomFitted once and reuse it instead of rendering it twice.
+	m.layoutWidths()
+	bottom := m.bottomFitted()
+	m.layoutViewport(lipgloss.Height(bottom))
+	mainLines := m.chatLines()
 	if m.sideW > 0 {
 		// Both sides come out already fitted to their column (the transcript by
 		// the scroller, the sidebar by its own frame), so joining the rows is a
 		// string concat: measuring them again through lipgloss on every
 		// streamed chunk was most of a frame's work.
-		main = joinSides(main, m.sidebar(m.vp.Height), m.chatW)
+		mainLines = joinSideLines(mainLines, m.sidebarLines(m.vp.Height), m.chatW)
 	}
-	rows := []string{m.header()}
+	rows := make([]string, 0, m.h+4)
+	rows = append(rows, m.header())
 	if t := m.tabStrip(); t != "" {
-		rows = append(rows, t)
+		rows = append(rows, strings.Split(t, "\n")...)
 	}
-	rows = append(rows, main, m.bottomFitted(), m.statusBar())
-	return m.clampFrame(strings.Join(rows, "\n"))
+	rows = append(rows, mainLines...)
+	rows = append(rows, strings.Split(bottom, "\n")...)
+	rows = append(rows, m.statusBar())
+	return m.clampLines(rows)
 }
 
-// joinSides puts the transcript and the sidebar on the same rows, left to
-// right. Each side is already fitted to its column, so this is a concat — but
-// a row can still come out a cell or two short (a block whose border makes it
-// narrower than the pane), and joining it as it is pulls the sidebar's border
-// left on just that line. Padding to the column here keeps the border straight
-// without measuring the whole frame again.
+// joinSides is kept for string-based callers and tests; View uses joinSideLines.
 func joinSides(left, right string, leftW int) string {
-	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
+	return strings.Join(joinSideLines(strings.Split(left, "\n"), strings.Split(right, "\n"), leftW), "\n")
+}
+
+// joinSideLines puts the transcript and the sidebar on the same rows, left to
+// right, without joining and re-splitting strings.
+func joinSideLines(l, r []string, leftW int) []string {
 	out := make([]string, max(len(l), len(r)))
 	pad := ""
 	for i := range out {
@@ -231,30 +246,27 @@ func joinSides(left, right string, leftW int) string {
 		}
 		out[i] = a + b
 	}
-	return strings.Join(out, "\n")
+	return out
 }
 
 // clampFrame makes the frame exactly as tall as the window with every row
-// exactly as wide. A row the terminal draws wider than the layout believes
-// wraps, which shifts every row under it sideways and leaves the frame before
-// it showing through; a frame taller than the window scrolls the terminal, so
-// the next frame lands a row off and the old status bar stays on screen. The
-// views are each fitted already — this is the backstop that keeps one mistake
-// in any of them from wrecking the whole display.
+// exactly as wide.
 func (m *Model) clampFrame(s string) string {
-	// Decompose Thai and Lao SARA AM first: the width functions count it as one
-	// cell, terminals draw two, so measuring the folded form under-reports.
-	s = termSafe(s)
-	lines := strings.Split(s, "\n")
-	if cap(m.clamped) < len(lines) {
-		m.clamped = make([]string, 0, len(lines)+8)
+	return m.clampLines(strings.Split(s, "\n"))
+}
+
+// clampLines fits each row directly without a whole-frame Join+Split cycle.
+func (m *Model) clampLines(lines []string) string {
+	n := len(lines)
+	if n > m.h {
+		n = m.h
 	}
-	m.clamped = m.clamped[:len(lines)]
-	for i, l := range lines {
-		m.clamped[i] = m.fitRow(l)
+	if cap(m.clamped) < n {
+		m.clamped = make([]string, 0, n+8)
 	}
-	if len(m.clamped) > m.h {
-		m.clamped = m.clamped[:m.h]
+	m.clamped = m.clamped[:n]
+	for i := 0; i < n; i++ {
+		m.clamped[i] = m.fitRow(termSafe(lines[i]))
 	}
 	return strings.Join(m.clamped, "\n")
 }
@@ -284,9 +296,10 @@ func (m *Model) fitRow(l string) string {
 	case w < target:
 		out = l + m.rowPad[w:]
 	}
-	if len(m.rowCache) < 512 {
-		m.rowCache[l] = out
+	if len(m.rowCache) >= 1024 {
+		clear(m.rowCache)
 	}
+	m.rowCache[l] = out
 	return out
 }
 
@@ -304,16 +317,29 @@ func (m *Model) bottomFitted() string {
 	return b
 }
 
+type headerKey struct {
+	w      int
+	engine string
+	cwd    string
+	branch string
+	model  string
+	theme  string
+}
+
 func (m *Model) header() string {
-	left := " " + sAccent.Render("✦") + "  " + sBold.Render("teveus")
-	if m.engine == "api" {
-		left += " " + lipgloss.NewStyle().Background(cSurface).Foreground(cAccent2).Bold(true).
-			Padding(0, 1).Render("API")
+	key := headerKey{w: m.w, engine: m.engine, cwd: m.cwd, branch: m.branch, model: m.model, theme: theme.Name}
+	if m.headerCache != "" && key == m.headerKeyUsed {
+		return m.headerCache
 	}
-	sep := sFaint.Render("   ")
+	left := " " + sAccent.Render("✦") + " " + sBold.Render("teveus")
+	if m.engine == "api" {
+		left += " " + lipgloss.NewStyle().Background(cSurface).Foreground(cDim).
+			Padding(0, 1).Render("api")
+	}
+	sep := sFaint.Render("  ·  ")
 	parts := []string{sDim.Render(shortPath(m.cwd))}
 	if m.branch != "" {
-		parts = append(parts, sFaint.Render("⎇ ")+sAccent2.Render(m.branch))
+		parts = append(parts, sFaint.Render("⎇ ")+sDim.Render(m.branch))
 	}
 	if m.model != "" {
 		parts = append(parts, sText.Render(shortModel(m.model)))
@@ -324,7 +350,8 @@ func (m *Model) header() string {
 		right = sText.Render(shortModel(m.model)) + " "
 		gap = max(m.w-lipgloss.Width(left)-lipgloss.Width(right), 1)
 	}
-	return left + strings.Repeat(" ", gap) + right
+	m.headerCache, m.headerKeyUsed = left+strings.Repeat(" ", gap)+right, key
+	return m.headerCache
 }
 
 var logo = []string{
@@ -396,6 +423,11 @@ func (m *Model) center(width int, lines []string) string {
 	return strings.Repeat("\n", top) + lipgloss.PlaceHorizontal(width, lipgloss.Center, block)
 }
 
+func (m *Model) sidebarLines(height int) []string {
+	_ = m.sidebar(height)
+	return m.sideLines
+}
+
 func (m *Model) sidebar(height int) string {
 	// Everything the sidebar shows — model, mode, cost, tokens, usage bars —
 	// stays the same while a reply streams, but the frame is redrawn many
@@ -455,23 +487,22 @@ func (m *Model) sidebar(height int) string {
 		}
 		s = append(s, kv("effort", v))
 	}
-	// Wrap the saver list on item boundaries with a hanging indent.
-	sav := sGreen
-	if m.saverLabel() == "off" {
-		sav = sDim
-	}
-	line, first := "", true
-	for _, it := range strings.Split(m.saverLabel(), " · ") {
-		if line != "" && 9+lipgloss.Width(line)+3+lipgloss.Width(it) > w {
-			s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
-			line, first = "", false
+	// Wrap the saver list on item boundaries only when a saver is active.
+	if lbl := m.saverLabel(); lbl != "off" {
+		sav := sGreen
+		line, first := "", true
+		for _, it := range strings.Split(lbl, " · ") {
+			if line != "" && 9+lipgloss.Width(line)+3+lipgloss.Width(it) > w {
+				s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
+				line, first = "", false
+			}
+			if line != "" {
+				line += " · "
+			}
+			line += it
 		}
-		if line != "" {
-			line += " · "
-		}
-		line += it
+		s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
 	}
-	s = append(s, kv(map[bool]string{true: "saver", false: ""}[first], sav.Render(line)))
 	if m.sessionID != "" {
 		id := strings.TrimPrefix(m.sessionID, "ses_")
 		s = append(s, kv("session", sDim.Render(id[:min(8, len(id))])))
@@ -531,16 +562,6 @@ func (m *Model) sidebar(height int) string {
 			}
 			s = append(s, truncate(line, w))
 		}
-	} else if len(m.blocks) > 0 {
-		// No tools used yet (the welcome screen already lists these).
-		section("SHORTCUTS", "")
-		for _, kv := range [][2]string{
-			{"ctrl+k", "palette"}, {"@", "add a file"}, {"/", "commands"},
-			{"↑ ↓", "history"}, {"ctrl+o", "tool details"}, {"ctrl+y", "copy reply"},
-			{"esc", "interrupt"},
-		} {
-			s = append(s, sText.Render(fmt.Sprintf("%-8s", kv[0]))+" "+sDim.Render(kv[1]))
-		}
 	}
 
 	// The sidebar builds its lines itself, so fitWidth never sees them. Terminals
@@ -554,7 +575,7 @@ func (m *Model) sidebar(height int) string {
 		BorderForeground(cFaint).
 		PaddingLeft(1).
 		Render(fitWidth(strings.Join(s, "\n"), w))
-	m.sideCache, m.sideKeyUsed = out, key
+	m.sideCache, m.sideLines, m.sideKeyUsed = out, strings.Split(out, "\n"), key
 	return out
 }
 
@@ -665,7 +686,7 @@ func (m *Model) inputView() string {
 	// out drew the box from before the move, so the text stayed where it was
 	// until the next keystroke.
 	li := m.input.LineInfo()
-	key := m.input.Value() + "\x00" + m.mode + "\x00" +
+	key := m.input.Value() + "\x00" + m.mode + "\x00" + theme.Name + "\x00" +
 		fmt.Sprint(m.w, "/", m.input.Line(), "/", li.CharOffset, "/", li.ColumnOffset, "/", m.input.Height())
 	if m.inputCache != "" && key == m.inputKey {
 		return m.inputCache
@@ -777,7 +798,7 @@ func (m *Model) statusBar() string {
 		}
 		left = " " + sAccent.Render(m.r.spin) + " " + phase +
 			sDim.Render("  "+fmtDur(time.Since(m.turnStart)))
-		right = hints("esc esc", "interrupt", "ctrl+o", "details")
+		right = hints("esc×2", "stop", "ctrl+o", "details")
 	case m.engine == "":
 		left = sFaint.Render(" ○") + sDim.Render(" not connected")
 		right = hints("/login", "connect", "ctrl+k", "palette")
@@ -785,9 +806,9 @@ func (m *Model) statusBar() string {
 		left = sGreen.Render(" ●") + sDim.Render(" ready")
 		if sp := m.spendLine(); m.sideW == 0 && sp != "" {
 			// The sidebar isn't showing what this has cost, so say it here.
-			left += sFaint.Render("  " + sp)
+			left += sFaint.Render("  ·  " + sp)
 		}
-		right = hints("enter", "send", "shift+enter", "newline", "ctrl+k", "palette")
+		right = hints("enter", "send", "ctrl+k", "palette", "?", "help")
 	}
 	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
 		st := sYellow

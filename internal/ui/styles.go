@@ -30,6 +30,8 @@ type Theme struct {
 var themes = []Theme{
 	{Name: "claude", Dark: true, Accent: "#5EEAD4", Accent2: "#A78BFA", Text: "#E8EEF5", Dim: "#9AA7B5", Faint: "#586474", Surface: "#202832",
 		Green: "#7EE787", Red: "#FF8B8B", Yellow: "#E8C06A", Blue: "#7CC7FF", DiffAdd: "#143026", DiffDel: "#3A1D24", OnAccent: "#07110F"},
+	{Name: "minimal", Dark: true, Accent: "#7DD3FC", Accent2: "#A5B4FC", Text: "#ECEFF4", Dim: "#848D9A", Faint: "#3A424E", Surface: "#191D24",
+		Green: "#86EFAC", Red: "#FCA5A5", Yellow: "#FDE68A", Blue: "#93C5FD", DiffAdd: "#122921", DiffDel: "#2F1920", OnAccent: "#0B0F14"},
 	{Name: "tokyo-night", Dark: true, Accent: "#7AA2F7", Accent2: "#BB9AF7", Text: "#C0CAF5", Dim: "#6B7394", Faint: "#3B4261", Surface: "#292E42",
 		Green: "#9ECE6A", Red: "#F7768E", Yellow: "#E0AF68", Blue: "#7DCFFF", DiffAdd: "#1F3326", DiffDel: "#3B2230", OnAccent: "#16161E"},
 	{Name: "catppuccin", Dark: true, Accent: "#CBA6F7", Accent2: "#F5C2E7", Text: "#CDD6F4", Dim: "#7F849C", Faint: "#45475A", Surface: "#313244",
@@ -78,7 +80,7 @@ func applyTheme(t Theme) {
 	sGreen, sRed, sYellow = fg(cGreen), fg(cRed), fg(cYellow)
 	sTool = fg(cBlue).Bold(true)
 	sUser = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, false, true).
+		Border(lipgloss.ThickBorder(), false, false, false, true).
 		BorderForeground(cAccent).
 		Background(cSurface).
 		Padding(0, 1).
@@ -147,13 +149,14 @@ func pill(text string, bg lipgloss.Color) string {
 // key renders a keycap such as "ctrl+k".
 func keycap(k string) string { return sKey.Render(k) }
 
-// hints renders "key label" pairs for the status bar.
+// hints renders "key label" pairs for the status bar, kept quiet so the
+// conversation stays the visual focus.
 func hints(pairs ...string) string {
 	var parts []string
 	for i := 0; i+1 < len(pairs); i += 2 {
-		parts = append(parts, sText.Render(pairs[i])+" "+sDim.Render(pairs[i+1]))
+		parts = append(parts, sDim.Render(pairs[i])+" "+sFaint.Render(pairs[i+1]))
 	}
-	return strings.Join(parts, sFaint.Render("   "))
+	return strings.Join(parts, sFaint.Render("  ·  "))
 }
 
 // gradient colours each rune of s along a line from one hex colour to another.

@@ -117,6 +117,13 @@ type AssistantMessage struct {
 	Usage  *Usage
 }
 
+// ToolProgress carries live tail output while a long-running tool (e.g. Bash)
+// is still executing.
+type ToolProgress struct {
+	ToolUseID string
+	Output    string
+}
+
 // ToolResults carries tool_result blocks returned to the model.
 type ToolResults struct {
 	Parent  string
@@ -197,6 +204,7 @@ func (Notice) isEvent()             {}
 func (BlockStart) isEvent()         {}
 func (TextDelta) isEvent()          {}
 func (AssistantMessage) isEvent()   {}
+func (ToolProgress) isEvent()       {}
 func (ToolResults) isEvent()        {}
 func (*PermissionRequest) isEvent() {}
 func (RateLimit) isEvent()          {}

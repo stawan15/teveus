@@ -36,6 +36,10 @@ var themes = []Theme{
 		Border: "#232D3D", Surface: "#121821", SurfaceHi: "#1B2432",
 		Green: "#6EE7B7", Red: "#FB7185", Yellow: "#F5C451", Blue: "#7CC7FF",
 		DiffAdd: "#102921", DiffAddHi: "#1B4B39", DiffDel: "#2D141C", DiffDelHi: "#542030", OnAccent: "#05110E"},
+	{Name: "minimal", Dark: true, Accent: "#7DD3FC", Accent2: "#A5B4FC", Text: "#ECEFF4", Dim: "#848D9A", Faint: "#3A424E",
+		Border: "#222730", Surface: "#14181E", SurfaceHi: "#1C212A",
+		Green: "#86EFAC", Red: "#FCA5A5", Yellow: "#FDE68A", Blue: "#93C5FD",
+		DiffAdd: "#102820", DiffAddHi: "#1A4435", DiffDel: "#2C161D", DiffDelHi: "#4E2230", OnAccent: "#0B0F14"},
 	{Name: "tokyo-night", Dark: true, Accent: "#7AA2F7", Accent2: "#BB9AF7", Text: "#C8D3F5", Dim: "#737AA2", Faint: "#444B6A",
 		Border: "#292E42", Surface: "#1B1E2E", SurfaceHi: "#262B42",
 		Green: "#9ECE6A", Red: "#F7768E", Yellow: "#E0AF68", Blue: "#7DCFFF",
@@ -198,13 +202,14 @@ func softPill(text string, bg, fg lipgloss.Color) string {
 // key renders a keycap such as "ctrl+k".
 func keycap(k string) string { return sKey.Render(k) }
 
-// hints renders "key label" pairs for the status bar.
+// hints renders "key label" pairs for the status bar, kept quiet so the
+// conversation stays the visual focus.
 func hints(pairs ...string) string {
 	var parts []string
 	for i := 0; i+1 < len(pairs); i += 2 {
-		parts = append(parts, sText.Render(pairs[i])+" "+sDim.Render(pairs[i+1]))
+		parts = append(parts, sDim.Render(pairs[i])+" "+sFaint.Render(pairs[i+1]))
 	}
-	return strings.Join(parts, sFaint.Render("   "))
+	return strings.Join(parts, sFaint.Render("  ·  "))
 }
 
 // gradient colours each rune of s along a line from one hex colour to another.

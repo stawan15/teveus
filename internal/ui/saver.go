@@ -70,7 +70,7 @@ func (m *Model) saverLabel() string {
 	if m.settings.Concise {
 		on = append(on, "concise")
 	}
-	if m.settings.LeanTools && m.engine == "claude" {
+	if m.settings.LeanTools && (m.engine == "claude" || m.engine == "api") {
 		on = append(on, "lean")
 	}
 	switch lvl := m.minimalLevel(); lvl {
@@ -201,6 +201,15 @@ func (m *Model) toggleAttribution() tea.Cmd {
 func (m *Model) toggleLean() tea.Cmd {
 	m.settings.LeanTools = !m.settings.LeanTools
 	saveSettings(m.settings)
+	if eng, ok := m.client.(*agent.Engine); ok {
+		eng.SetLeanTools(!m.cfg.Full && m.settings.LeanTools)
+		if m.settings.LeanTools {
+			m.note("lean tools on (fewer tool schemas per request)", true)
+		} else {
+			m.note("all tools loaded", true)
+		}
+		return nil
+	}
 	if !m.settings.LeanTools {
 		return m.restart("all tools loaded")
 	}

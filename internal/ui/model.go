@@ -404,6 +404,7 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	}
 	if err != nil {
 		m.add(&block{kind: kindError, text: err.Error()})
+		m.refresh()
 		return nil
 	}
 	m.client = c
@@ -1177,6 +1178,7 @@ func (m *Model) send(text string) tea.Cmd {
 	}
 	if err != nil {
 		m.add(&block{kind: kindError, text: err.Error()})
+		m.refresh()
 		return cmd
 	}
 	m.handoff = ""
@@ -1192,6 +1194,7 @@ func (m *Model) send(text string) tea.Cmd {
 		shown, m.sendShown = m.sendShown, ""
 	}
 	m.add(&block{kind: kindUser, text: shown})
+	m.refresh()
 	m.vp.GotoBottom()
 	return cmd
 }

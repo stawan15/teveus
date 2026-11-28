@@ -1,0 +1,47 @@
+package antigravity
+
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+	"time"
+)
+
+type nopWriteCloser struct{ bytes.Buffer }
+
+func (n *nopWriteCloser) Close() error { return nil }
+
+func TestInterruptSendsNonBlockingACPNotification(t *testing.T) {
+	var buf nopWriteCloser
+	c := &Client{
+		stdin:   &buf,
+		session: "ses-test-1",
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- c.Interrupt() }()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Interrupt returned error: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Interrupt blocked waiting for a JSON-RPC reply; session/cancel must be a notification")
+	}
+
+	var msg map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &msg); err != nil {
+		t.Fatalf("invalid JSON written: %v (%q)", err, buf.String())
+	}
+	if msg["method"] != "session/cancel" {
+		t.Fatalf("method = %v, want session/cancel", msg["method"])
+	}
+	if _, hasID := msg["id"]; hasID {
+		t.Fatalf("session/cancel must be a notification without id, got %v", msg)
+	}
+	params, _ := msg["params"].(map[string]any)
+	if params["sessionId"] != "ses-test-1" {
+		t.Fatalf("sessionId = %v, want ses-test-1", params["sessionId"])
+	}
+}

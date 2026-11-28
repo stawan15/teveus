@@ -307,7 +307,7 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 		c.finishTurnAndSave()
 		if err != nil {
 			c.emit(claude.Result{Subtype: "error", IsError: true, Text: err.Error(), NumTurns: 1,
-				DurationMS: int(time.Since(turnStart).Milliseconds())})
+				DurationMS: time.Since(turnStart).Milliseconds()})
 			return
 		}
 		var out struct {
@@ -323,7 +323,7 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 		c.emit(claude.Result{
 			Subtype:    stopReasonSubtype(out.StopReason),
 			NumTurns:   1,
-			DurationMS: int(time.Since(turnStart).Milliseconds()),
+			DurationMS: time.Since(turnStart).Milliseconds(),
 			Usage: claude.Usage{
 				InputTokens:              out.Usage.InputTokens,
 				OutputTokens:             out.Usage.OutputTokens,

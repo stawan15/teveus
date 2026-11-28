@@ -348,13 +348,17 @@ func (c *Client) finishTurnAndSave() {
 	})
 }
 
-// Interrupt cancels the turn that is running.
+// Interrupt cancels the turn that is running. Per ACP, session/cancel is a
+// JSON-RPC notification (no id, no reply), so sending it must never block
+// waiting for a response.
 func (c *Client) Interrupt() error {
 	c.mu.Lock()
 	sid := c.session
 	c.mu.Unlock()
-	_, err := c.request("session/cancel", map[string]any{"sessionId": sid})
-	return err
+	if sid == "" {
+		return nil
+	}
+	return c.notify("session/cancel", map[string]any{"sessionId": sid})
 }
 
 // SetPermissionMode maps teveus's modes onto the CLI's own (default,

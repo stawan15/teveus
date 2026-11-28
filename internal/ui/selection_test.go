@@ -163,3 +163,77 @@ func TestCopyRestoresTabIndent(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, code)
 	}
 }
+
+func TestCopyStripsLeftGutterBorders(t *testing.T) {
+	m, _ := newSelModel(t)
+	m.blocks = nil
+	m.add(&block{kind: kindUser, text: "line one\nline two"})
+	m.add(&block{kind: kindTool, name: "Bash", input: map[string]any{"command": "echo hi"}, result: "alpha\nbeta", state: toolDone})
+	m.add(&block{kind: kindCmdOut, text: "cmd line 1\n\ncmd line 2"})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.refresh()
+	m.vp.GotoTop()
+
+	// Select across all lines starting from col 0 (covering every left gutter).
+	m.sel.has, m.sel.anchor, m.sel.head = true, point{0, 0}, point{len(m.lines) - 1, 200}
+	got := m.selectedText()
+	for _, bar := range []string{"│", "┃", "▎", "▏"} {
+		if strings.Contains(got, bar) {
+			t.Fatalf("copied text still contains left gutter %q:\n%q", bar, got)
+		}
+	}
+	for _, want := range []string{"line one", "line two", "alpha", "beta", "cmd line 1", "cmd line 2"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("copied text missing %q:\n%q", want, got)
+		}
+	}
+
+	// Highlight in chatView must not paint over the gutter bar itself.
+	view := m.chatView()
+	for _, row := range strings.Split(view, "\n") {
+		plain := ansi.Strip(row)
+		if !strings.Contains(plain, "│") && !strings.Contains(plain, "┃") {
+			continue
+		}
+		// The gutter bar should appear before the highlight background escape.
+		if idx := strings.Index(row, "│"); idx >= 0 {
+			if strings.Contains(row[:idx], "\x1b[48;") {
+				t.Fatalf("highlight painted over │ gutter: %q", row)
+			}
+		}
+	}
+}
+
+func TestTripleClickSkipsLeftGutter(t *testing.T) {
+	m, copied := newSelModel(t)
+	m.blocks = nil
+	m.add(&block{kind: kindUser, text: "hello world"})
+	m.add(&block{kind: kindTool, name: "Bash", input: map[string]any{"command": "ls"}, result: "README.md", state: toolDone})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+	m.refresh()
+	m.vp.GotoTop()
+
+	x, y := find(t, m, "README.md")
+	for i := 0; i < 3; i++ {
+		mouse(m, tea.MouseActionPress, tea.MouseButtonLeft, x, y)
+		mouse(m, tea.MouseActionRelease, tea.MouseButtonLeft, x, y)
+	}
+	if *copied != "README.md" {
+		t.Fatalf("triple-click on tool output copied %q, want %q", *copied, "README.md")
+	}
+}
+
+func TestGutterWidthPreservesMarkdownTables(t *testing.T) {
+	if got := gutterWidth(" │ col1 │ col2 │", false); got != 0 {
+		t.Fatalf("markdown table row should not be treated as gutter, got %d", got)
+	}
+	if got := gutterWidth(" │ quoted text", false); got != 3 {
+		t.Fatalf("blockquote gutter = %d, want 3", got)
+	}
+	if got := gutterWidth("   │ tool output", true); got != 5 {
+		t.Fatalf("tool gutter = %d, want 5", got)
+	}
+	if got := gutterWidth(" ┃ user prompt", true); got != 3 {
+		t.Fatalf("user gutter = %d, want 3", got)
+	}
+}

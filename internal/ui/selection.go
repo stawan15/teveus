@@ -75,6 +75,67 @@ func (m *Model) plainLine(i int) string {
 	return ansi.Strip(m.lines[i])
 }
 
+// blockAt returns the transcript block that owns line i, or nil.
+func (m *Model) blockAt(line int) *block {
+	for i := len(m.blockStart) - 1; i >= 0; i-- {
+		if m.blockStart[i] <= line {
+			return m.blocks[i]
+		}
+	}
+	return nil
+}
+
+// gutterWidth returns the display column right after a leading UI border
+// gutter (such as " ┃ " on user messages, "  │ " on tool output, or "  │" on
+// command output and blockquotes). When allowTable is false, lines with
+// another "│" later on the row are treated as Markdown tables and left alone.
+func gutterWidth(plain string, allowTable bool) int {
+	col := 0
+	i := 0
+	for i < len(plain) && plain[i] == ' ' {
+		i++
+		col++
+	}
+	// UI gutters sit near the left edge (1-cell margin + up to 6-cell nested
+	// tool indent + 2-cell prefix).
+	if col > 10 || i >= len(plain) {
+		return 0
+	}
+	rest := plain[i:]
+	var barLen int
+	switch {
+	case strings.HasPrefix(rest, "│"):
+		barLen = len("│")
+	case strings.HasPrefix(rest, "┃"):
+		barLen = len("┃")
+	case strings.HasPrefix(rest, "▎"):
+		barLen = len("▎")
+	case strings.HasPrefix(rest, "▏"):
+		barLen = len("▏")
+	default:
+		return 0
+	}
+	after := rest[barLen:]
+	if !allowTable && strings.ContainsRune(after, '│') {
+		return 0
+	}
+	col++ // box-drawing bar is 1 cell wide
+	if strings.HasPrefix(after, " ") {
+		col++
+	}
+	return col
+}
+
+// gutterCol returns the column where selectable content begins on line i,
+// skipping any leading UI gutter border.
+func (m *Model) gutterCol(line int) int {
+	allowTable := false
+	if b := m.blockAt(line); b != nil && (b.kind == kindUser || b.kind == kindTool || b.kind == kindCmdOut) {
+		allowTable = true
+	}
+	return gutterWidth(m.plainLine(line), allowTable)
+}
+
 // handleMouse: wheel scrolls; left button selects; a click without a drag
 // toggles the tool card under it.
 func (m *Model) handleMouse(msg tea.MouseMsg) tea.Cmd {
@@ -197,11 +258,20 @@ func (m *Model) selectWord(p point) {
 func (m *Model) selectLine(p point) {
 	line := m.plainLine(p.line)
 	trimmed := strings.TrimRight(line, " ")
-	start := len(trimmed) - len(strings.TrimLeft(trimmed, " "))
 	if trimmed == "" {
 		return
 	}
-	m.sel.anchor, m.sel.head, m.sel.has = point{p.line, start}, point{p.line, ansi.StringWidth(trimmed) - 1}, true
+	g := m.gutterCol(p.line)
+	end := ansi.StringWidth(trimmed)
+	if g >= end {
+		return
+	}
+	content := ansi.Cut(trimmed, g, end)
+	start := g + (len(content) - len(strings.TrimLeft(content, " ")))
+	if start >= end {
+		return
+	}
+	m.sel.anchor, m.sel.head, m.sel.has = point{p.line, start}, point{p.line, end - 1}, true
 }
 
 func (m *Model) clearSelection() {
@@ -212,7 +282,9 @@ func (m *Model) clearSelection() {
 // of width: the line is padded to the wrap width and the next word would not
 // have fit on it.
 func (m *Model) softWrapped(i int) bool {
-	cur, next := m.plainLine(i), strings.TrimSpace(m.plainLine(i+1))
+	cur := m.plainLine(i)
+	nextRaw := m.plainLine(i + 1)
+	next := strings.TrimSpace(ansi.Cut(nextRaw, m.gutterCol(i+1), ansi.StringWidth(nextRaw)))
 	if next == "" || strings.HasPrefix(next, "•") || strings.HasPrefix(next, "│") {
 		return false
 	}
@@ -268,8 +340,16 @@ func (m *Model) selectedText() string {
 			lines, src = append(lines, ""), append(src, i)
 			continue
 		}
-		if i == a.line && strings.TrimSpace(ansi.Cut(plain, 0, from)) == "" {
-			from = 0 // starting at the first word: keep its indentation for dedenting
+		g := m.gutterCol(i)
+		if from < g {
+			from = g
+		}
+		if to <= from {
+			lines, src = append(lines, ""), append(src, i)
+			continue
+		}
+		if i == a.line && strings.TrimSpace(ansi.Cut(plain, g, from)) == "" {
+			from = g // starting at the first word: keep its indentation for dedenting
 		}
 		piece := strings.TrimRight(ansi.Cut(plain, from, to), " ")
 		if k := len(lines) - 1; i > a.line && k >= 0 && lines[k] != "" && piece != "" && m.softWrapped(i-1) {
@@ -320,23 +400,42 @@ func (m *Model) copySelection() {
 
 // chatView renders the visible transcript with the selection highlighted.
 func (m *Model) chatView() string {
+	return strings.Join(m.chatLines(), "\n")
+}
+
+// chatLines returns the visible transcript rows directly without joining them,
+// so View() can assemble the frame without an extra Join+Split cycle.
+func (m *Model) chatLines() []string {
 	if !m.sel.has {
-		return m.vp.View()
+		return m.vp.ViewLines()
 	}
 	hl := lipgloss.NewStyle().Background(cAccent2).Foreground(cOnAccent)
+	width, height := max(m.vp.Width, 0), max(m.vp.Height, 0)
+	blank := strings.Repeat(" ", width)
 	start := min(m.vp.YOffset, len(m.lines))
-	end := min(start+m.vp.Height, len(m.lines))
-	vis := make([]string, 0, m.vp.Height)
+	end := min(start+height, len(m.lines))
+	vis := make([]string, 0, height)
 	for i := start; i < end; i++ {
 		l := m.lines[i]
 		w := ansi.StringWidth(l)
 		if from, to, ok := m.sel.span(i, w); ok {
-			l = ansi.Cut(l, 0, from) + hl.Render(ansi.Strip(ansi.Cut(l, from, to))) + ansi.Cut(l, to, w)
+			if g := m.gutterCol(i); g > from {
+				from = g
+			}
+			if to > from {
+				l = ansi.Cut(l, 0, from) + hl.Render(ansi.Strip(ansi.Cut(l, from, to))) + ansi.Cut(l, to, w)
+			}
+		}
+		switch lw := lineWidth(l); {
+		case lw > width:
+			l = ansi.Truncate(l, width, "")
+		case lw < width:
+			l += blank[lw:]
 		}
 		vis = append(vis, l)
 	}
-	return lipgloss.NewStyle().
-		Width(m.vp.Width).Height(m.vp.Height).
-		MaxWidth(m.vp.Width).MaxHeight(m.vp.Height).
-		Render(strings.Join(vis, "\n"))
+	for len(vis) < height {
+		vis = append(vis, blank)
+	}
+	return vis
 }

@@ -17,11 +17,11 @@ import (
 // piled up to be worth it: between batches the sent prefix doesn't change.
 
 const (
-	keepResults        = 8     // the newest tool results are always sent whole
-	keepResultsSaver   = 6     // tighter window when token savers are enabled
-	pruneMinChars      = 1500  // shorter results aren't worth a note
-	pruneBatch         = 40000 // characters that must pile up before a batch is dropped
-	pruneBatchSaver    = 25000 // tighter batch threshold when token savers are enabled
+	keepResults      = 8     // the newest tool results are always sent whole
+	keepResultsSaver = 6     // tighter window when token savers are enabled
+	pruneMinChars    = 1500  // shorter results aren't worth a note
+	pruneBatch       = 40000 // characters that must pile up before a batch is dropped
+	pruneBatchSaver  = 25000 // tighter batch threshold when token savers are enabled
 )
 
 // pruneResults marks old tool results as dropped, once at least pruneBatch

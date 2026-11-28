@@ -303,12 +303,6 @@ func joinSideLines(l, r []string, leftW int) []string {
 	return out
 }
 
-// clampFrame makes the frame exactly as tall as the window with every row
-// exactly as wide.
-func (m *Model) clampFrame(s string) string {
-	return m.clampLines(strings.Split(s, "\n"))
-}
-
 // clampLines fits each row directly without a whole-frame Join+Split cycle.
 func (m *Model) clampLines(lines []string) string {
 	n := len(lines)

@@ -1,11 +1,27 @@
 {
-  "latest": "0.38.0",
+  "latest": "0.38.1",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.38.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.1...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.38.1",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.38.0...v0.38.1",
+      "sections": [
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Cleaned up `staticcheck` lint issues (`ST1005` error formatting on cancelled `Bash` commands and unused `clampFrame` helper) and formatting across packages so CI lint passes cleanly.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.38.0",

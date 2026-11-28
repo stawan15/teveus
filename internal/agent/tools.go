@@ -347,7 +347,7 @@ func runBash(ctx context.Context, t *Toolbox, in map[string]any) (string, error)
 	err := cmd.Run()
 	out := capOutput(buf.String())
 	if ctx.Err() == context.Canceled {
-		return out, fmt.Errorf("Interrupted by the user.")
+		return out, fmt.Errorf("interrupted by the user")
 	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return out, fmt.Errorf("timed out after %s\n%s", timeout, out)

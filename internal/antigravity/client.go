@@ -75,8 +75,10 @@ type Client struct {
 	writeMu sync.Mutex
 	nextID  atomic.Int64
 	closed  atomic.Bool
+	ready   chan struct{} // closed once handshake finishes (or fails)
 
 	mu             sync.Mutex
+	readyErr       error
 	session        string
 	model          string
 	effort         string
@@ -134,15 +136,28 @@ func Start(opts Options) (*Client, error) {
 	c := &Client{
 		cmd: cmd, stdin: stdin, events: make(chan claude.Event, 256), stderr: stderr,
 		cwd: opts.Cwd, sessionDir: opts.SessionDir, effort: opts.Effort,
+		ready: make(chan struct{}),
 		perms: map[string]*claude.PermissionRequest{}, always: map[string]bool{},
 		mode: opts.PermissionMode, waiting: map[string]chan *rpcMessage{},
 	}
 	go c.read(stdout)
-	if err := c.handshake(opts); err != nil {
-		c.Close()
-		return nil, err
-	}
+	go c.boot(opts)
 	return c, nil
+}
+
+// boot runs the ACP handshake in the background so Start returns immediately
+// and the UI paints its first frame without waiting for the CLI to boot.
+func (c *Client) boot(opts Options) {
+	if err := c.handshake(opts); err != nil {
+		c.mu.Lock()
+		c.readyErr = err
+		c.mu.Unlock()
+		close(c.ready)
+		c.emit(claude.Exited{Err: err, Stderr: strings.TrimSpace(c.stderr.String())})
+		c.Close()
+		return
+	}
+	close(c.ready)
 }
 
 func (c *Client) Events() <-chan claude.Event { return c.events }
@@ -267,7 +282,6 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 		})
 	}
 	c.mu.Lock()
-	sid := c.session
 	c.history = append(c.history, agent.Message{Role: "user", Text: text})
 	c.turnText.Reset()
 	c.turnTools = nil
@@ -277,6 +291,16 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 	c.mu.Unlock()
 
 	go func() {
+		if c.ready != nil {
+			<-c.ready
+		}
+		c.mu.Lock()
+		initErr, sid := c.readyErr, c.session
+		c.mu.Unlock()
+		if initErr != nil {
+			c.emit(claude.Result{Subtype: "error", IsError: true, Text: initErr.Error()})
+			return
+		}
 		res, err := c.request("session/prompt", map[string]any{"sessionId": sid, "prompt": prompt})
 		c.finishTurnAndSave()
 		if err != nil {

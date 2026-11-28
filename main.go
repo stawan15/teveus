@@ -52,7 +52,12 @@ func main() {
 
 	opts.Cwd, _ = os.Getwd()
 	settings := ui.LoadSettings()
-	cfg := ui.Config{Claude: opts, Agy: agyOpts, Dark: lipgloss.HasDarkBackground(), Theme: *themeName, Settings: settings, Full: *full, Engine: *engine,
+	// Avoid the blocking OSC 11 terminal query when the user already picked a theme.
+	dark := true
+	if *themeName == "" && settings.Theme == "" {
+		dark = lipgloss.HasDarkBackground()
+	}
+	cfg := ui.Config{Claude: opts, Agy: agyOpts, Dark: dark, Theme: *themeName, Settings: settings, Full: *full, Engine: *engine,
 		Onboard: !settings.Onboarded, AskTrust: !ui.FolderTrusted(opts.Cwd), Version: version, KeyOut: os.Stdout, PhoneAddr: *phoneAddr}
 
 	if *prompt != "" {

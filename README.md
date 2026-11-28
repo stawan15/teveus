@@ -3,7 +3,7 @@
 # teveus
 
 **teveus is a free, open-source AI coding assistant that runs in your terminal.**
-Run Claude Code, or any AI provider with your own key, in one fast, good-looking app.
+Run Claude Code, Google Antigravity CLI (`agy`), or any AI provider with your own key, in one fast, good-looking app.
 
 [Website](https://www.teveus.xyz) · [Docs](https://www.teveus.xyz/docs) · [Releases](https://www.teveus.xyz/releases)
 
@@ -27,14 +27,14 @@ irm https://raw.githubusercontent.com/stawan15/teveus/main/install.ps1 | iex
 
 Works on macOS, Linux and 64-bit Windows. Run the same installer again to update.
 
-> **Want Claude models on your Claude plan?** Install [Claude Code](https://claude.com/claude-code) from Anthropic and sign in to it.
-> teveus runs your installed Claude Code as it is. You sign in through Anthropic's own login, and teveus never sees your Claude credentials.
-> For OpenAI, Gemini, OpenRouter and others you don't need anything else.
+> **Want to use your Claude or Google Antigravity subscription?** Install [Claude Code](https://claude.com/claude-code) or Google Antigravity CLI (`agy`) and sign in to it.
+> teveus runs your installed CLI as it is. You sign in through the provider's own login, and teveus never sees your credentials.
+> For OpenAI, Gemini API, OpenRouter and others you don't need anything else.
 
 ## Get started
 
 1. Open a terminal in your project folder.
-2. Run `teveus`, then connect an AI with `/login`: your installed Claude Code, or any provider with your own key. Nothing is connected until you choose.
+2. Run `teveus`, then connect an AI with `/login`: your installed Claude Code, Google Antigravity CLI (`agy`), or any provider with your own key. Nothing is connected until you choose.
 3. Type what you want in plain words, like *"find the bug in the login page and fix it"*, and press **enter**.
 
 teveus shows you every change **before** it happens. Press **y** to allow it or **n** to say no.
@@ -55,7 +55,7 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 |---|---|
 | 💬 **Ask in plain words** | Explain code, fix bugs, write tests, review changes |
 | ✅ **Stay in control** | See each change as a coloured diff and approve it first |
-| 🔌 **Use any AI** | Claude Code (with your own Claude account), OpenAI, the Anthropic API, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, OpenCode (Go or Console), or local models (Ollama, LM Studio) |
+| 🔌 **Use any AI** | Claude Code (with your own Claude account), Google Antigravity CLI (`agy`), OpenAI, the Anthropic API, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, OpenCode (Go or Console), or local models (Ollama, LM Studio) — and switch mid-session with `/engine` without losing your transcript |
 | 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
 | 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
 | 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
@@ -65,10 +65,10 @@ The first time, a short setup (3 questions) helps you pick how much guidance you
 | 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
 | ↩️ **Undo and rewind** | `/undo` puts files back the way they were; `/rewind` shows what will change, then goes back to any earlier turn |
 | 🕘 **Pick up later** | `/resume` reopens earlier conversations |
-| 💸 **Spend less, when you want** | Off until you turn them on: `/concise` for short answers, `/lean` to send fewer tool definitions, and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
+| 💸 **Spend less, when you want** | Off until you turn them on: `/saver` (`full`, `balanced`, `max` presets), `/concise` for short answers, `/lean` to send fewer tool definitions (Claude Code and Direct API), and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
 | ✂️ **Trim the fat** | `/trim` reviews your uncommitted changes for code you don't need; `/trim all` checks the whole project |
 | 🪙 **Long sessions stay cheap** | On the Direct API engine, old tool output is swapped for a one-line note (the model can run it again), unchanged files aren't re-sent, and `/subagent` runs research on a cheaper model |
-| 🎨 **Make it yours** | 6 themes (including high contrast), 3 guidance levels, reduce motion |
+| 🎨 **Make it yours** | 7 themes (`minimal`, `claude`, `tokyo-night`, `catppuccin`, `gruvbox`, `high-contrast`, `light`), 3 guidance levels, reduce motion |
 
 ## Keys to know
 
@@ -93,8 +93,9 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 
 | Command | Does |
 |---|---|
-| `/login` | Sign in to Claude Code, or connect another AI provider |
-| `/model` | Switch model (search by name, or type `free`) |
+| `/login` | Sign in to Claude Code, Google Antigravity CLI (`agy`), or connect another AI provider |
+| `/engine` | Switch engine (`claude`, `antigravity`, `api`) mid-session with automatic handoff |
+| `/model` | Switch model (search by name, or type `free`; on Antigravity CLI, flows into `/effort` for reasoning models) |
 | `/effort` | How hard the model thinks: a slider from auto and low up to max |
 | `/undo` | Undo the last change |
 | `/rewind` | Go back to an earlier turn: review its files and diff first |
@@ -107,7 +108,7 @@ Type `/` to see the main ones; keep typing to find the rest. The most useful:
 | `/commit` | Let the AI stage the work, write the message and commit it (`/commit only the parser` steers it) |
 | `/init` | Let the AI write notes about your project so it works better |
 | `/settings` | All preferences in one place |
-| `/mcp` | See MCP servers and fix what they need: approve a project's `.mcp.json`, add a token for one that answered 401, retry, or add a server |
+| `/mcp` | See MCP servers and fix what they need: toggle servers on/off, sign in via OAuth, approve a project's `.mcp.json`, add a token for one that answered 401, retry, or add a server |
 | `/permissions` | Saved allow/deny rules for tools |
 | `/phone` | Prompt and approve from your phone: turns the phone page on or off, or shows its link |
 | `/update` | Check for a new version and install it |
@@ -147,6 +148,8 @@ MCP servers can be added from the terminal too, in the same shape Claude Code us
 teveus mcp add --transport http --scope user pastel https://host/api/mcp
 teveus mcp add --scope project notes npx -y @modelcontextprotocol/server-filesystem ~/notes
 teveus mcp list
+teveus mcp enable pastel
+teveus mcp disable pastel
 teveus mcp remove --scope user pastel
 ```
 

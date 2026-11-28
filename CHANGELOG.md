@@ -5,6 +5,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.39.1] - 2026-11-28
+
+### Changed
+
+- Cleaner transcript formatting inspired by Claude Code and OpenCode: removed left-side gutter bars (`│` and `▌`) from user prompts, blockquotes, tool output, and command output; removed chunky background boxes/padding around inline code; stopped printing raw `file://` and `http://` URLs inline next to Markdown link labels (links remain clickable via OSC 8); and softened heading styles.
+
+### Fixed
+
+- Fixed Google Antigravity CLI (`Agy`) turns cutting off after 60 seconds mid-work (`session/prompt` no longer uses the 60s control-call timeout), set `NumTurns` and `DurationMS` on `Agy` results so replies render as Markdown with a turn receipt instead of command output, and ensured no streamed assistant block can remain stuck in raw-text mode after a turn ends.
+
 ## [0.39.0] - 2026-11-28
 
 ### Added
@@ -644,7 +654,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.39.1...HEAD
+[0.39.1]: https://github.com/stawan15/teveus/compare/v0.39.0...v0.39.1
 [0.39.0]: https://github.com/stawan15/teveus/compare/v0.38.3...v0.39.0
 [0.38.3]: https://github.com/stawan15/teveus/compare/v0.38.2...v0.38.3
 [0.38.2]: https://github.com/stawan15/teveus/compare/v0.38.1...v0.38.2

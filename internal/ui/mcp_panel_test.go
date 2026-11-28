@@ -64,8 +64,8 @@ func mcpRuns(t *testing.T, n int) []*block {
 	return m.blocks
 }
 
-// A server's lines have to survive the gutter: a long path used to be wrapped
-// by the frame's final fit, after the "│" was added, so it split without one.
+// A server's lines have to survive wrapping: a long path used to be wrapped
+// by the frame's final fit, after the indent was added, so it split without one.
 func TestMCPPanelKeepsItsGutter(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	m := New(Config{Dark: true})
@@ -81,8 +81,8 @@ func TestMCPPanelKeepsItsGutter(t *testing.T) {
 		if strings.TrimSpace(p) == "" {
 			continue
 		}
-		if !strings.Contains(p, "│") {
-			t.Errorf("row %d lost its gutter: %q", i, p)
+		if !strings.HasPrefix(p, "  ") {
+			t.Errorf("row %d lost its indent: %q", i, p)
 		}
 	}
 }

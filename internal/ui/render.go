@@ -102,7 +102,8 @@ func (r *renderer) markdown(s string, width int) string {
 		}
 		r.md, r.mdW = md, width
 	}
-	out, err := r.md.Render(s)
+	clean, _ := stripMarkdownLinks(s)
+	out, err := r.md.Render(clean)
 	if err != nil {
 		return s
 	}
@@ -198,11 +199,13 @@ func markdownStyle() glamansi.StyleConfig {
 	// "## " glamour prints in front of each is dropped because the weight and
 	// colour already say it — the marks only added noise to every line.
 	st.H1.Color = str(theme.Accent)
-	st.H1.BackgroundColor = str(theme.SurfaceHi)
+	st.H1.BackgroundColor = nil
 	st.H1.Bold = boolPtr(true)
-	st.H2.Color = str(theme.Accent)
-	st.H2.Upper = boolPtr(true)
-	st.H3.Color = str(theme.Dim)
+	st.H2.Color = str(theme.Accent2)
+	st.H2.Bold = boolPtr(true)
+	st.H2.Upper = boolPtr(false)
+	st.H3.Color = str(theme.Text)
+	st.H3.Bold = boolPtr(true)
 	st.H4.Color = str(theme.Dim)
 	st.H5.Color = str(theme.Dim)
 	st.H6.Color = str(theme.Dim)
@@ -211,10 +214,15 @@ func markdownStyle() glamansi.StyleConfig {
 	st.H4.Prefix = ""
 	st.H5.Prefix = ""
 	st.H6.Prefix = ""
+	st.BlockQuote.IndentToken = str("  ")
+	st.BlockQuote.Color = str(theme.Dim)
+	st.BlockQuote.Italic = boolPtr(true)
 	st.Link.Color = str(theme.Accent2)
 	st.LinkText.Color = str(theme.Accent)
+	st.Code.Prefix = ""
+	st.Code.Suffix = ""
 	st.Code.Color = str(theme.Accent)
-	st.Code.BackgroundColor = str(theme.SurfaceHi)
+	st.Code.BackgroundColor = nil
 	st.CodeBlock.Color = str(theme.Text)
 	st.HorizontalRule.Color = str(theme.Border)
 	st.CodeBlock.Chroma = &glamansi.Chroma{
@@ -257,7 +265,7 @@ func (r *renderer) render(b *block, width int) string {
 	var out string
 	switch b.kind {
 	case kindUser:
-		out = sUser.Width(width - 2).Render(termSafe(b.text))
+		out = sUser.Width(width).Render(termSafe(b.text))
 	case kindAssistant:
 		if b.streaming {
 			// Raw text while streaming; markdown once the block is complete.
@@ -280,11 +288,11 @@ func (r *renderer) render(b *block, width int) string {
 		// broken here, before the gutter goes on: left to the frame's final
 		// fit, it would be split without its "│" and the output would look
 		// like it had leaked out of the box.
-		inner := max(width-4, 4)
+		inner := max(width-2, 4)
 		var lines []string
-		for _, l := range strings.Split(r.markdown(strings.TrimSpace(termSafe(b.text)), width-4), "\n") {
+		for _, l := range strings.Split(r.markdown(strings.TrimSpace(termSafe(b.text)), width-2), "\n") {
 			for _, piece := range strings.Split(ansi.Hardwrap(l, inner, false), "\n") {
-				lines = append(lines, "  "+sFaint.Render("│")+piece)
+				lines = append(lines, "  "+piece)
 			}
 		}
 		out = strings.Join(lines, "\n")
@@ -297,6 +305,8 @@ func (r *renderer) render(b *block, width int) string {
 		return b.cache
 	}
 	if !b.streaming {
+		_, mdLinks := stripMarkdownLinks(b.text)
+		out = linkifyLabels(out, mdLinks)
 		out = linkify(out, b.text+"\n"+b.result)
 	}
 	// Last line of defence: nothing may draw past its column, or the sidebar
@@ -443,16 +453,20 @@ func (r *renderer) tool(b *block, width int) string {
 
 	lines := []string{indent + head}
 	body := r.toolBody(b, width-len(indent)-4)
-	rail := sBorder.Render("  │ ")
+	branch := sFaint.Render("  ⎿ ")
 	if b.state == toolRunning && isSub {
-		rail = sAccent2.Render("  │ ")
+		branch = sAccent2.Render("  ⎿ ")
 	} else if b.state == toolRunning && (b.name == "Edit" || b.name == "MultiEdit" || b.name == "Write") {
-		rail = sYellow.Render("  ▌ ")
+		branch = sYellow.Render("  ⎿ ")
 	} else if b.state == toolFailed {
-		rail = sRed.Render("  ▌ ")
+		branch = sRed.Render("  ⎿ ")
 	}
-	for _, l := range body {
-		lines = append(lines, indent+rail+l)
+	for i, l := range body {
+		prefix := "    "
+		if i == 0 {
+			prefix = branch
+		}
+		lines = append(lines, indent+prefix+l)
 	}
 	return strings.Join(lines, "\n")
 }

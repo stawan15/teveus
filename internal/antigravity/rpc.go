@@ -57,12 +57,21 @@ func (c *Client) notify(method string, params any) error {
 	return c.write(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
 }
 
-// request sends one call and waits for its answer. It is used for the setup
-// calls, which the CLI answers promptly; a turn goes through prompt-style
-// streaming instead (see Send).
+// request sends one call and waits for its answer (with a 60s timeout for
+// setup/control calls).
 func (c *Client) request(method string, params any) (json.RawMessage, error) {
+	return c.requestWithTimeout(method, params, 60*time.Second)
+}
+
+// requestNoTimeout sends a call that may run for minutes (like session/prompt)
+// and waits until the CLI replies or exits.
+func (c *Client) requestNoTimeout(method string, params any) (json.RawMessage, error) {
+	return c.requestWithTimeout(method, params, 0)
+}
+
+func (c *Client) requestWithTimeout(method string, params any, timeout time.Duration) (json.RawMessage, error) {
 	id := c.nextID.Add(1)
-	resp, err := c.call(id, method, params)
+	resp, err := c.callWithTimeout(id, method, params, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +81,9 @@ func (c *Client) request(method string, params any) (json.RawMessage, error) {
 	return resp.Result, nil
 }
 
-// call writes the request and reads until the reply with that id arrives. Any
-// notifications that pass in the meantime are handled as usual, so nothing the
-// CLI says is lost while a call is outstanding.
-func (c *Client) call(id int64, method string, params any) (*rpcMessage, error) {
+// callWithTimeout writes the request and reads until the reply with that id
+// arrives, the CLI exits, or timeout (if > 0) elapses.
+func (c *Client) callWithTimeout(id int64, method string, params any, timeout time.Duration) (*rpcMessage, error) {
 	ch := make(chan *rpcMessage, 1)
 	c.mu.Lock()
 	if c.waiting == nil {
@@ -92,10 +100,16 @@ func (c *Client) call(id int64, method string, params any) (*rpcMessage, error) 
 	if err := c.write(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params}); err != nil {
 		return nil, err
 	}
+	var timer <-chan time.Time
+	if timeout > 0 {
+		timer = timeoutAfter(timeout)
+	}
 	select {
 	case resp := <-ch:
 		return resp, nil
-	case <-timeoutAfter(60 * time.Second):
+	case <-c.done:
+		return nil, fmt.Errorf("%s: CLI exited before replying", method)
+	case <-timer:
 		return nil, fmt.Errorf("%s: no answer from the CLI", method)
 	}
 }
@@ -136,6 +150,9 @@ func (c *Client) emit(ev claude.Event) {
 // read decodes the CLI's output for the life of the process.
 func (c *Client) read(r io.Reader) {
 	defer func() {
+		if c.done != nil {
+			close(c.done)
+		}
 		if !c.closed.Load() {
 			c.emit(claude.Exited{Err: io.EOF, Stderr: c.stderr.String()})
 		}

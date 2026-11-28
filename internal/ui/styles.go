@@ -91,8 +91,6 @@ var (
 	shimmerShades [3]string
 )
 
-var userBarBorder = lipgloss.Border{Left: "▌"}
-
 func applyTheme(t Theme) {
 	theme = t
 	c := func(s string) lipgloss.Color { return lipgloss.Color(s) }
@@ -111,9 +109,7 @@ func applyTheme(t Theme) {
 	sGreen, sRed, sYellow = fg(cGreen), fg(cRed), fg(cYellow)
 	sTool = fg(cBlue).Bold(true)
 	sUser = lipgloss.NewStyle().
-		Border(userBarBorder, false, false, false, true).
-		BorderForeground(cAccent).
-		Background(cSurface).
+		Background(cSurfaceHi).
 		Padding(0, 1).
 		Foreground(cText)
 	sDiffAdd = lipgloss.NewStyle().Background(cDiffAdd).Foreground(cGreen)

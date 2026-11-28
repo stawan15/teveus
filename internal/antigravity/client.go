@@ -76,6 +76,7 @@ type Client struct {
 	nextID  atomic.Int64
 	closed  atomic.Bool
 	ready   chan struct{} // closed once handshake finishes (or fails)
+	done    chan struct{} // closed when read() exits
 
 	mu             sync.Mutex
 	readyErr       error
@@ -136,7 +137,7 @@ func Start(opts Options) (*Client, error) {
 	c := &Client{
 		cmd: cmd, stdin: stdin, events: make(chan claude.Event, 256), stderr: stderr,
 		cwd: opts.Cwd, sessionDir: opts.SessionDir, effort: opts.Effort,
-		ready: make(chan struct{}),
+		ready: make(chan struct{}), done: make(chan struct{}),
 		perms: map[string]*claude.PermissionRequest{}, always: map[string]bool{},
 		mode: opts.PermissionMode, waiting: map[string]chan *rpcMessage{},
 	}
@@ -301,10 +302,12 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 			c.emit(claude.Result{Subtype: "error", IsError: true, Text: initErr.Error()})
 			return
 		}
-		res, err := c.request("session/prompt", map[string]any{"sessionId": sid, "prompt": prompt})
+		turnStart := time.Now()
+		res, err := c.requestNoTimeout("session/prompt", map[string]any{"sessionId": sid, "prompt": prompt})
 		c.finishTurnAndSave()
 		if err != nil {
-			c.emit(claude.Result{Subtype: "error", IsError: true, Text: err.Error()})
+			c.emit(claude.Result{Subtype: "error", IsError: true, Text: err.Error(), NumTurns: 1,
+				DurationMS: int(time.Since(turnStart).Milliseconds())})
 			return
 		}
 		var out struct {
@@ -318,7 +321,9 @@ func (c *Client) SendImages(text string, images []claude.Image) error {
 		}
 		json.Unmarshal(res, &out)
 		c.emit(claude.Result{
-			Subtype: stopReasonSubtype(out.StopReason),
+			Subtype:    stopReasonSubtype(out.StopReason),
+			NumTurns:   1,
+			DurationMS: int(time.Since(turnStart).Milliseconds()),
 			Usage: claude.Usage{
 				InputTokens:              out.Usage.InputTokens,
 				OutputTokens:             out.Usage.OutputTokens,

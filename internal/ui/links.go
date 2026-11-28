@@ -25,6 +25,94 @@ func trimURL(u string) string {
 	return u
 }
 
+type mdLink struct {
+	label string
+	url   string
+}
+
+var mdLinkRe = regexp.MustCompile(`\[([^\]\n]+)\]\(((?:https?|file)://[^\s)]+)\)`)
+
+// stripMarkdownLinks turns `[label](url)` outside code spans into plain `label`
+// so Glamour does not print the raw URL next to the label, and returns the
+// extracted pairs for OSC 8 hyperlinking.
+func stripMarkdownLinks(src string) (string, []mdLink) {
+	if !strings.Contains(src, "](") {
+		return src, nil
+	}
+	var links []mdLink
+	var out strings.Builder
+	lines := strings.Split(src, "\n")
+	inFence := false
+	for i, line := range lines {
+		if i > 0 {
+			out.WriteByte('\n')
+		}
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			inFence = !inFence
+			out.WriteString(line)
+			continue
+		}
+		if inFence || !strings.Contains(line, "](") {
+			out.WriteString(line)
+			continue
+		}
+		// Process outside inline backticks.
+		parts := strings.Split(line, "`")
+		for j, p := range parts {
+			if j > 0 {
+				out.WriteByte('`')
+			}
+			if j%2 == 1 || !strings.Contains(p, "](") {
+				out.WriteString(p)
+				continue
+			}
+			replaced := mdLinkRe.ReplaceAllStringFunc(p, func(m string) string {
+				sub := mdLinkRe.FindStringSubmatch(m)
+				if len(sub) != 3 {
+					return m
+				}
+				label, u := sub[1], sub[2]
+				if label == "" || label == u {
+					return m
+				}
+				links = append(links, mdLink{label: label, url: u})
+				return label
+			})
+			out.WriteString(replaced)
+		}
+	}
+	return out.String(), links
+}
+
+// linkifyLabels wraps extracted Markdown link labels in OSC 8 hyperlinks with
+// an underline so they stay clickable without showing raw URLs inline.
+func linkifyLabels(out string, links []mdLink) string {
+	if len(links) == 0 {
+		return out
+	}
+	lines := strings.Split(out, "\n")
+	for _, lk := range links {
+		h := fnv.New32a()
+		h.Write([]byte(lk.url))
+		id := h.Sum32()
+		for i := range lines {
+			at := strings.Index(lines[i], lk.label)
+			if at < 0 {
+				continue
+			}
+			before := lines[i][:at]
+			if strings.LastIndex(before, "\x1b]8;id=") > strings.LastIndex(before, "\x1b]8;;\x1b\\") {
+				continue
+			}
+			tagged := fmt.Sprintf("\x1b]8;id=%x;%s\x1b\\\x1b[4m%s\x1b[24m\x1b]8;;\x1b\\", id, lk.url, lk.label)
+			lines[i] = lines[i][:at] + tagged + lines[i][at+len(lk.label):]
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // linkify marks the URLs of src in the rendered lines out. The wrapping
 // breaks a long URL over lines (and pads them), so each URL is looked for
 // as text across lines, and every piece points at the whole address.

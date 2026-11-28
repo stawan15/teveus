@@ -1427,6 +1427,10 @@ func (m *Model) handleEvent(ev claude.Event) {
 			m.phase = "Thinking"
 		case "text":
 			m.phase = "Writing"
+			if m.stream != nil {
+				m.stream.streaming = false
+				m.stream.invalidate()
+			}
 			m.stream = &block{kind: kindAssistant, streaming: true}
 			m.add(m.stream)
 		case "tool_use":
@@ -1485,6 +1489,11 @@ func (m *Model) handleEvent(ev claude.Event) {
 			case "tool_use":
 				if _, dup := m.tools[cb.ID]; dup {
 					continue
+				}
+				if e.Parent == "" && m.stream != nil {
+					m.stream.streaming = false
+					m.stream.invalidate()
+					m.stream = nil
 				}
 				var in map[string]any
 				json.Unmarshal(cb.Input, &in)
@@ -1726,6 +1735,12 @@ func (m *Model) finishTurn() {
 		m.stream.streaming = false
 		m.stream.invalidate()
 		m.stream = nil
+	}
+	for _, b := range m.blocks {
+		if b.streaming {
+			b.streaming = false
+			b.invalidate()
+		}
 	}
 	for _, b := range m.tools {
 		if b.state == toolRunning {

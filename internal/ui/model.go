@@ -267,6 +267,7 @@ func New(cfg Config) *Model {
 		model = settings.AgyModel
 	}
 	vp := scroller{MouseWheelDelta: 3}
+	br := gitBranch(cwd)
 	m := &Model{
 		cfg:        cfg,
 		sessions:   []*session{{follow: true}},
@@ -277,8 +278,8 @@ func New(cfg Config) *Model {
 		tools:      map[string]*block{},
 		cwd:        cwd,
 		home:       cwd,
-		branch:     gitBranch(cwd),
-		homeBranch: gitBranch(cwd),
+		branch:     br,
+		homeBranch: br,
 		mode:       mode,
 		model:      model,
 		engine:     engine,

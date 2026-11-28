@@ -19,8 +19,8 @@ func TestRunBashCancelReturnsPromptly(t *testing.T) {
 	start := time.Now()
 	_, err := runBash(ctx, box, map[string]any{"command": "sleep 30"})
 	elapsed := time.Since(start)
-	if err == nil || !strings.Contains(err.Error(), "Interrupted") {
-		t.Fatalf("expected Interrupted error, got %v", err)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "interrupted") {
+		t.Fatalf("expected interrupted error, got %v", err)
 	}
 	if elapsed > 2*time.Second {
 		t.Fatalf("runBash took too long to cancel: %v", elapsed)
@@ -39,8 +39,8 @@ func TestRunBashCancelWithOpenPipeChildReturnsPromptly(t *testing.T) {
 	// does not hang waiting for pipes to close after SIGKILL.
 	_, err := runBash(ctx, box, map[string]any{"command": "(sleep 30) & wait"})
 	elapsed := time.Since(start)
-	if err == nil || !strings.Contains(err.Error(), "Interrupted") {
-		t.Fatalf("expected Interrupted error, got %v", err)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "interrupted") {
+		t.Fatalf("expected interrupted error, got %v", err)
 	}
 	if elapsed > 2*time.Second {
 		t.Fatalf("runBash with child pipe took too long to cancel: %v", elapsed)

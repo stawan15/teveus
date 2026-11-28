@@ -248,13 +248,13 @@ func (c *Client) handshake(opts Options) error {
 	// The session starts in the CLI's own default; apply the user's choice,
 	// model, and effort before emitting Ready/Init so the UI reflects them.
 	if opts.PermissionMode != "" {
-		_ = c.SetPermissionMode(opts.PermissionMode)
+		_ = c.applyPermissionMode(opts.PermissionMode)
 	}
 	if opts.Model != "" {
-		_ = c.setModel(opts.Model)
+		_ = c.applyModel(opts.Model)
 	}
 	if opts.Effort != "" {
-		_ = c.SetEffort(opts.Effort)
+		_ = c.applyEffort(opts.Effort)
 	}
 
 	c.emit(claude.Ready{Models: modelsCopy, PermissionMode: permissionModeLabel(opts.PermissionMode)})
@@ -386,14 +386,32 @@ func (c *Client) Interrupt() error {
 }
 
 // SetPermissionMode maps teveus's modes onto the CLI's own (default,
-// accept-edits, auto, plan). In "default" the CLI asks before each tool and the
-// UI shows its usual dialog; the others answer for themselves.
+// accept-edits, auto, plan). Runs asynchronously so switching modes while a
+// turn is active never blocks the UI thread.
 func (c *Client) SetPermissionMode(mode string) error {
+	c.mu.Lock()
+	c.mode = mode
+	c.mu.Unlock()
+	if c.closed.Load() {
+		return nil
+	}
+	go func() {
+		if c.ready != nil {
+			<-c.ready
+		}
+		if err := c.applyPermissionMode(mode); err != nil {
+			c.emit(claude.ControlResult{Tag: "mode", Error: err.Error()})
+		}
+	}()
+	return nil
+}
+
+func (c *Client) applyPermissionMode(mode string) error {
 	c.mu.Lock()
 	c.mode = mode
 	sid := c.session
 	c.mu.Unlock()
-	if sid == "" {
+	if sid == "" || c.closed.Load() {
 		return nil
 	}
 	_, err := c.request("session/set_mode", map[string]any{
@@ -415,16 +433,33 @@ func cliMode(mode string) string {
 	return "default"
 }
 
-func (c *Client) SetModel(model string) error { return c.setModel(model) }
+// SetModel switches the active model asynchronously so the UI stays responsive.
+func (c *Client) SetModel(model string) error {
+	c.mu.Lock()
+	c.model = model
+	c.mu.Unlock()
+	if c.closed.Load() {
+		return nil
+	}
+	go func() {
+		if c.ready != nil {
+			<-c.ready
+		}
+		if err := c.applyModel(model); err != nil {
+			c.emit(claude.ControlResult{Tag: "model", Error: err.Error()})
+		}
+	}()
+	return nil
+}
 
-func (c *Client) setModel(model string) error {
+func (c *Client) applyModel(model string) error {
 	c.mu.Lock()
 	c.model = model
 	sid := c.session
 	useCfg := c.useConfigModel
 	effort := c.effort
 	c.mu.Unlock()
-	if sid == "" {
+	if sid == "" || c.closed.Load() {
 		return nil
 	}
 	if useCfg {
@@ -438,7 +473,7 @@ func (c *Client) setModel(model string) error {
 		}
 		c.updateConfigOptions(res)
 		if effort != "" {
-			_ = c.SetEffort(effort)
+			_ = c.applyEffort(effort)
 		}
 		return nil
 	}
@@ -446,15 +481,33 @@ func (c *Client) setModel(model string) error {
 	return err
 }
 
-// SetEffort switches the live session's thinking level via ACP's
-// session/set_config_option without restarting the CLI.
+// SetEffort switches the live session's thinking level asynchronously via
+// ACP's session/set_config_option without restarting the CLI or blocking UI.
 func (c *Client) SetEffort(level string) error {
+	c.mu.Lock()
+	c.effort = level
+	c.mu.Unlock()
+	if c.closed.Load() {
+		return nil
+	}
+	go func() {
+		if c.ready != nil {
+			<-c.ready
+		}
+		if err := c.applyEffort(level); err != nil {
+			c.emit(claude.ControlResult{Tag: "effort", Error: err.Error()})
+		}
+	}()
+	return nil
+}
+
+func (c *Client) applyEffort(level string) error {
 	c.mu.Lock()
 	c.effort = level
 	sid := c.session
 	levels := append([]string(nil), c.thoughtLevels...)
 	c.mu.Unlock()
-	if sid == "" || level == "" || level == "auto" || len(levels) == 0 {
+	if sid == "" || c.closed.Load() || level == "" || level == "auto" || len(levels) == 0 {
 		return nil
 	}
 	clamped := clampThoughtLevel(level, levels)

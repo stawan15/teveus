@@ -372,12 +372,29 @@ type headerKey struct {
 	cwd    string
 	branch string
 	model  string
+	effort string
 	theme  string
 	agents int
 }
 
+func (m *Model) headerModelLabel() string {
+	if m.model == "" {
+		return ""
+	}
+	label := sText.Render(shortModel(m.model))
+	if m.settings.Effort != "" {
+		lvl, _ := m.effortInUse()
+		label += sFaint.Render(" · ") + sAccent2.Render(lvl)
+	}
+	return label
+}
+
 func (m *Model) header() string {
-	key := headerKey{w: m.w, sideW: m.sideW, engine: m.engine, cwd: m.cwd, branch: m.branch, model: m.model, theme: theme.Name, agents: m.activeSubagents()}
+	eff := ""
+	if m.settings.Effort != "" {
+		eff, _ = m.effortInUse()
+	}
+	key := headerKey{w: m.w, sideW: m.sideW, engine: m.engine, cwd: m.cwd, branch: m.branch, model: m.model, effort: eff, theme: theme.Name, agents: m.activeSubagents()}
 	if m.headerCache != "" && key == m.headerKeyUsed {
 		return m.headerCache
 	}
@@ -407,7 +424,7 @@ func (m *Model) header() string {
 			lparts = append(lparts, chip(fmt.Sprintf("◇ %s", plural(active, "%d agent")), cAccent2))
 		}
 		if m.model != "" {
-			lparts = append(lparts, sText.Render(shortModel(m.model)))
+			lparts = append(lparts, m.headerModelLabel())
 		}
 		lRight := strings.Join(lparts, sFaint.Render("  ")) + padL
 		gap := pw - lipgloss.Width(lLeft) - lipgloss.Width(lRight)
@@ -442,7 +459,7 @@ func (m *Model) header() string {
 	}
 	var rparts []string
 	if m.model != "" {
-		rparts = append(rparts, sText.Render(shortModel(m.model)))
+		rparts = append(rparts, m.headerModelLabel())
 	}
 	if m.w >= 96 {
 		rparts = append(rparts, sFaint.Render("? help"))

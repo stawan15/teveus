@@ -1,11 +1,57 @@
 {
-  "latest": "0.36.0",
+  "latest": "0.37.0",
   "versions": [
     {
       "version": "Unreleased",
       "date": null,
-      "url": "https://github.com/stawan15/teveus/compare/v0.36.0...HEAD",
+      "url": "https://github.com/stawan15/teveus/compare/v0.37.0...HEAD",
       "sections": []
+    },
+    {
+      "version": "0.37.0",
+      "date": "2026-11-28",
+      "url": "https://github.com/stawan15/teveus/compare/v0.36.0...v0.37.0",
+      "sections": [
+        {
+          "title": "Added",
+          "items": [
+            {
+              "text": "A new `minimal` dark theme (`/theme` or `teveus -theme minimal`) with a calmer Obsidian/Linear palette, cleaner header and status bar, and a quieter sidebar that hides inactive saver rows and redundant shortcut walls.",
+              "items": []
+            },
+            {
+              "text": "Live `Bash` output streaming and live per-tool elapsed timers on running tool cards so long builds and tests show progress in real time.",
+              "items": []
+            },
+            {
+              "text": "`/lean` now works on the Direct API engine too, omitting rarely-used tool schemas (`NotebookEdit`, `TodoWrite`, `WebFetch`, `BashOutput`, `KillShell`) immediately without restarting, and context pruning tightens automatically when token savers are enabled.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Changed",
+          "items": [
+            {
+              "text": "Faster, leaner rendering: the UI now defaults to 60 fps (with 120 fps still available via `/fps`), coalesces buffered stream events in batches, avoids rebuilding the transcript on ticks when no tools are running, caches header/sidebar lines and custom skills, and passes line slices directly through `View()` — cutting per-frame memory allocations by 38–49%.",
+              "items": []
+            }
+          ]
+        },
+        {
+          "title": "Fixed",
+          "items": [
+            {
+              "text": "Pressing `Esc` to interrupt a long task is now reliable: the double-`Esc` window is widened to 3 seconds, a third `Esc` force-cancels immediately if a subprocess is stuck, and Unix `Bash` cancellation sets a 500ms `WaitDelay` so child processes holding stdout/stderr pipes open can no longer hang the turn.",
+              "items": []
+            },
+            {
+              "text": "Drag-selecting and triple-clicking text in the transcript no longer highlights or copies the left-hand gutter bars (`│`, `┃`) while preserving Markdown table borders and wrapped-line joining.",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
       "version": "0.36.0",

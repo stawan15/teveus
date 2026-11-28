@@ -5,6 +5,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-28
+
+### Added
+
+- A new `minimal` dark theme (`/theme` or `teveus -theme minimal`) with a calmer Obsidian/Linear palette, cleaner header and status bar, and a quieter sidebar that hides inactive saver rows and redundant shortcut walls.
+- Live `Bash` output streaming and live per-tool elapsed timers on running tool cards so long builds and tests show progress in real time.
+- `/lean` now works on the Direct API engine too, omitting rarely-used tool schemas (`NotebookEdit`, `TodoWrite`, `WebFetch`, `BashOutput`, `KillShell`) immediately without restarting, and context pruning tightens automatically when token savers are enabled.
+
+### Changed
+
+- Faster, leaner rendering: the UI now defaults to 60 fps (with 120 fps still available via `/fps`), coalesces buffered stream events in batches, avoids rebuilding the transcript on ticks when no tools are running, caches header/sidebar lines and custom skills, and passes line slices directly through `View()` — cutting per-frame memory allocations by 38–49%.
+
+### Fixed
+
+- Pressing `Esc` to interrupt a long task is now reliable: the double-`Esc` window is widened to 3 seconds, a third `Esc` force-cancels immediately if a subprocess is stuck, and Unix `Bash` cancellation sets a 500ms `WaitDelay` so child processes holding stdout/stderr pipes open can no longer hang the turn.
+- Drag-selecting and triple-clicking text in the transcript no longer highlights or copies the left-hand gutter bars (`│`, `┃`) while preserving Markdown table borders and wrapped-line joining.
+
 ## [0.36.0] - 2026-11-20
 
 ### Added
@@ -547,7 +564,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 - Six themes including high contrast, three guidance levels, reduce motion, and full keyboard use.
 - A three-step first-run setup.
 
-[Unreleased]: https://github.com/stawan15/teveus/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/stawan15/teveus/compare/v0.37.0...HEAD
+[0.37.0]: https://github.com/stawan15/teveus/compare/v0.36.0...v0.37.0
 [0.36.0]: https://github.com/stawan15/teveus/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/stawan15/teveus/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/stawan15/teveus/compare/v0.34.1...v0.34.2

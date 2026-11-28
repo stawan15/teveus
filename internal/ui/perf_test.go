@@ -235,6 +235,45 @@ func TestEnterRendersUserMessageImmediately(t *testing.T) {
 	}
 }
 
+func TestAgyModelPickerChainsToEffortSlider(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true, Engine: "antigravity"})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.models = []claude.ModelInfo{
+		{Value: "gemini-4-neon", DisplayName: "Gemini 4 Neon", Reasoning: []string{"low", "medium", "high"}},
+	}
+	m.openModelPicker()
+	if m.pop.mode != popPicker {
+		t.Fatalf("expected model picker open, got mode=%v", m.pop.mode)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.model != "gemini-4-neon" {
+		t.Fatalf("expected model gemini-4-neon, got %q", m.model)
+	}
+	if m.pop.mode != popSlider || !strings.Contains(m.pop.title, "effort") {
+		t.Fatalf("expected effort slider to open right after picking Agy model, got mode=%v title=%q", m.pop.mode, m.pop.title)
+	}
+}
+
+func TestHeaderShowsActiveEffort(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true, Engine: "antigravity"})
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m.model = "gemini-4-neon"
+	m.models = []claude.ModelInfo{
+		{Value: "gemini-4-neon", DisplayName: "Gemini 4 Neon", Reasoning: []string{"low", "medium", "high"}},
+	}
+	hAuto := m.header()
+	if strings.Contains(hAuto, "· high") {
+		t.Fatalf("auto effort should not show explicit level: %q", hAuto)
+	}
+	m.settings.Effort = "high"
+	hHigh := m.header()
+	if !strings.Contains(hHigh, "gemini-4-neon") || !strings.Contains(hHigh, "high") {
+		t.Fatalf("expected effort level in header, got %q", hHigh)
+	}
+}
+
 func BenchmarkEventBatchStream(b *testing.B) {
 	b.Setenv("TEVEUS_CONFIG", b.TempDir())
 	m := New(Config{Dark: true})

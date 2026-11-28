@@ -262,7 +262,13 @@ func (m *Model) openModelPicker() {
 		return
 	}
 	pick := func(v string) func(m *Model) tea.Cmd {
-		return func(m *Model) tea.Cmd { m.setModel(v); return nil }
+		return func(m *Model) tea.Cmd {
+			m.setModel(v)
+			if m.engine == "antigravity" && len(m.modelReasoning(v)) > 0 {
+				m.openEffortSlider()
+			}
+			return nil
+		}
 	}
 	byValue := map[string]claude.ModelInfo{}
 	for _, mi := range m.models {

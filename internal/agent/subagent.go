@@ -6,11 +6,29 @@ import (
 	"strings"
 )
 
+// leanSkipped are rarely-used built-in tools omitted when LeanTools is enabled
+// on the Direct API engine to save input tokens on every step.
+var leanSkipped = map[string]bool{
+	"NotebookEdit": true, "TodoWrite": true, "WebFetch": true,
+	"BashOutput": true, "KillShell": true,
+}
+
 // tools lists what the model may call. The main conversation also gets Task;
 // a subagent doesn't, so subagents never nest.
 func (e *Engine) tools(main bool) []tool {
-	list := append([]tool(nil), tools...)
-	list = append(list, webFetchTool, notebookTool)
+	e.mu.Lock()
+	lean := e.opts.LeanTools
+	e.mu.Unlock()
+	var list []tool
+	for _, t := range tools {
+		if lean && leanSkipped[t.def.Name] {
+			continue
+		}
+		list = append(list, t)
+	}
+	if !lean {
+		list = append(list, webFetchTool, notebookTool)
+	}
 	if _, _, ok := searchKey(e.opts.Store); ok {
 		list = append(list, tool{access: network, def: ToolDef{Name: "WebSearch",
 			Description: "Search the web. Returns titles, URLs and snippets; WebFetch a result to read it.",
@@ -21,7 +39,7 @@ func (e *Engine) tools(main bool) []tool {
 				return e.runWebSearch(ctx, in)
 			}})
 	}
-	if hasSkills(loadCustom(e.opts.Cwd, e.opts.ConfigDir)) {
+	if hasSkills(e.custom()) {
 		list = append(list, skillTool(e.opts.Cwd, e.opts.ConfigDir))
 	}
 	list = append(list, e.mcpTools()...)
@@ -59,7 +77,7 @@ func (c *subConv) system() string {
 	var sb strings.Builder
 	sb.WriteString(subagentPrompt)
 	sb.WriteString("\n\n# Environment\n- Working directory: " + c.e.opts.Cwd + "\n")
-	sb.WriteString(skillsPrompt(loadCustom(c.e.opts.Cwd, c.e.opts.ConfigDir)))
+	sb.WriteString(skillsPrompt(c.e.custom()))
 	return sb.String()
 }
 

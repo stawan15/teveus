@@ -36,6 +36,10 @@ type Options struct {
 	// Attribution lets the model credit itself in commits and pull requests
 	// (Co-Authored-By, "Generated with…"). Off by default: commits are the user's.
 	Attribution bool
+
+	// LeanTools omits rarely-used built-in tool schemas (NotebookEdit,
+	// TodoWrite, WebFetch, BashOutput, KillShell) to save input tokens.
+	LeanTools bool
 }
 
 const (
@@ -86,6 +90,8 @@ type Engine struct {
 	inject        []Message     // said while a turn runs: added at its next step
 	effortCap     *effortCaps   // per-model ceiling learned from refusals
 	effortDropped bool          // a level was lowered for this model; say so once
+	customCmds    []customCmd   // cached custom commands/skills for this turn
+	customLoaded  bool
 }
 
 var _ claude.Backend = (*Engine)(nil)
@@ -418,7 +424,28 @@ func (e *Engine) init() {
 
 // Reload re-reads credentials and model lists (after /login) while keeping
 // the conversation.
-func (e *Engine) Reload() { go e.loadProviders() }
+func (e *Engine) Reload() {
+	e.mu.Lock()
+	e.customLoaded = false
+	e.mu.Unlock()
+	go e.loadProviders()
+}
+
+// custom returns cached custom commands and skills, loading from disk once per
+// turn (or after Reload) instead of re-walking directories on every API step.
+func (e *Engine) custom() []customCmd {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.customLocked()
+}
+
+func (e *Engine) customLocked() []customCmd {
+	if !e.customLoaded {
+		e.customCmds = loadCustom(e.opts.Cwd, e.opts.ConfigDir)
+		e.customLoaded = true
+	}
+	return e.customCmds
+}
 
 // SetAttribution changes whether commits may credit the AI, from the next request on.
 func (e *Engine) SetAttribution(on bool) {
@@ -445,6 +472,12 @@ func (e *Engine) SetSubagentModel(model string) {
 func (e *Engine) SetStyle(style string) {
 	e.mu.Lock()
 	e.opts.Style = style
+	e.mu.Unlock()
+}
+
+func (e *Engine) SetLeanTools(on bool) {
+	e.mu.Lock()
+	e.opts.LeanTools = on
 	e.mu.Unlock()
 }
 
@@ -783,8 +816,11 @@ func (e *Engine) turn(text string, images []claude.Image) {
 		return
 	}
 
+	e.mu.Lock()
+	e.customLoaded = false
+	e.mu.Unlock()
 	if strings.HasPrefix(strings.TrimSpace(text), "/") {
-		text = expandCustom(loadCustom(e.opts.Cwd, e.opts.ConfigDir), text)
+		text = expandCustom(e.custom(), text)
 	}
 	e.mu.Lock()
 	cp := &checkpoint{historyLen: len(e.history), files: map[string][]byte{}}
@@ -1103,7 +1139,13 @@ func (e *Engine) runTool(ctx context.Context, tc ToolCall, toolset []tool, paren
 	if t.run == nil && t.def.Name == "Task" {
 		out, err = e.runTask(ctx, tc.ID, in)
 	} else {
-		out, err = t.run(ctx, e.box, in)
+		toolCtx := ctx
+		if t.def.Name == "Bash" && parent == "" {
+			toolCtx = withToolProgress(ctx, func(live string) {
+				e.emit(claude.ToolProgress{ToolUseID: tc.ID, Output: live})
+			})
+		}
+		out, err = t.run(toolCtx, e.box, in)
 	}
 	if err != nil {
 		return err.Error(), true

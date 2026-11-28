@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Changed
+
+- Compact rounded-box Markdown tables (`╭─┬─╮` / `├─┼─┤` / `╰─┴─╯`) sized to cell content with subtle borders and styled inline code/bold/links inside cells.
+
 ## [0.39.1] - 2026-11-28
 
 ### Changed

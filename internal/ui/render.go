@@ -102,12 +102,14 @@ func (r *renderer) markdown(s string, width int) string {
 		}
 		r.md, r.mdW = md, width
 	}
-	clean, _ := stripMarkdownLinks(s)
+	clean, tables := extractMarkdownTables(s, width)
+	clean, _ = stripMarkdownLinks(clean)
 	out, err := r.md.Render(clean)
 	if err != nil {
 		return s
 	}
-	return listGap(strings.Trim(out, "\n"))
+	out = listGap(strings.Trim(out, "\n"))
+	return restoreMarkdownTables(out, tables)
 }
 
 // listGap puts a blank line between the items of a list whose items wrap. A

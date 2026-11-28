@@ -52,6 +52,11 @@ type rpcMessage struct {
 	} `json:"error,omitempty"`
 }
 
+// notify sends a JSON-RPC 2.0 notification (no id, no reply expected).
+func (c *Client) notify(method string, params any) error {
+	return c.write(map[string]any{"jsonrpc": "2.0", "method": method, "params": params})
+}
+
 // request sends one call and waits for its answer. It is used for the setup
 // calls, which the CLI answers promptly; a turn goes through prompt-style
 // streaming instead (see Send).

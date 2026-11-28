@@ -200,6 +200,41 @@ func TestMinimalThemeAndCleanSidebar(t *testing.T) {
 	}
 }
 
+type sendStubBackend struct {
+	claude.Backend
+	sent []string
+}
+
+func (s *sendStubBackend) Send(text string) error {
+	s.sent = append(s.sent, text)
+	return nil
+}
+
+func TestEnterRendersUserMessageImmediately(t *testing.T) {
+	t.Setenv("TEVEUS_CONFIG", t.TempDir())
+	m := New(Config{Dark: true})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	stub := &sendStubBackend{}
+	m.client = stub
+	m.input.SetValue("hello immediately")
+	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if len(stub.sent) != 1 || stub.sent[0] != "hello immediately" {
+		t.Fatalf("expected backend Send called, got %v", stub.sent)
+	}
+	if m.input.Value() != "" {
+		t.Fatalf("expected input cleared after enter, got %q", m.input.Value())
+	}
+	if !m.busy {
+		t.Fatal("expected m.busy=true immediately after enter")
+	}
+	// Without waiting for any tickMsg or eventMsg, the user message must already
+	// appear in the rendered transcript.
+	if view := m.View(); !strings.Contains(view, "hello immediately") {
+		t.Fatalf("user message did not appear on screen immediately after Enter:\n%s", view)
+	}
+}
+
 func BenchmarkEventBatchStream(b *testing.B) {
 	b.Setenv("TEVEUS_CONFIG", b.TempDir())
 	m := New(Config{Dark: true})

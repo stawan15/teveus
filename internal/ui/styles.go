@@ -109,7 +109,7 @@ func applyTheme(t Theme) {
 	sGreen, sRed, sYellow = fg(cGreen), fg(cRed), fg(cYellow)
 	sTool = fg(cBlue).Bold(true)
 	sUser = lipgloss.NewStyle().
-		Background(cSurfaceHi).
+		Background(cSurface).
 		Padding(0, 1).
 		Foreground(cText)
 	sDiffAdd = lipgloss.NewStyle().Background(cDiffAdd).Foreground(cGreen)

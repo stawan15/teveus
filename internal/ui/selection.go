@@ -114,6 +114,8 @@ func gutterWidth(plain string, allowTable bool) int {
 		barLen = len("▎")
 	case strings.HasPrefix(rest, "▏"):
 		barLen = len("▏")
+	case strings.HasPrefix(rest, "⎿"):
+		barLen = len("⎿")
 	default:
 		return 0
 	}

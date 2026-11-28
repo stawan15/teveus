@@ -203,7 +203,7 @@ func markdownStyle() glamansi.StyleConfig {
 	st.H1.Bold = boolPtr(true)
 	st.H2.Color = str(theme.Accent2)
 	st.H2.Bold = boolPtr(true)
-	st.H2.Upper = boolPtr(false)
+	st.H2.Upper = boolPtr(true)
 	st.H3.Color = str(theme.Text)
 	st.H3.Bold = boolPtr(true)
 	st.H4.Color = str(theme.Dim)

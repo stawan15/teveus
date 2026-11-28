@@ -15,8 +15,9 @@ const phonePage = `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <title>teveus</title>
 <style nonce="{{NONCE}}">
-:root { color-scheme:dark; --bg:#0b0d12; --card:#14171e; --edge:#1f2430; --text:#e9ebf2;
-  --dim:#7f8798; --faint:#5a6376; --accent:#8ab4ff; --ok:#3fbf7f; --warn:#e0b341; --bad:#e0647a;
+:root { color-scheme:dark; --bg:#0b0f15; --card:#141b24; --card-hi:#1d2634; --edge:#222c3a;
+  --text:#e6edf5; --dim:#8e9cae; --faint:#505d70; --accent:#5eead4; --accent2:#a78bfa;
+  --ok:#6ee7b7; --warn:#f5c451; --bad:#fb7185; --diff-add:#112a22; --diff-del:#2e151d;
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace }
 * { box-sizing:border-box; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent }
 /* iOS zooms on a double tap and pinches even with user-scalable=no, and zooms
@@ -46,8 +47,8 @@ header .grow { flex:1 1 auto; min-width:0; text-align:right; font:11px/1.35 var(
 /* transcript: quiet, tight, readable */
 main { padding:14px 14px 6px; display:flex; flex-direction:column; gap:6px }
 .m { white-space:pre-wrap; word-break:break-word; max-width:100% }
-.m.you { align-self:flex-end; background:#18243a; border-radius:14px 14px 4px 14px;
-  padding:8px 12px; max-width:88% }
+.m.you { align-self:flex-end; background:#192638; border:1px solid #263a52;
+  border-radius:14px 14px 4px 14px; padding:8px 12px; max-width:88% }
 .m.ai { padding:2px 1px; line-height:1.6 }
 /* Markdown rendered in a reply: tight, phone-sized, no browser defaults. */
 .m.ai p { margin:0 0 .55em }
@@ -91,6 +92,9 @@ main { padding:14px 14px 6px; display:flex; flex-direction:column; gap:6px }
 #ask .why { font-size:12px; color:#a9b0c0; margin-bottom:5px }
 #ask pre { margin:0 0 9px; white-space:pre-wrap; word-break:break-word; font:12px/1.5 var(--mono);
   color:#d3d8e4; max-height:26vh; overflow:auto }
+#ask pre .da { display:block; background:var(--diff-add); color:var(--ok); padding:1px 5px; border-radius:4px; margin:1px 0 }
+#ask pre .dd { display:block; background:var(--diff-del); color:var(--bad); padding:1px 5px; border-radius:4px; margin:1px 0 }
+#ask pre .dc { display:block; padding:0 5px }
 #ask .note { font:11px/1.4 var(--mono); color:var(--faint); margin-top:7px }
 .row { display:flex; gap:6px }
 .row button { flex:1 }
@@ -241,7 +245,7 @@ function render(v) {
     ask.hidden = false; document.body.classList.add('asking');
     asktitle.textContent = 'approve ' + v.perm.tool + (v.perm.more ? ' +' + v.perm.more : '');
     askwhy.textContent = v.perm.reason || ''; askwhy.hidden = !v.perm.reason;
-    askbody.textContent = v.perm.detail || '';
+    renderDiff(askbody, v.perm.detail || '');
     // "Always allow" writes a rule that outlives the page, so it stays in the
     // terminal; the page only offers this one time.
     always.hidden = true;
@@ -252,6 +256,21 @@ function render(v) {
   }
 
   showPopup(v.prompt);
+}
+
+// renderDiff colours +/- diff lines with textContent only (no innerHTML).
+function renderDiff(el, text) {
+  el.textContent = '';
+  if (!text) return;
+  const lines = String(text).split('\n');
+  const isDiff = lines.some(l => l.startsWith('+ ') || l.startsWith('- '));
+  if (!isDiff) { el.textContent = text; return }
+  lines.forEach(l => {
+    const s = document.createElement('span');
+    s.className = l.startsWith('+') ? 'da' : l.startsWith('-') ? 'dd' : 'dc';
+    s.textContent = l;
+    el.appendChild(s);
+  });
 }
 
 // showQueue lists what was sent while a turn was running: it runs when the

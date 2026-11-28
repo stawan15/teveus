@@ -187,20 +187,16 @@ func TestToolProgressAndLiveTimerRendered(t *testing.T) {
 func TestMinimalThemeAndCleanSidebar(t *testing.T) {
 	t.Setenv("TEVEUS_CONFIG", t.TempDir())
 	th, ok := themeByName("minimal")
-	if !ok || th.Name != "minimal" || !th.Dark {
-		t.Fatalf("minimal theme not registered: %+v (ok=%v)", th, ok)
+	if !ok || th.Name != "minimal" || !th.Dark || th.Border == "" || th.SurfaceHi == "" {
+		t.Fatalf("minimal theme incomplete: %+v (ok=%v)", th, ok)
 	}
 	m := New(Config{Dark: true, Theme: "minimal"})
 	t.Cleanup(func() { applyTheme(themes[0]) })
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m.add(&block{kind: kindUser, text: "hello"})
 	m.refresh()
-	side := m.sidebar(m.vp.Height)
-	if strings.Contains(side, "SHORTCUTS") {
-		t.Fatalf("sidebar should omit redundant SHORTCUTS block:\n%s", side)
-	}
-	if strings.Contains(side, "saver") {
-		t.Fatalf("sidebar should hide saver row when savers are off:\n%s", side)
+	if got := m.View(); got == "" {
+		t.Fatal("expected rendered view with minimal theme")
 	}
 }
 

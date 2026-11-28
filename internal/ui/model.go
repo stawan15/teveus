@@ -16,11 +16,19 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/stawan15/teveus/internal/agent"
+	"github.com/stawan15/teveus/internal/antigravity"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
+// AgyOptions is where the Antigravity CLI lives; the zero value means "agy"
+// on PATH.
+type AgyOptions struct {
+	Binary string
+}
+
 type Config struct {
 	Claude    claude.Options
+	Agy       AgyOptions
 	Dark      bool
 	Theme     string // overrides the saved theme when set
 	Settings  Settings
@@ -109,6 +117,7 @@ type Model struct {
 	perms     []*claude.PermissionRequest
 
 	sessionID  string
+	handoff    string // conversation summary carried over when switching engines
 	model      string
 	mode       string
 	modeBefore string // what to fall back to when the CLI refuses a mode
@@ -117,6 +126,8 @@ type Model struct {
 	cost       float64
 	prevCost   float64
 	context    int
+	contextMax int
+	planTier   string
 	fiveHour   *claude.Window
 	sevenDay   *claude.Window
 	monthly    *claude.Window
@@ -126,31 +137,70 @@ type Model struct {
 	project    projectInfo
 	starters   []string
 
-	pop           popup
-	warnedCtx     bool
-	promptedModel bool
-	claudeAuth    claudeAuthMsg
-	authChecked   bool // the Claude Code login check has answered
-	noProvider    *block
-	tokIn, tokOut int
-	history       []string
-	histIdx       int
-	draft         string
-	ctrlC         time.Time
-	escAt         time.Time
-	interrupting  bool
-	notice        string
-	noticeOK      bool
-	noticeAt      time.Time
-	updated       string // a version just installed; lets the caller restart cleanly
-	commitArg     string // the /commit argument, carried to the message it sends
-	sendShown     string // what to put in the transcript instead of the text sent
+	pop             popup
+	warnedCtx       bool
+	promptedModel   bool
+	claudeAuth      claudeAuthMsg
+	authChecked     bool // the Claude Code login check has answered
+	noProvider      *block
+	tokIn, tokOut   int
+	tokCache        int // cumulative cache-read tokens across the session
+	turnIn, turnOut int // live tokens burned so far in the running turn
+	turnCache       int
+	turnTools       int
+	lastTurnIn      int // tokens and cost of the most recently finished turn
+	lastTurnOut     int
+	lastTurnCache   int
+	lastTurnCost    float64
+	subagents       []*subagentState
+	touchedFiles    []touchedFile
+	history         []string
+	histIdx         int
+	draft           string
+	ctrlC           time.Time
+	escAt           time.Time
+	interrupting    bool
+	notice          string
+	noticeOK        bool
+	noticeAt        time.Time
+	updated         string // a version just installed; lets the caller restart cleanly
+	commitArg       string // the /commit argument, carried to the message it sends
+	sendShown       string // what to put in the transcript instead of the text sent
+	permFullDiff    bool   // user pressed 'd' to expand the full diff inside permView
+	skillCount      int    // local skills/commands detected in this project, cached for sidebar
+	ruleCache       string // cached hairline divider between header and workspace
+	ruleCacheW      int
+	ruleCacheSide   int
+	ruleCacheThm    string
 }
 
 type eventMsg struct {
 	gen int
 	ev  claude.Event
 	ch  <-chan claude.Event
+}
+
+// subagentState tracks a delegated Task/Agent subagent so the Left Rail and
+// status bar can show what it is running and how many tokens it has burned.
+type subagentState struct {
+	id      string
+	desc    string
+	step    string
+	tools   int
+	tokIn   int
+	tokOut  int
+	started time.Time
+	done    bool
+	failed  bool
+	ended   time.Time
+}
+
+// touchedFile records a file created or edited during this session.
+type touchedFile struct {
+	path    string
+	action  string // "M" (edited) or "+" (written)
+	added   int
+	removed int
 }
 
 type tickMsg struct{}
@@ -162,7 +212,7 @@ type repaintMsg struct{}
 func New(cfg Config) *Model {
 	tightenConfig()
 	ta := textarea.New()
-	ta.Placeholder = "Message…"
+	ta.Placeholder = "Ask anything, @ files, / commands, ! shell…"
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
 	ta.CharLimit = 0
@@ -199,10 +249,12 @@ func New(cfg Config) *Model {
 	// with no key left starts disconnected rather than showing errors. An
 	// explicit -engine flag is always honoured (Claude Code still asks first).
 	switch {
-	case engine != "api" && engine != "claude":
+	case engine != "api" && engine != "claude" && engine != "antigravity":
 		engine = ""
 	case cfg.Engine != "":
 	case engine == "claude" && !settings.ClaudeNotice:
+		engine = ""
+	case engine == "antigravity" && !settings.AgyNotice:
 		engine = ""
 	case engine == "api" && !hasAPICredentials():
 		engine = ""
@@ -210,6 +262,9 @@ func New(cfg Config) *Model {
 	model := cfg.Claude.Model
 	if engine == "api" && model == "" {
 		model = settings.APIModel
+	}
+	if engine == "antigravity" && model == "" {
+		model = settings.AgyModel
 	}
 	vp := scroller{MouseWheelDelta: 3}
 	m := &Model{
@@ -320,13 +375,14 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 	if m.engine == "" {
 		return nil // not connected yet: /login
 	}
-	if m.gateClaude(opts) {
+	if m.gateClaude(opts) || m.gateAgy(opts) {
 		return nil
 	}
 	opts = m.startOptions(opts)
 	var c claude.Backend
 	var err error
-	if m.engine == "api" {
+	switch m.engine {
+	case "api":
 		// WebFetch's guard is process-wide: it covers the tool whether the
 		// engine, a subagent or a resumed session calls it.
 		agent.SetWebFetchLocal(m.settings.WebFetchLocal)
@@ -335,7 +391,15 @@ func (m *Model) start(opts claude.Options) tea.Cmd {
 			Store: agent.NewStore(configDir()), Style: opts.AppendPrompt,
 			SessionDir: sessionDir(), Resume: opts.Resume, ConfigDir: configDir(), Effort: opts.Effort, Attribution: m.settings.Attribution, SubagentModel: m.settings.SubagentModel, LeanTools: !m.cfg.Full && m.settings.LeanTools,
 		})
-	} else {
+	case "antigravity":
+		// The user's own Antigravity CLI, run as they installed it. It signs
+		// in with their Google account; teveus never sees that login.
+		c, err = antigravity.Start(antigravity.Options{
+			Binary: m.cfg.Agy.Binary, Cwd: m.cwd, Model: opts.Model,
+			PermissionMode: opts.PermissionMode, Resume: opts.Resume, Effort: opts.Effort,
+			SessionDir: sessionDir(),
+		})
+	default:
 		c, err = claude.Start(opts)
 	}
 	if err != nil {
@@ -1011,9 +1075,14 @@ func (m *Model) handlePermissionKey(k tea.KeyMsg) tea.Cmd {
 		m.client.Allow(p, true)
 	case "n", "esc":
 		m.client.Deny(p, "The user denied this tool use. Stop and wait for their instructions.")
+	case "d":
+		m.permFullDiff = !m.permFullDiff
+		m.layout()
+		return nil
 	default:
 		return nil
 	}
+	m.permFullDiff = false
 	m.perms = m.perms[1:]
 	m.layout()
 	return nil
@@ -1085,24 +1154,35 @@ func (m *Model) send(text string) tea.Cmd {
 			m.gateClaude(opts)
 			return nil
 		}
+		if m.engine == "antigravity" && !m.agyConfirmed() {
+			m.input.SetValue(text) // keep the message for after the question
+			m.gateAgy(opts)
+			return nil
+		}
 		cmd = m.start(opts)
 		if m.client == nil {
 			return cmd
 		}
 	}
+	wireText := text
+	if m.handoff != "" {
+		wireText = "<conversation_history>\n" + m.handoff + "\n</conversation_history>\n\n" + text
+	}
 	var err error
 	if imgs := m.outImages; len(imgs) > 0 {
 		m.outImages = nil
-		err = m.client.SendImages(text, imgs)
+		err = m.client.SendImages(wireText, imgs)
 	} else {
-		err = m.client.Send(text)
+		err = m.client.Send(wireText)
 	}
 	if err != nil {
 		m.add(&block{kind: kindError, text: err.Error()})
 		return cmd
 	}
+	m.handoff = ""
 	if !m.busy {
 		m.busy, m.turnStart, m.phase, m.turnFrom = true, time.Now(), "Thinking", len(m.blocks)
+		m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0
 	}
 	shown := text
 	if m.pasteShown != "" {
@@ -1134,9 +1214,12 @@ func (m *Model) quit() tea.Cmd {
 
 func (m *Model) resetConversation() {
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.queue = nil, map[string]*block{}, nil, nil, nil, nil
-	m.busy, m.perms, m.sessionID, m.phase, m.turnFrom = false, nil, "", "", 0
-	m.cost, m.prevCost, m.context, m.warnedCtx = 0, 0, 0, false
-	m.tokIn, m.tokOut, m.promptedModel, m.noProvider = 0, 0, false, nil
+	m.busy, m.perms, m.sessionID, m.handoff, m.phase, m.turnFrom = false, nil, "", "", "", 0
+	m.cost, m.prevCost, m.context, m.contextMax, m.planTier, m.warnedCtx = 0, 0, 0, 0, "", false
+	m.tokIn, m.tokOut, m.tokCache, m.promptedModel, m.noProvider = 0, 0, 0, false, nil
+	m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0
+	m.lastTurnIn, m.lastTurnOut, m.lastTurnCache, m.lastTurnCost = 0, 0, 0, 0
+	m.subagents, m.touchedFiles = nil, nil
 }
 
 func (m *Model) clearConversation() tea.Cmd {
@@ -1163,6 +1246,9 @@ func (m *Model) setModel(name string) {
 		}
 		m.settings.RecentModels = recent
 		m.settings.APIModel = name
+		saveSettings(m.settings)
+	} else if m.engine == "antigravity" {
+		m.settings.AgyModel = name
 		saveSettings(m.settings)
 	}
 	if m.client != nil {
@@ -1200,6 +1286,10 @@ func (m *Model) setTheme(t Theme) {
 	applyTheme(t)
 	styleInput(&m.input)
 	m.r.md = nil
+	m.sideCache, m.inputCache, m.ruleCache = "", "", ""
+	for k := range m.rowCache {
+		delete(m.rowCache, k)
+	}
 	for _, b := range m.blocks {
 		b.invalidate()
 	}
@@ -1348,13 +1438,31 @@ func (m *Model) handleEvent(ev claude.Event) {
 		m.stream.invalidate()
 
 	case claude.AssistantMessage:
-		if e.Parent == "" && e.Usage != nil && e.Usage.Context() > 0 {
-			m.context = e.Usage.Context()
-			if m.context > contextWarn && !m.warnedCtx {
-				m.warnedCtx = true
-				m.add(&block{kind: kindInfo, text: fmt.Sprintf(
-					"Context is %dk tokens and every message resends it. /compact (or /clear for a new topic) keeps usage down.",
-					m.context/1000)})
+		if e.Usage != nil {
+			stepIn := e.Usage.Context()
+			stepOut := e.Usage.OutputTokens
+			stepCache := e.Usage.CacheReadInputTokens
+			m.turnIn += stepIn
+			m.turnOut += stepOut
+			m.turnCache += stepCache
+			if e.Parent == "" && stepIn > 0 {
+				m.context = stepIn
+				if m.context > contextWarn && !m.warnedCtx {
+					m.warnedCtx = true
+					m.add(&block{kind: kindInfo, text: fmt.Sprintf(
+						"Context is %dk tokens and every message resends it. /compact (or /clear for a new topic) keeps usage down.",
+						m.context/1000)})
+				}
+			} else if e.Parent != "" {
+				if sub := m.findSubagent(e.Parent); sub != nil {
+					sub.tokIn += stepIn
+					sub.tokOut += stepOut
+				}
+				if pb := m.tools[e.Parent]; pb != nil {
+					pb.subTokIn += stepIn
+					pb.subTokOut += stepOut
+					pb.invalidate()
+				}
 			}
 		}
 		for _, cb := range e.Blocks {
@@ -1379,6 +1487,29 @@ func (m *Model) handleEvent(ev claude.Event) {
 				b := &block{kind: kindTool, id: cb.ID, name: cb.Name, input: in, nested: e.Parent != "", started: time.Now()}
 				m.tools[cb.ID] = b
 				m.add(b)
+				m.turnTools++
+				if e.Parent == "" && (cb.Name == "Task" || cb.Name == "Agent") {
+					desc, _ := in["description"].(string)
+					if desc == "" {
+						desc = "Subagent"
+					}
+					m.subagents = append(m.subagents, &subagentState{
+						id: cb.ID, desc: desc, step: "starting", started: b.started,
+					})
+				} else if e.Parent != "" {
+					step := displayName(cb.Name)
+					if sum := m.r.summary(cb.Name, in); sum != "" {
+						step += " " + sum
+					}
+					if sub := m.findSubagent(e.Parent); sub != nil {
+						sub.step = step
+						sub.tools++
+					}
+					if pb := m.tools[e.Parent]; pb != nil {
+						pb.subTools++
+						pb.invalidate()
+					}
+				}
 				switch cb.Name {
 				case "TodoWrite":
 					m.todos = in
@@ -1414,10 +1545,22 @@ func (m *Model) handleEvent(ev claude.Event) {
 			}
 			b.finished = time.Now()
 			b.invalidate()
-			if b.name == "TaskCreate" && b.state == toolDone {
-				if mt := taskCreated.FindStringSubmatch(b.result); mt != nil {
-					subject, _ := b.input["subject"].(string)
-					m.tasks = append(m.tasks, task{id: mt[1], subject: subject, status: "pending"})
+			if b.name == "Task" || b.name == "Agent" {
+				if sub := m.findSubagent(b.id); sub != nil {
+					sub.done = true
+					sub.failed = b.state == toolFailed
+					sub.ended = b.finished
+				}
+			}
+			if b.state == toolDone {
+				switch b.name {
+				case "Edit", "MultiEdit", "Write":
+					m.recordTouchedFile(b)
+				case "TaskCreate":
+					if mt := taskCreated.FindStringSubmatch(b.result); mt != nil {
+						subject, _ := b.input["subject"].(string)
+						m.tasks = append(m.tasks, task{id: mt[1], subject: subject, status: "pending"})
+					}
 				}
 			}
 		}
@@ -1439,6 +1582,17 @@ func (m *Model) handleEvent(ev claude.Event) {
 		}
 		if e.Monthly != nil {
 			m.monthly = e.Monthly
+		}
+
+	case claude.ContextUsage:
+		if e.Used > 0 {
+			m.context = e.Used
+		}
+		if e.Size > 0 {
+			m.contextMax = e.Size
+		}
+		if e.Tier != "" {
+			m.planTier = e.Tier
 		}
 
 	case claude.Result:
@@ -1468,15 +1622,34 @@ func (m *Model) handleEvent(ev claude.Event) {
 			}
 			return
 		}
-		in := e.Usage.InputTokens + e.Usage.CacheReadInputTokens + e.Usage.CacheCreationInputTokens
-		m.tokIn, m.tokOut = m.tokIn+in, m.tokOut+e.Usage.OutputTokens
-		spent := fmt.Sprintf("$%.3f", e.CostUSD-m.prevCost)
-		if m.engine == "api" && e.CostUSD-m.prevCost == 0 {
-			// Most providers don't report cost; tokens are the honest measure.
-			spent = fmtTokens(in) + " in · " + fmtTokens(e.Usage.OutputTokens) + " out"
+		in := e.Usage.Context()
+		out := e.Usage.OutputTokens
+		cacheRead := e.Usage.CacheReadInputTokens
+		if in == 0 && out == 0 {
+			in, out, cacheRead = m.turnIn, m.turnOut, m.turnCache
 		}
-		m.add(&block{kind: kindTurnEnd, text: fmt.Sprintf("Worked for %s · %s",
-			fmtDur(time.Duration(e.DurationMS)*time.Millisecond), spent)})
+		m.tokIn, m.tokOut, m.tokCache = m.tokIn+in, m.tokOut+out, m.tokCache+cacheRead
+		deltaCost := max(e.CostUSD-m.prevCost, 0)
+		m.lastTurnIn, m.lastTurnOut, m.lastTurnCache, m.lastTurnCost = in, out, cacheRead, deltaCost
+
+		// Quiet per-turn receipt: duration, token usage, cache hit %, cost and tools.
+		parts := []string{"Worked for " + fmtDur(time.Duration(e.DurationMS)*time.Millisecond)}
+		if in+out > 0 {
+			parts = append(parts, fmtTokens(in)+" in · "+fmtTokens(out)+" out")
+			if cacheRead > 0 && in > 0 {
+				if pct := min(cacheRead*100/in, 100); pct > 0 {
+					parts = append(parts, fmt.Sprintf("%d%% cached", pct))
+				}
+			}
+		}
+		if deltaCost > 0 || (m.engine != "api" && in+out == 0) {
+			parts = append(parts, fmt.Sprintf("$%.3f", deltaCost))
+		}
+		if m.turnTools > 0 {
+			parts = append(parts, plural(m.turnTools, "%d tool"))
+		}
+		m.add(&block{kind: kindTurnEnd, text: strings.Join(parts, " · ")})
+		m.turnIn, m.turnOut, m.turnCache, m.turnTools = 0, 0, 0, 0
 		m.prevCost = e.CostUSD
 		if elapsed > 20*time.Second || m.bg {
 			// A session out of sight is worth a ping however short its turn was.
@@ -1559,6 +1732,87 @@ func (m *Model) finishTurn() {
 			b.invalidate()
 		}
 	}
+	for _, sub := range m.subagents {
+		if !sub.done {
+			sub.done, sub.failed, sub.ended = true, true, time.Now()
+		}
+	}
+}
+
+func (m *Model) findSubagent(id string) *subagentState {
+	for _, s := range m.subagents {
+		if s.id == id {
+			return s
+		}
+	}
+	return nil
+}
+
+func (m *Model) activeSubagents() int {
+	n := 0
+	for _, s := range m.subagents {
+		if !s.done {
+			n++
+		}
+	}
+	return n
+}
+
+func (m *Model) recordTouchedFile(b *block) {
+	p, _ := b.input["file_path"].(string)
+	if p == "" {
+		return
+	}
+	rel := m.r.rel(p)
+	action := "M"
+	added, removed := 0, 0
+	switch b.name {
+	case "Write":
+		action = "+"
+		content, _ := b.input["content"].(string)
+		added = len(splitLines(content))
+	case "Edit":
+		old, _ := b.input["old_string"].(string)
+		nw, _ := b.input["new_string"].(string)
+		a, n := diffCounts(old, nw)
+		added, removed = a, n
+	case "MultiEdit":
+		if edits, ok := b.input["edits"].([]any); ok {
+			for _, e := range edits {
+				em, _ := e.(map[string]any)
+				old, _ := em["old_string"].(string)
+				nw, _ := em["new_string"].(string)
+				a, n := diffCounts(old, nw)
+				added += a
+				removed += n
+			}
+		}
+	}
+	for i := range m.touchedFiles {
+		if m.touchedFiles[i].path == rel {
+			m.touchedFiles[i].added += added
+			m.touchedFiles[i].removed += removed
+			// Move most recently touched file to front.
+			tf := m.touchedFiles[i]
+			copy(m.touchedFiles[1:i+1], m.touchedFiles[:i])
+			m.touchedFiles[0] = tf
+			return
+		}
+	}
+	m.touchedFiles = append([]touchedFile{{path: rel, action: action, added: added, removed: removed}}, m.touchedFiles...)
+}
+
+func diffCounts(old, nw string) (added, removed int) {
+	a, b := splitLines(old), splitLines(nw)
+	pre := 0
+	for pre < len(a) && pre < len(b) && a[pre] == b[pre] {
+		pre++
+	}
+	suf := 0
+	for suf < len(a)-pre && suf < len(b)-pre && a[len(a)-1-suf] == b[len(b)-1-suf] {
+		suf++
+	}
+	return len(b) - pre - suf, len(a) - pre - suf
 }
 
 func (m *Model) removeBlock(target *block) {

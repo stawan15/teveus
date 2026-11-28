@@ -29,6 +29,7 @@ type Settings struct {
 	LeanTools        bool   `json:"leanTools,omitempty"`           // leave rarely used Claude Code tools out
 	StylePrompt      string `json:"stylePrompt,omitempty"`         // replaces the built-in concise prompt
 	ClaudeNotice     bool   `json:"claudeCodeConfirmed,omitempty"` // agreed to run their own Claude Code (claude_notice.go)
+	AgyNotice        bool   `json:"agyConfirmed,omitempty"`        // agreed to run their own Antigravity CLI (agy_notice.go)
 	Attribution      bool   `json:"attribution,omitempty"`         // let the AI credit itself in commits and PRs (off by default)
 	NoUpdateCheck    bool   `json:"noUpdateCheck,omitempty"`       // don't look for new versions (update.go)
 	UpdateCheckedAt  int64  `json:"updateCheckedAt,omitempty"`     // unix time of the last daily check
@@ -38,12 +39,13 @@ type Settings struct {
 	MinimalCode      string `json:"minimalCode,omitempty"`         // "off", "lite", "full" (default) or "strict"
 	SubagentModel    string `json:"subagentModel,omitempty"`       // model for research subagents; "" = the conversation's
 
-	Engine       string   `json:"engine,omitempty"`       // "claude" (default) or "api"
+	Engine       string   `json:"engine,omitempty"`       // "claude", "api", or "antigravity"
 	Onboarded    bool     `json:"onboarded,omitempty"`    // first-run setup done
 	Level        string   `json:"level,omitempty"`        // guidance: "guided", "standard" (default) or "pro"
 	ReduceMotion bool     `json:"reduceMotion,omitempty"` // no spinners or shimmer
 	FrameRate    int      `json:"frameRate,omitempty"`    // renderer frames per second; 0 = 120
 	APIModel     string   `json:"apiModel,omitempty"`     // last model picked on the API engine
+	AgyModel     string   `json:"agyModel,omitempty"`     // last model picked on the Antigravity CLI engine
 	RecentModels []string `json:"recentModels,omitempty"` // newest first
 	PhonePage    bool     `json:"phonePage,omitempty"`    // serve the phone page (phone.go); off by default
 	// WebFetch refuses this machine, its network and cloud metadata by default,

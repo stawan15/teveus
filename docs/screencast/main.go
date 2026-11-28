@@ -249,6 +249,12 @@ func drawSpecial(img *image.RGBA, x, y, w, h int, r rune, c color.RGBA, scale in
 		hline(x, x+w, heavy)
 	case '│':
 		vline(y, y+h, light)
+	case '┬':
+		hline(x, x+w, light)
+		vline(cy, y+h, light)
+	case '┼':
+		hline(x, x+w, light)
+		vline(y, y+h, light)
 	case '┃':
 		vline(y, y+h, heavy)
 	case '╭':

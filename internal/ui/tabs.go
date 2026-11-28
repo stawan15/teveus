@@ -35,14 +35,22 @@ type session struct {
 	turnStart time.Time
 	perms     []*claude.PermissionRequest
 
-	sessionID, model, mode   string
-	cost, prevCost           float64
-	context                  int
-	commands                 []claude.Command
-	models                   []claude.ModelInfo
-	warnedCtx, promptedModel bool
-	noProvider               *block
-	tokIn, tokOut            int
+	sessionID, handoff, model, mode string
+	cost, prevCost                  float64
+	context, contextMax             int
+	planTier                        string
+	commands                        []claude.Command
+	models                          []claude.ModelInfo
+	warnedCtx, promptedModel        bool
+	noProvider                      *block
+	tokIn, tokOut, tokCache         int
+	turnIn, turnOut, turnCache      int
+	turnTools                       int
+	lastTurnIn, lastTurnOut         int
+	lastTurnCache                   int
+	lastTurnCost                    float64
+	subagents                       []*subagentState
+	touchedFiles                    []touchedFile
 
 	cwd, branch string
 	files       []string
@@ -59,11 +67,14 @@ func (m *Model) save() {
 	s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom = m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom
 	s.queue = m.queue
 	s.busy, s.phase, s.turnStart, s.perms = m.busy, m.phase, m.turnStart, m.perms
-	s.sessionID, s.model, s.mode = m.sessionID, m.model, m.mode
-	s.cost, s.prevCost, s.context = m.cost, m.prevCost, m.context
+	s.sessionID, s.handoff, s.model, s.mode = m.sessionID, m.handoff, m.model, m.mode
+	s.cost, s.prevCost, s.context, s.contextMax, s.planTier = m.cost, m.prevCost, m.context, m.contextMax, m.planTier
 	s.commands, s.models = m.commands, m.models
 	s.warnedCtx, s.promptedModel, s.noProvider = m.warnedCtx, m.promptedModel, m.noProvider
-	s.tokIn, s.tokOut = m.tokIn, m.tokOut
+	s.tokIn, s.tokOut, s.tokCache = m.tokIn, m.tokOut, m.tokCache
+	s.turnIn, s.turnOut, s.turnCache, s.turnTools = m.turnIn, m.turnOut, m.turnCache, m.turnTools
+	s.lastTurnIn, s.lastTurnOut, s.lastTurnCache, s.lastTurnCost = m.lastTurnIn, m.lastTurnOut, m.lastTurnCache, m.lastTurnCost
+	s.subagents, s.touchedFiles = m.subagents, m.touchedFiles
 	s.cwd, s.branch, s.files = m.cwd, m.branch, m.files
 }
 
@@ -73,11 +84,14 @@ func (m *Model) load() {
 	m.blocks, m.tools, m.stream, m.todos, m.tasks, m.turnFrom = s.blocks, s.tools, s.stream, s.todos, s.tasks, s.turnFrom
 	m.queue = s.queue
 	m.busy, m.phase, m.turnStart, m.perms = s.busy, s.phase, s.turnStart, s.perms
-	m.sessionID, m.model, m.mode = s.sessionID, s.model, s.mode
-	m.cost, m.prevCost, m.context = s.cost, s.prevCost, s.context
+	m.sessionID, m.handoff, m.model, m.mode = s.sessionID, s.handoff, s.model, s.mode
+	m.cost, m.prevCost, m.context, m.contextMax, m.planTier = s.cost, s.prevCost, s.context, s.contextMax, s.planTier
 	m.commands, m.models = s.commands, s.models
 	m.warnedCtx, m.promptedModel, m.noProvider = s.warnedCtx, s.promptedModel, s.noProvider
-	m.tokIn, m.tokOut = s.tokIn, s.tokOut
+	m.tokIn, m.tokOut, m.tokCache = s.tokIn, s.tokOut, s.tokCache
+	m.turnIn, m.turnOut, m.turnCache, m.turnTools = s.turnIn, s.turnOut, s.turnCache, s.turnTools
+	m.lastTurnIn, m.lastTurnOut, m.lastTurnCache, m.lastTurnCost = s.lastTurnIn, s.lastTurnOut, s.lastTurnCache, s.lastTurnCost
+	m.subagents, m.touchedFiles = s.subagents, s.touchedFiles
 	if s.cwd != "" {
 		m.cwd, m.r.cwd, m.branch, m.files = s.cwd, s.cwd, s.branch, s.files
 		m.setProject(s.cwd)
@@ -178,7 +192,8 @@ func (m *Model) tabStrip() string {
 	if n < 2 {
 		return ""
 	}
-	label := max(min((m.w-2)/n, 26)-8, 3)
+	pw := m.paneW()
+	label := max(min((pw-2)/n, 26)-8, 3)
 	var sb strings.Builder
 	sb.WriteString(" ")
 	for i := range m.sessions {
@@ -199,7 +214,7 @@ func (m *Model) tabStrip() string {
 		}
 		sb.WriteString(cell + "   ")
 	}
-	return ansi.Truncate(sb.String(), m.w, "")
+	return ansi.Truncate(sb.String(), pw, "")
 }
 
 func (m *Model) tabsHeight() int {

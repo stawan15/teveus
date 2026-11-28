@@ -331,7 +331,21 @@ func apiError(resp *http.Response) error {
 	case 402:
 		return fmt.Errorf("out of credits: %s\nAdd credits with the provider, or pick a free model: /model, then type \"free\"", msg)
 	case 429:
-		return fmt.Errorf("rate limited (429): %s", msg)
+		// A quota on the free tier is a different problem from being busy, and
+		// the fix is the user's to choose, so say both.
+		if strings.Contains(strings.ToLower(msg), "quota") {
+			return fmt.Errorf("out of free-tier quota (429): %s\nThat quota resets every minute; waited and still over it. Wait a moment, pick another model with /model, or enable billing for this key", firstLine(msg))
+		}
+		return fmt.Errorf("rate limited (429): %s", firstLine(msg))
 	}
-	return fmt.Errorf("%s: %s", resp.Status, msg)
+	return fmt.Errorf("%s: %s", resp.Status, firstLine(msg))
+}
+
+// firstLine keeps an API error to its first line: Google appends a quota
+// paragraph with links, which buries the part that says what happened.
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
 }

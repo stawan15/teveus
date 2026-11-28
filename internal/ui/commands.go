@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/stawan15/teveus/internal/agent"
+	"github.com/stawan15/teveus/internal/antigravity"
 	"github.com/stawan15/teveus/internal/claude"
 )
 
@@ -29,6 +30,15 @@ func init() {
 				m.openModelPicker()
 			}
 			return nil
+		}},
+		{"usage", "Show 5-hour and weekly quota limits", "", func(m *Model, _ string) tea.Cmd {
+			if ac, ok := m.client.(*antigravity.Client); ok {
+				snap, _ := ac.RefreshQuota()
+				m.add(&block{kind: kindCmdOut, text: antigravity.FormatUsageTable(snap)})
+				m.refresh()
+				return nil
+			}
+			return m.send("/usage")
 		}},
 		{"login", "Connect a provider: API key or browser login", "", func(m *Model, arg string) tea.Cmd { return m.openLogin(arg) }},
 		{"logout", "Remove a saved provider key", "", func(m *Model, _ string) tea.Cmd { m.openLogout(); return nil }},

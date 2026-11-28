@@ -686,6 +686,18 @@ func (m *Model) sidebar(height int) string {
 		queue: len(m.queue), tasks: len(m.tasks), todos: len(m.todos),
 		sessionID: m.sessionID, cwd: m.cwd, branch: m.branch,
 		five: m.fiveHour != nil, seven: m.sevenDay != nil, month: m.monthly != nil,
+		fiveUtil: func() float64 {
+			if m.fiveHour != nil {
+				return m.fiveHour.Utilization
+			}
+			return 0
+		}(),
+		sevenUtil: func() float64 {
+			if m.sevenDay != nil {
+				return m.sevenDay.Utilization
+			}
+			return 0
+		}(),
 		theme: theme.Name, saver: savLabel, effort: m.settings.Effort,
 		skills: m.skillCount, mcpActive: mcpActive, mcpTools: mcpTools,
 		projLang: m.project.language, projTest: m.project.test,
@@ -914,7 +926,8 @@ func (m *Model) sidebar(height int) string {
 		if m.monthly != nil {
 			s = append(s, usageLineCompact("30d", m.monthly, w)...)
 		}
-	} else if m.planTier != "" || m.contextMax > 0 {
+	}
+	if m.planTier != "" || m.contextMax > 0 {
 		section("USAGE", sFaint.Render(truncate(m.planTier, max(w-7, 4))))
 		ctxLimit := 200000.0
 		if m.contextMax > 0 {
@@ -1004,6 +1017,7 @@ type sideKey struct {
 	busy                                         bool
 	sessionID, cwd, branch                       string
 	five, seven, month                           bool
+	fiveUtil, sevenUtil                          float64
 	theme, saver, effort                         string
 	skills, mcpActive, mcpTools, blocks          int
 	projLang, projTest                           string

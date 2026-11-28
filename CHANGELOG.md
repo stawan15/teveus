@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com), and versions 
 
 ## [Unreleased]
 
+### Added
+
+- Google Antigravity CLI (`Agy`) now fetches 5-hour and weekly quota limits (`agy -p /usage`) in the background, showing `5h` and `7d` bars in the `QUOTA` sidebar section alongside `USAGE` (`ctx` / `hit`), plus a `/usage` command that displays a table for both Gemini and Claude/GPT model groups.
+
 ### Changed
 
 - Compact rounded-box Markdown tables (`╭─┬─╮` / `├─┼─┤` / `╰─┴─╯`) sized to cell content with subtle borders and styled inline code/bold/links inside cells.

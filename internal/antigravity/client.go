@@ -65,6 +65,7 @@ type availableModel struct {
 
 // Client is one `agy acp` process.
 type Client struct {
+	bin        string
 	cmd        *exec.Cmd
 	stdin      io.WriteCloser
 	events     chan claude.Event
@@ -72,11 +73,12 @@ type Client struct {
 	cwd        string
 	sessionDir string
 
-	writeMu sync.Mutex
-	nextID  atomic.Int64
-	closed  atomic.Bool
-	ready   chan struct{} // closed once handshake finishes (or fails)
-	done    chan struct{} // closed when read() exits
+	writeMu   sync.Mutex
+	nextID    atomic.Int64
+	closed    atomic.Bool
+	quotaBusy atomic.Bool
+	ready     chan struct{} // closed once handshake finishes (or fails)
+	done      chan struct{} // closed when read() exits
 
 	mu             sync.Mutex
 	readyErr       error
@@ -88,6 +90,7 @@ type Client struct {
 	thoughtLevels  []string
 	mode           string // permission mode, as the UI names it
 	waiting        map[string]chan *rpcMessage
+	quota          *UsageSnapshot
 
 	// Conversation history saved to teveus's sessionDir for /resume and /search.
 	history     []agent.Message
@@ -135,7 +138,7 @@ func Start(opts Options) (*Client, error) {
 	}
 
 	c := &Client{
-		cmd: cmd, stdin: stdin, events: make(chan claude.Event, 256), stderr: stderr,
+		bin: path, cmd: cmd, stdin: stdin, events: make(chan claude.Event, 256), stderr: stderr,
 		cwd: opts.Cwd, sessionDir: opts.SessionDir, effort: opts.Effort,
 		ready: make(chan struct{}), done: make(chan struct{}),
 		perms: map[string]*claude.PermissionRequest{}, always: map[string]bool{},
@@ -264,6 +267,7 @@ func (c *Client) handshake(opts Options) error {
 	if out.Meta != nil && out.Meta.Antigravity != nil && out.Meta.Antigravity.Tier != nil && out.Meta.Antigravity.Tier.Name != "" {
 		c.emit(claude.ContextUsage{Tier: out.Meta.Antigravity.Tier.Name})
 	}
+	c.refreshQuotaAsync()
 	return nil
 }
 
@@ -364,6 +368,7 @@ func (c *Client) finishTurnAndSave() {
 	c.mu.Unlock()
 
 	if dir == "" || sid == "" || len(hist) == 0 {
+		c.refreshQuotaAsync()
 		return
 	}
 	_ = agent.SaveSession(dir, agent.Session{
@@ -375,6 +380,7 @@ func (c *Client) finishTurnAndSave() {
 		Updated: time.Now(),
 		History: hist,
 	})
+	c.refreshQuotaAsync()
 }
 
 // Interrupt cancels the turn that is running. Per ACP, session/cancel is a
@@ -463,7 +469,11 @@ func (c *Client) applyModel(model string) error {
 	sid := c.session
 	useCfg := c.useConfigModel
 	effort := c.effort
+	snap := c.quota
 	c.mu.Unlock()
+	if snap != nil {
+		c.emitQuotaFor(*snap, model)
+	}
 	if sid == "" || c.closed.Load() {
 		return nil
 	}

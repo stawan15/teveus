@@ -2,8 +2,8 @@
 
 # teveus
 
-**teveus is a free, open-source AI coding assistant that runs in your terminal.**
-Run Claude Code, Google Antigravity CLI (`agy`), or any AI provider with your own key, in one fast, good-looking app.
+**A free, open-source AI coding assistant for your terminal.**
+Run Claude Code, Google Antigravity CLI (`agy`), or any AI provider with your own key in one fast, clean terminal UI.
 
 [Website](https://www.teveus.xyz) · [Docs](https://www.teveus.xyz/docs) · [Releases](https://www.teveus.xyz/releases)
 
@@ -25,124 +25,131 @@ curl -fsSL https://raw.githubusercontent.com/stawan15/teveus/main/install.sh | s
 irm https://raw.githubusercontent.com/stawan15/teveus/main/install.ps1 | iex
 ```
 
-Works on macOS, Linux and 64-bit Windows. Run the same installer again to update.
+Works on macOS, Linux, and 64-bit Windows. Run the same installer again to update.
 
-> **Want to use your Claude or Google Antigravity subscription?** Install [Claude Code](https://claude.com/claude-code) or Google Antigravity CLI (`agy`) and sign in to it.
-> teveus runs your installed CLI as it is. You sign in through the provider's own login, and teveus never sees your credentials.
-> For OpenAI, Gemini API, OpenRouter and others you don't need anything else.
+> **Using a Claude or Google Antigravity subscription?**
+> Install [Claude Code](https://claude.com/claude-code) or Google Antigravity CLI (`agy`) and sign in through the provider's own login. teveus runs your installed CLI as-is and never sees your credentials.
+> For OpenAI, Gemini API, OpenRouter, and local models, you don't need any external CLI.
 
 ## Get started
 
 1. Open a terminal in your project folder.
-2. Run `teveus`, then connect an AI with `/login`: your installed Claude Code, Google Antigravity CLI (`agy`), or any provider with your own key. Nothing is connected until you choose.
-3. Type what you want in plain words, like *"find the bug in the login page and fix it"*, and press **enter**.
+2. Run `teveus`, then connect an AI with `/login` (Claude Code, `agy`, or an API key). Nothing is connected until you choose.
+3. Type what you want in plain language (for example, *"find the bug in the login page and fix it"*) and press **enter**.
 
-teveus shows you every change **before** it happens. Press **y** to allow it or **n** to say no.
+teveus shows every file edit and command **before** it runs. Press **y** to allow or **n** to deny.
 
-The first time, a short setup (3 questions) helps you pick how much guidance you want, a colour theme, and how to connect.
+On first launch, a 3-step setup lets you choose your guidance level, colour theme, and AI connection.
 
-## What it looks like
+## Screenshots
 
 | Approve changes before they happen | Every action one search away |
 |:---:|:---:|
 | ![Approval prompt showing the exact diff](docs/approval.png) | ![Command palette](docs/palette.png) |
-| **Welcome screen with starter ideas** | **Themes preview live** |
+| **Welcome screen with starter ideas** | **Live theme preview** |
 | ![Welcome screen](docs/welcome.png) | ![Theme picker](docs/theme.png) |
 
-## What you can do
+## Features
 
-| | |
-|---|---|
-| 💬 **Ask in plain words** | Explain code, fix bugs, write tests, review changes |
-| ✅ **Stay in control** | See each change as a coloured diff and approve it first |
-| 🔌 **Use any AI** | Claude Code (with your own Claude account), Google Antigravity CLI (`agy`), OpenAI, the Anthropic API, Gemini, OpenRouter (hundreds of models, many free), Groq, DeepSeek, xAI, Mistral, OpenCode (Go or Console), or local models (Ollama, LM Studio) — and switch mid-session with `/engine` without losing your transcript |
-| 🖼️ **Show, don't describe** | Drop a screenshot on the terminal or press `ctrl+v`; long pastes fold into `[Pasted text #1 +40 lines]` |
-| 🌐 **Web, MCP and helpers** | On the Direct API engine: reads web pages, searches the web (Brave or Tavily key), uses MCP servers from `.mcp.json`, and sends research to parallel sub-agents. Claude Code brings its own. |
-| 🔒 **Rules you set once** | On the Direct API engine: "always allow `go test`" is saved per project, and `/permissions` lists, adds and removes allow/deny rules |
-| 🧩 **Make it yours** | Your slash commands and skills from `.teveus/commands` and `.teveus/skills` in the project (the `.agent` spelling works too), or from the config directory to use them in every project, on either engine. Skills follow the [Agent Skills](https://agentskills.io) format, so one written for any agent works, and `.agents` and `.claude` are read too. Plus `/hooks` to run your own commands around tool calls, background commands for dev servers, and notebook editing |
-| 🌿 **Sessions that don't collide** | `/worktree` gives a session its own git worktree; `/sessions` shows what each one has used |
-| 📱 **Take it to your phone** | `/phone` serves a page your phone opens: prompt, watch replies and approve tools from the sofa. Every open window shows up there, and the link stays the same between runs |
-| 🔎 **Find it again** | `/search text` looks through this conversation and earlier ones |
-| ↩️ **Undo and rewind** | `/undo` puts files back the way they were; `/rewind` shows what will change, then goes back to any earlier turn |
-| 🕘 **Pick up later** | `/resume` reopens earlier conversations |
-| 💸 **Spend less, when you want** | Off until you turn them on: `/saver` (`full`, `balanced`, `max` presets), `/concise` for short answers, `/lean` to send fewer tool definitions (Claude Code and Direct API), and `/minimal` (a slider from off to strict) so the model reuses what exists and writes only what the task needs |
-| ✂️ **Trim the fat** | `/trim` reviews your uncommitted changes for code you don't need; `/trim all` checks the whole project |
-| 🪙 **Long sessions stay cheap** | On the Direct API engine, old tool output is swapped for a one-line note (the model can run it again), unchanged files aren't re-sent, and `/subagent` runs research on a cheaper model |
-| 🎨 **Make it yours** | 7 themes (`minimal`, `claude`, `tokyo-night`, `catppuccin`, `gruvbox`, `high-contrast`, `light`), 3 guidance levels, reduce motion |
+### AI and engines
+- **Use any provider:** Claude Code, Google Antigravity CLI (`agy`), OpenAI, Anthropic API, Gemini, OpenRouter (including free models), Groq, DeepSeek, xAI, Mistral, OpenCode (Go or Console), or local models (Ollama, LM Studio).
+- **Switch mid-session:** Run `/engine` to switch between `claude`, `antigravity`, and `api` without losing your transcript.
+- **Images and long pastes:** Drop a screenshot into the terminal or press `ctrl+v` to paste an image. Long pastes fold cleanly into `[Pasted text #1 +40 lines]`.
+
+### Safety and control
+- **Diffs before edits:** Review every change as a coloured diff and approve or deny it first.
+- **Permission rules (Direct API):** Save per-project rules like "always allow `go test`" and manage them with `/permissions`.
+- **Undo and rewind:** `/undo` reverts the last file change; `/rewind` previews diffs and restores any earlier turn.
+- **Sessions and worktrees:** Run parallel conversations with `/sessions` (`alt+1` to `alt+9`), or isolate a session in its own git worktree with `/worktree`.
+
+### Tools and customization
+- **Web, MCP, and sub-agents (Direct API):** Fetch web pages, search the web (Brave or Tavily key), connect `.mcp.json` servers, and run parallel research sub-agents. (Claude Code brings its own.)
+- **Commands, skills, and hooks:** Load custom slash commands and [Agent Skills](https://agentskills.io) from `.teveus/commands` and `.teveus/skills` (`.agent`, `.agents`, and `.claude` directories are also supported). Use `/hooks` to run shell commands before or after tool calls.
+- **Search and resume:** `/resume` reopens past sessions; `/search text` searches across your current and previous conversations.
+- **Themes and layout:** 7 themes (`minimal`, `claude`, `tokyo-night`, `catppuccin`, `gruvbox`, `high-contrast`, `light`), 3 guidance levels, and a reduce-motion option.
+
+### Token and cost savers
+- **Presets and toggles:** Off by default. Enable `/saver` (`full`, `balanced`, `max`), `/concise` for short replies, `/lean` to trim tool definitions (Claude Code and Direct API), and `/minimal` to keep edits focused.
+- **Trim unused code:** `/trim` reviews uncommitted changes for unnecessary code; `/trim all` checks the whole project.
+- **Lean long sessions (Direct API):** Old tool output is replaced with a one-line note, unchanged files are not re-sent, and `/subagent` can offload research to a cheaper model.
 
 ## Keys to know
 
-You only need the first three. Press **`?`** inside teveus to see the rest.
+You only need the first three. Press **`?`** inside teveus to see all shortcuts.
 
-| Key | Does |
+| Key | Action |
 |---|---|
-| `enter` | Send your message |
+| `enter` | Send message |
 | `shift+enter` | New line (or `ctrl+j`, or `\` then `enter`) |
-| `ctrl+k` | Find any action (command palette) |
+| `ctrl+k` | Open command palette |
 | `?` | Show all shortcuts |
-| `shift+tab` | Switch mode: **ask first** → **auto-edit** → **plan only** → **autopilot** |
+| `shift+tab` | Cycle mode: **ask first** -> **auto-edit** -> **plan only** -> **autopilot** |
 | `@` | Attach a file by name |
-| `ctrl+v` | Paste an image from the clipboard |
+| `ctrl+v` | Paste an image from clipboard |
 | `esc` `esc` | Stop the current task |
-| drag with the mouse | Select text (it's copied when you let go) |
+| Mouse drag | Select and copy text |
 | `ctrl+c` `ctrl+c` | Quit |
 
 ## Commands
 
-Type `/` to see the main ones; keep typing to find the rest. The most useful:
+Type `/` to browse commands, or keep typing to filter.
 
-| Command | Does |
+| Command | Action |
 |---|---|
-| `/login` | Sign in to Claude Code, Google Antigravity CLI (`agy`), or connect another AI provider |
-| `/engine` | Switch engine (`claude`, `antigravity`, `api`) mid-session with automatic handoff |
-| `/model` | Switch model (search by name, or type `free`; on Antigravity CLI, flows into `/effort` for reasoning models) |
-| `/effort` | How hard the model thinks: a slider from auto and low up to max |
-| `/undo` | Undo the last change |
-| `/rewind` | Go back to an earlier turn: review its files and diff first |
-| `/sessions` | Run several conversations at once: switch, start or close one (`alt+1` to `alt+9` jump to one) |
+| `/login` | Sign in to Claude Code, `agy`, or connect an API provider |
+| `/engine` | Switch engine (`claude`, `antigravity`, `api`) mid-session |
+| `/model` | Switch model (search by name or type `free`; flows into `/effort` on `agy`) |
+| `/effort` | Adjust reasoning effort (auto, low, up to max) |
+| `/undo` | Undo the last file change |
+| `/rewind` | Preview and restore an earlier turn |
+| `/sessions` | Manage multiple conversations (`alt+1` to `alt+9` to switch) |
 | `/resume` | Reopen an earlier conversation |
-| `/search` | Find text in this and earlier conversations |
+| `/search` | Search text across current and past conversations |
 | `/worktree` | Start a session in its own git worktree |
-| `/hooks` | Commands that run before or after tool calls |
-| `/diff` | See what changed |
-| `/commit` | Let the AI stage the work, write the message and commit it (`/commit only the parser` steers it) |
-| `/init` | Let the AI write notes about your project so it works better |
-| `/settings` | All preferences in one place |
-| `/mcp` | See MCP servers and fix what they need: toggle servers on/off, sign in via OAuth, approve a project's `.mcp.json`, add a token for one that answered 401, retry, or add a server |
-| `/permissions` | Saved allow/deny rules for tools |
-| `/phone` | Prompt and approve from your phone: turns the phone page on or off, or shows its link |
-| `/update` | Check for a new version and install it |
-| `!command` | Run a shell command, e.g. `!npm test` |
+| `/hooks` | Configure commands that run around tool calls |
+| `/diff` | View current changes |
+| `/commit` | Stage, generate a message, and commit (`/commit only the parser` to steer) |
+| `/init` | Generate project notes to give the AI better context |
+| `/settings` | Open preferences |
+| `/mcp` | Manage MCP servers (toggle on/off, OAuth sign-in, approve `.mcp.json`, add/retry) |
+| `/permissions` | Manage saved tool allow/deny rules |
+| `/phone` | Start, stop, or view the link for the phone web UI |
+| `/update` | Check for and install updates |
+| `!command` | Run a shell command directly (e.g. `!npm test`) |
 
-## From your phone
+## Remote control from your phone
 
-Leave a long task running and walk away: `/phone` turns on a small web page served by teveus itself, and you open its link on your phone.
+Run `/phone` to start a lightweight local web page served by teveus so you can monitor and approve tasks away from your desk.
 
-- **Prompt, watch, approve.** Type a message, read the replies, and answer the same approval question the terminal asks, with Allow or Deny. There's a stop button for a turn that's gone wrong.
-- **Every window.** Each teveus you have open in a terminal shows up, with what it's doing, so the phone reaches all of them, not just one.
-- **Same shortcuts.** Type `/` on the page to search and run any command the app has.
-- **Off until you ask.** It starts from `/phone` or `/settings`, and stops when you turn it off or quit.
-- **One link, kept.** It stays the same between runs so you can save it to your home screen. Delete `~/.config/teveus/phone-token` to give out a new one and revoke the old link. Opening it swaps the token for a cookie, so the address bar stops carrying it.
-- **It can make things safer, not looser.** The page can switch to plan mode or ask before edits, but switching to autopilot and granting "always allow" have to happen in the terminal. Neither can it answer the questions that widen what the app may touch: trusting a folder, or agreeing to run Claude Code.
+- **Prompt, watch, approve:** Send messages, read replies, approve or deny tool calls, and stop a running turn.
+- **All open windows:** Every running teveus terminal appears on the page.
+- **Slash commands:** Type `/` on the phone page to search and run app commands.
+- **Off by default:** Starts only when you run `/phone` or enable it in `/settings`, and stops when you turn it off or quit.
+- **Persistent link:** Reuses the same link across runs so you can bookmark it. Delete `~/.config/teveus/phone-token` to revoke the old link and generate a new one. Opening the link exchanges the token for a cookie so it isn't kept in the URL bar.
+- **Safer by design:** The phone UI can switch to plan mode or ask-before-edits, but cannot enable autopilot, grant "always allow", trust a folder, or accept the Claude Code notice.
 
-It listens on `127.0.0.1:8787`, so a phone reaches it through a tunnel you set up - [Tailscale](https://tailscale.com), `ssh -L`, or a reverse proxy with TLS. Binding it to your network still works (`teveus -phone 0.0.0.0:8787`), and it will tell you that page is plain HTTP on a network other people can read.
-
-Anyone with the link can prompt and approve while the page is on, so keep it on a network you trust. Nothing leaves your computer except the questions you type.
+By default it listens on `127.0.0.1:8787`, which you can reach over [Tailscale](https://tailscale.com), `ssh -L`, or a TLS reverse proxy. You can bind to your network with `teveus -phone 0.0.0.0:8787` (teveus warns that this serves plain HTTP on your network). Keep the link on a trusted network; nothing leaves your machine except the prompts you send.
 
 ## Connect other AI providers
 
-Run `/login` inside teveus and pick one:
+Run `/login` inside teveus and choose:
 
-- **OpenRouter**: log in with your browser, no key to copy. Hundreds of models; type `free` in `/model` to find free ones.
-- **OpenAI, Anthropic, Gemini, Groq, DeepSeek, xAI, Mistral, OpenCode**: paste an API key. It's checked before saving and stored only on your computer. For OpenCode, choose Go (subscription) or Console (pay-as-you-go).
-- **Ollama or LM Studio**: runs on your own machine; nothing to set up if it's running.
+- **OpenRouter:** Browser OAuth login with no key to copy. Hundreds of models; type `free` in `/model` to filter free ones.
+- **OpenAI, Anthropic, Gemini, Groq, DeepSeek, xAI, Mistral, OpenCode:** Paste an API key (verified before saving and stored locally). For OpenCode, choose Go (subscription) or Console (pay-as-you-go).
+- **Ollama or LM Studio:** Works automatically when running locally.
 
-## Use it from scripts
+## Scripting and CLI
 
-`teveus -p "your prompt"` runs one prompt without the UI and prints the reply; add `-json` for the cost and token counts.
-Tools that need approval are refused unless you pass `-mode acceptEdits` or `-mode auto`.
+Run a single prompt without the interactive UI:
 
-MCP servers can be added from the terminal too, in the same shape Claude Code uses:
+```sh
+teveus -p "your prompt"
+teveus -p "your prompt" -json   # include cost and token counts
+```
+
+Tools requiring approval are denied in headless mode unless you pass `-mode acceptEdits` or `-mode auto`.
+
+Manage MCP servers from the command line (using the same format as Claude Code):
 
 ```sh
 teveus mcp add --transport http --scope user pastel https://host/api/mcp
@@ -153,33 +160,33 @@ teveus mcp disable pastel
 teveus mcp remove --scope user pastel
 ```
 
-## Questions
+## FAQ
 
 <details>
 <summary><b>Do I use my Claude plan, or pay per token?</b></summary>
 
-With the **Claude Code** engine, teveus runs your installed Claude Code, and Claude Code uses whatever you signed in to it with: your Claude plan or an API key.
-teveus only starts the `claude` program and shows what it does. It never reads, stores or sends your Claude login, and the first time it asks you to confirm that you want it to run your Claude Code.
-With **Direct API** (`/engine`), you pay the provider per token with your own key.
+With the **Claude Code** engine, teveus runs your installed Claude Code CLI, which uses whatever you signed in with (your Claude plan or an API key).
+teveus never reads, stores, or transmits your Claude login, and asks once for confirmation before launching `claude`.
+With **Direct API** (`/engine api`), you pay your chosen provider per token using your own API key.
 </details>
 
 <details>
 <summary><b>Is teveus made by Anthropic?</b></summary>
 
-No. teveus is an independent open-source project. It isn't affiliated with, endorsed by, or supported by Anthropic.
+No. teveus is an independent open-source project and is not affiliated with, endorsed by, or supported by Anthropic.
 </details>
 
 <details>
 <summary><b>How do I select and copy text?</b></summary>
 
-Drag with the mouse; the text is copied when you let go. Double-click selects a word and triple-click a line.
-`ctrl+y` copies the whole last reply. Prefer your terminal's own selection? Run `/mouse`.
+Drag with the mouse to select text; it copies automatically on release. Double-click selects a word and triple-click selects a line.
+Press `ctrl+y` to copy the entire last reply, or run `/mouse` to use your terminal's native selection.
 </details>
 
 <details>
-<summary><b>Where are my settings and keys?</b></summary>
+<summary><b>Where are my settings and keys stored?</b></summary>
 
-In `~/.config/teveus/`. Keys are in `auth.json`, readable only by you.
+In `~/.config/teveus/`. API keys are stored in `auth.json` with `0600` permissions (readable only by you).
 </details>
 
 <details>
@@ -203,36 +210,34 @@ Remove-Item -Recurse "$env:APPDATA\teveus"   # also removes settings and saved k
 ## More ways to install
 
 - **Go:** `go install github.com/stawan15/teveus@latest`
-- **Manual download:** grab an archive from [Releases](https://github.com/stawan15/teveus/releases)
-- **Installer options:** set `TEVEUS_INSTALL_DIR` or `TEVEUS_VERSION=v0.10.0` before running the installer
+- **Manual download:** Download an archive from [Releases](https://github.com/stawan15/teveus/releases)
+- **Installer options:** Set `TEVEUS_INSTALL_DIR` or `TEVEUS_VERSION=v0.10.0` before running the installer
 
 ## Development
 
 ```sh
-go build -o teveus . && ./teveus   # run from source
-go test ./...                       # tests
+go build -o teveus . && ./teveus   # build and run from source
+go test ./...                       # run tests
 docs/record.sh                      # re-record the demo GIF and screenshots
 ```
 
-Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss) and [Glamour](https://github.com/charmbracelet/glamour).
-[CLAUDE.md](CLAUDE.md) explains how the code is organised.
+Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss), and [Glamour](https://github.com/charmbracelet/glamour).
+See [CLAUDE.md](CLAUDE.md) for codebase architecture and contributor guidelines.
 
 ## Privacy and security
 
-teveus has no telemetry and no servers: what you send goes only to the AI provider you picked. [PRIVACY.md](PRIVACY.md) lists exactly what is sent where and what is stored on your computer; [SECURITY.md](SECURITY.md) explains the safeguards and how to report a vulnerability privately.
+teveus collects no telemetry and runs no backend servers: your prompts go only to the AI provider you selected.
+See [PRIVACY.md](PRIVACY.md) for what is sent and stored locally, and [SECURITY.md](SECURITY.md) for safeguards and vulnerability reporting.
 
-## What's new
+## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for every version's changes.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Legal
 
-- teveus is an independent project, not affiliated with, endorsed by, or sponsored by Anthropic PBC or any other AI provider.
-  Claude, Claude Code and Anthropic are trademarks of Anthropic PBC; other names belong to their owners and are used only to say what teveus works with.
-- Your use of Claude Code and Claude is governed by Anthropic's [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) or [Commercial Terms](https://www.anthropic.com/legal/commercial-terms) and [Usage Policy](https://www.anthropic.com/legal/aup), and other providers' services by their own terms.
-  teveus doesn't resell, pay for, or route anyone's AI usage; each person uses their own account or key.
-- AI agents can edit and delete files and run commands. Review what you approve and keep your work in version control.
-  teveus is provided "as is", without warranty of any kind, and the authors aren't liable for any damage, loss or cost from using it; see the [license](LICENSE).
+- teveus is an independent project, not affiliated with, endorsed by, or sponsored by Anthropic PBC or any other AI provider. Claude, Claude Code, and Anthropic are trademarks of Anthropic PBC; other names belong to their respective owners and are used only to describe compatibility.
+- Your use of Claude Code and Claude is governed by Anthropic's [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) or [Commercial Terms](https://www.anthropic.com/legal/commercial-terms) and [Usage Policy](https://www.anthropic.com/legal/aup), and other providers' services by their own terms. teveus does not resell, pay for, or route anyone's AI usage; each user supplies their own account or key.
+- AI agents can edit and delete files and run commands. Review what you approve and keep your work in version control. teveus is provided "as is", without warranty of any kind, and the authors are not liable for any damage, loss, or cost from using it; see the [license](LICENSE).
 
 ## License
 
